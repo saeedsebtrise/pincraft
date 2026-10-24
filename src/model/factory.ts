@@ -134,6 +134,8 @@ export function createProject(doc: PinDocument, name = 'Untitled Pin'): Project 
     name,
     schemaVersion: 1,
     doc,
+    pages: [doc],
+    activePage: 0,
     assetIds: [],
     meta: {
       articleTitle: '',
@@ -150,4 +152,12 @@ export function createProject(doc: PinDocument, name = 'Untitled Pin'): Project 
 /** Deep clone a JSON-serializable value (documents never hold functions or DOM objects). */
 export function clone<T>(v: T): T {
   return JSON.parse(JSON.stringify(v)) as T;
+}
+
+/** Upgrades projects saved before multi-page support and keeps pages[activePage] === doc. */
+export function normalizeProject(p: Project): Project {
+  const pages = p.pages?.length ? [...p.pages] : [p.doc];
+  const activePage = Math.min(Math.max(0, p.activePage ?? 0), pages.length - 1);
+  pages[activePage] = p.doc;
+  return { ...p, pages, activePage };
 }

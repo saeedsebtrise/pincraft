@@ -8,7 +8,7 @@
  * Security: no API key ever reaches the browser; the remote provider calls YOUR
  * proxy (server/ai-proxy.mjs), which holds the key in a server env variable.
  */
-import { suggestCtas, suggestHeadlines } from '../headlines';
+import { suggestCtas, suggestHeadlines, suggestSubtitles, suggestVariations } from '../headlines';
 
 export interface TextAssistInput {
   articleTitle: string;
@@ -19,7 +19,9 @@ export interface TextAssistInput {
 
 export interface TextAssistResult {
   headlines: string[];
+  subtitles: string[];
   ctas: string[];
+  variations: string[];
   source: 'local' | 'ai';
 }
 
@@ -33,7 +35,13 @@ export const localProvider: TextAssistProvider = {
   id: 'local',
   label: 'Smart suggestions (on-device)',
   async suggest(input) {
-    return { headlines: suggestHeadlines(input), ctas: suggestCtas(input.website), source: 'local' };
+    return {
+      headlines: suggestHeadlines(input),
+      subtitles: suggestSubtitles(input),
+      ctas: suggestCtas(input.website),
+      variations: suggestVariations(input),
+      source: 'local',
+    };
   },
 };
 
@@ -50,7 +58,7 @@ export function createProxyProvider(url: string): TextAssistProvider {
       if (!res.ok) throw new Error(`AI service responded ${res.status}`);
       const data = (await res.json()) as Partial<TextAssistResult>;
       const clean = (a: unknown) => (Array.isArray(a) ? a.filter((s): s is string => typeof s === 'string').map((s) => s.trim()).filter(Boolean).slice(0, 10) : []);
-      return { headlines: clean(data.headlines), ctas: clean(data.ctas), source: 'ai' };
+      return { headlines: clean(data.headlines), subtitles: clean(data.subtitles), ctas: clean(data.ctas), variations: clean(data.variations), source: 'ai' };
     },
   };
 }

@@ -1,14 +1,15 @@
 import { Bot, Loader2, Wand2 } from 'lucide-react';
 import { useState } from 'react';
-import { applyHeadline, readHeadline } from '../../model/docOps';
+import { readHeadline } from '../../model/docOps';
 import type { TextLayer } from '../../model/types';
-import { aiProvider, localProvider, type TextAssistResult } from '../../services/ai/provider';
+import { aiProvider, type TextAssistResult } from '../../services/ai/provider';
 import { useEditor } from '../../store/editorStore';
 import { useLibrary } from '../../store/libraryStore';
 import { useUi } from '../../store/uiStore';
 import { Field, Toggle } from '../../ui/controls';
 import { addCenterBand, FOOTER_STYLES, newBadge, newComposition, newFooter, newTextLayer, TEXT_STYLES, type BadgeShape, type BandStyle, type CompositionId, type TextKind } from '../blocks';
 import type { FooterStyle } from '../../templates/builtins';
+import { applySuggestion, runAssistant } from '../textAssist';
 
 export function HeadlineAssistant() {
   const project = useEditor((s) => s.project!);
@@ -26,30 +27,15 @@ export function HeadlineAssistant() {
       return;
     }
     ed.updateMeta({ articleTitle: title.trim(), keyword: keyword.trim() });
-    const website = useLibrary.getState().activeKit().website;
-    const input = { articleTitle: title, keyword, website };
     setBusy(true);
     try {
-      const local = await localProvider.suggest(input);
-      if (useAi && aiProvider) {
-        try {
-          const ai = await aiProvider.suggest(input);
-          setResult({ headlines: [...new Set([...ai.headlines, ...local.headlines])], ctas: [...new Set([...ai.ctas, ...local.ctas])], source: 'ai' });
-        } catch (e) {
-          useUi.getState().toast(`AI is unavailable (${(e as Error).message}). Showing on-device suggestions.`, 'error');
-          setResult(local);
-        }
-      } else setResult(local);
+      setResult(await runAssistant({ articleTitle: title, keyword, website: useLibrary.getState().activeKit().website }, useAi));
     } finally {
       setBusy(false);
     }
   };
 
-  const use = (h: string) => {
-    ed.setDoc(applyHeadline(project.doc, h));
-    ed.updateMeta({ headline: h });
-    if (project.name.startsWith('Untitled') || project.name.includes('—')) ed.updateProject({ name: h });
-  };
+  const use = (h: string) => applySuggestion('headline', h);
 
   return (
     <div className="panel-section">

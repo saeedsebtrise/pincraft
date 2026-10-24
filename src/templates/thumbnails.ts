@@ -1,8 +1,9 @@
 /**
  * Template thumbnails rendered from the template data itself (not screenshots),
- * with soft generated placeholder photos in the image frames.
+ * with soft generated placeholder photos in the image frames — or, inside a
+ * project, with the user's own uploaded photos so they can preview their Pin.
  */
-import type { ImageMap } from '../editor/canvas/nodes';
+import type { ImageMap, ImageSource } from '../editor/canvas/nodes';
 import { frames } from '../model/docOps';
 import { clone } from '../model/factory';
 import type { PinDocument, Template } from '../model/types';
@@ -42,24 +43,32 @@ function makePlaceholder(i: number): HTMLCanvasElement {
   return cv;
 }
 
-function placeholderMap(doc: PinDocument): { doc: PinDocument; images: ImageMap } {
+export interface PreviewPhotos {
+  /** Stable cache key for this photo set (e.g. joined asset ids). */
+  key: string;
+  sources: ImageSource[];
+}
+
+function fillFrames(doc: PinDocument, photos?: PreviewPhotos): { doc: PinDocument; images: ImageMap } {
   placeholders ??= PALETTES.map((_, i) => makePlaceholder(i));
+  const pool: ImageSource[] = photos?.sources.length ? photos.sources : placeholders.map((c) => ({ image: c, width: 600, height: 800 }));
   const d = clone(doc);
   const images: ImageMap = {};
   frames(d).forEach((f, i) => {
-    const id = `ph_${i % placeholders!.length}`;
+    const id = `ph_${i % pool.length}`;
     f.assetId = id;
-    images[id] = { image: placeholders![i % placeholders!.length], width: 600, height: 800 };
+    images[id] = pool[i % pool.length];
   });
   return { doc: d, images };
 }
 
 const cache = new Map<string, Promise<string>>();
 
-export function templateThumbnail(t: Template, width = 260): Promise<string> {
-  const key = `${t.id}:${t.source === 'user' ? t.createdAt : 0}:${width}`;
+export function templateThumbnail(t: Template, width = 260, photos?: PreviewPhotos): Promise<string> {
+  const key = `${t.id}:${t.source === 'user' ? t.createdAt : 0}:${width}:${photos?.sources.length ? photos.key : ''}`;
   if (!cache.has(key)) {
-    const { doc, images } = placeholderMap(t.doc);
+    if (cache.size > 400) cache.clear();
+    const { doc, images } = fillFrames(t.doc, photos);
     cache.set(key, renderThumbnail(doc, width, images).catch(() => ''));
   }
   return cache.get(key)!;

@@ -1,20 +1,22 @@
 import {
   AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalDistributeCenter,
   AlignStartHorizontal, AlignStartVertical, AlignVerticalDistributeCenter, AlertTriangle, ArrowDown, ArrowDownToLine,
-  ArrowUp, ArrowUpToLine, CheckCircle2, Copy, Lock, Trash2, Unlock,
+  ArrowUp, ArrowUpToLine, CheckCircle2, Copy, Download, Lock, Plus, Sparkles, Trash2, Unlock,
 } from 'lucide-react';
-import { useMemo, useState } from 'react';
-import { CANVAS_LIMITS, CANVAS_PRESET_CONFIG, STATUS_LABEL } from '../../config/canvasPresets';
-import { scaleDoc } from '../../model/docOps';
+import { useEffect, useMemo, useState } from 'react';
+import { CANVAS_LIMITS, CANVAS_PRESET_CONFIG, STATUS_LABEL, presetForSize } from '../../config/canvasPresets';
+import { applyCollage, scaleDoc } from '../../model/docOps';
 import { rotatedBounds, unionRect } from '../../model/geometry';
-import type { Layer, PinDocument } from '../../model/types';
+import type { CollageSettings, FrameLayer, Layer, PinDocument, TextLayer } from '../../model/types';
 import { checkDocument, ISSUE_LABEL, type Issue } from '../../services/qualityCheck';
 import { useAssets } from '../../store/assetStore';
 import { useEditor } from '../../store/editorStore';
 import { useLibrary } from '../../store/libraryStore';
 import { findTemplate } from '../../store/projectActions';
-import { useUi } from '../../store/uiStore';
-import { IconButton, NumberField, RangeField, Toggle } from '../../ui/controls';
+import { useUi, type RightTab } from '../../store/uiStore';
+import { ColorField, IconButton, NumberField, RangeField, Toggle } from '../../ui/controls';
+import { LayersPanel } from '../panels/LayersPanel';
+import { BackgroundControls } from '../panels/MiscPanels';
 import { layoutText } from '../canvas/textLayout';
 import { FrameProps } from './FrameProps';
 import { ShapeProps, TextProps } from './TextProps';
@@ -65,21 +67,105 @@ export function IssueList({ issues, onPick }: { issues: Issue[]; onPick?: (i: Is
   );
 }
 
+const TABS: { id: RightTab; label: string }[] = [
+  { id: 'design', label: 'Design' },
+  { id: 'images', label: 'Images' },
+  { id: 'text', label: 'Text' },
+  { id: 'layers', label: 'Layers' },
+];
+
+/** Right panel: Design · Images · Text · Layers. Follows the selection to the matching tab. */
 export function PropertiesPanel() {
   const project = useEditor((s) => s.project!);
   const selection = useEditor((s) => s.selection);
+  const tab = useUi((s) => s.rightTab);
   const layers = project.doc.layers.filter((l) => selection.includes(l.id));
-  if (layers.length === 0) return <CanvasProps />;
-  if (layers.length > 1) return <MultiProps layers={layers} />;
-  const l = layers[0];
+  const selKey = selection.join(',');
+
+  useEffect(() => {
+    if (layers.length !== 1) return;
+    const t = layers[0].type;
+    useUi.getState().set({ rightTab: t === 'frame' ? 'images' : t === 'text' ? 'text' : 'design' });
+    // Re-run only when the selection itself changes, so manual tab choices stick while editing.
+  }, [selKey]);
+
   return (
-    <div>
-      <LayerHeader layer={l} />
-      {l.type === 'frame' && <FrameProps layer={l} />}
-      {l.type === 'text' && <TextProps layer={l} />}
-      {l.type === 'shape' && <ShapeProps layer={l} />}
-      <GeometrySection layer={l} />
+    <div className="props-inner">
+      <div className="tabs" role="tablist" aria-label="Properties">
+        {TABS.map((t) => (
+          <button key={t.id} role="tab" type="button" aria-selected={tab === t.id} onClick={() => useUi.getState().set({ rightTab: t.id })}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+      <div role="tabpanel" aria-label={tab}>
+        {tab === 'design' && <DesignTab layers={layers} />}
+        {tab === 'images' && <ImagesTab layers={layers} />}
+        {tab === 'text' && <TextTab layers={layers} />}
+        {tab === 'layers' && <LayersPanel />}
+      </div>
     </div>
+  );
+}
+
+function ImagesTab({ layers }: { layers: Layer[] }) {
+  const doc = useEditor((s) => s.project!.doc);
+  const l = layers.length === 1 ? layers[0] : undefined;
+  if (l?.type === 'frame') {
+    return (
+      <div>
+        <LayerHeader layer={l} />
+        <FrameProps layer={l} />
+        <GeometrySection layer={l} />
+      </div>
+    );
+  }
+  const list = doc.layers.filter((x): x is FrameLayer => x.type === 'frame');
+  return (
+    <div className="panel-section">
+      <span className="section-title-strong">Image frames</span>
+      {list.length === 0 && <span className="subtle">This Pin has no image frames. Add one with the Frame tool or pick a collage layout.</span>}
+      {list.map((f) => (
+        <LayerListRow key={f.id} layer={f} label={f.name + (f.slot !== null ? ` · slot ${f.slot + 1}` : '')} hint={f.assetId ? 'Has image' : 'Empty'} />
+      ))}
+      <span className="subtle">Select an image on the canvas to crop, replace, adjust or swap it.</span>
+    </div>
+  );
+}
+
+function TextTab({ layers }: { layers: Layer[] }) {
+  const doc = useEditor((s) => s.project!.doc);
+  const l = layers.length === 1 ? layers[0] : undefined;
+  if (l?.type === 'text') {
+    return (
+      <div>
+        <LayerHeader layer={l} />
+        <TextProps layer={l} />
+        <GeometrySection layer={l} />
+      </div>
+    );
+  }
+  const list = doc.layers.filter((x): x is TextLayer => x.type === 'text');
+  return (
+    <div className="panel-section">
+      <button className="btn btn-primary" onClick={() => useUi.getState().set({ modal: 'aiAssistant' })}>
+        <Sparkles size={15} /> AI Text Assistant
+      </button>
+      <span className="section-title-strong">Text layers</span>
+      {list.length === 0 && <span className="subtle">No text yet. Use the Text tool or the Text tab on the left.</span>}
+      {list.map((t) => (
+        <LayerListRow key={t.id} layer={t} label={t.text.trim() || '(empty)'} hint={t.role === 'none' ? t.name : t.role.replace('-', ' ')} />
+      ))}
+    </div>
+  );
+}
+
+function LayerListRow({ layer, label, hint }: { layer: Layer; label: string; hint: string }) {
+  return (
+    <button type="button" className="list-row" onClick={() => useEditor.getState().select([layer.id])}>
+      <span className="grow ellipsis">{label}</span>
+      <span className="subtle">{hint}</span>
+    </button>
   );
 }
 
@@ -248,32 +334,48 @@ function MultiProps({ layers }: { layers: Layer[] }) {
   );
 }
 
-function CanvasProps() {
+const RATIO_PRESETS = ['pin-standard', 'pin-portrait-3-4', 'pin-portrait-4-5', 'pin-full-vertical', 'pin-square', 'custom-blog-736'];
+
+function DesignTab({ layers }: { layers: Layer[] }) {
   const project = useEditor((s) => s.project!);
   const doc = project.doc;
-  const showSafe = useUi((s) => s.showSafeArea);
+  const ui = useUi();
   const custom = useLibrary((s) => s.customPresets);
   const issues = useDesignIssues(doc);
   const [w, setW] = useState(doc.width);
   const [h, setH] = useState(doc.height);
+  const [showCustom, setShowCustom] = useState(false);
+  useEffect(() => {
+    setW(doc.width);
+    setH(doc.height);
+  }, [doc.width, doc.height]);
   const presets = [...CANVAS_PRESET_CONFIG, ...custom];
+  const quick = RATIO_PRESETS.map((id) => CANVAS_PRESET_CONFIG.find((p) => p.id === id)).filter((p): p is (typeof CANVAS_PRESET_CONFIG)[number] => !!p);
 
   const resize = (width: number, height: number, presetId: string) => {
     if (width === doc.width && height === doc.height) return;
-    useEditor.getState().setDoc(scaleDoc(doc, width, height, presetId));
-    setW(width);
-    setH(height);
+    useEditor.getState().setDoc(scaleDoc(doc, width, height, presetForSize(width, height, custom)?.id ?? presetId));
   };
+  const c = doc.collage;
+  const setCollage = (patch: Partial<CollageSettings>, key: string) => {
+    if (c) useEditor.getState().setDoc(applyCollage(doc, { ...c, ...patch }), key);
+  };
+  const single = layers.length === 1 ? layers[0] : undefined;
 
   return (
     <div>
-      <div className="panel-head">
-        <h2>Pin</h2>
-      </div>
+      {layers.length > 1 && <MultiProps layers={layers} />}
+      {single?.type === 'shape' && (
+        <>
+          <LayerHeader layer={single} />
+          <ShapeProps layer={single} />
+          <GeometrySection layer={single} />
+        </>
+      )}
       <div className="panel-section">
-        <span className="section-title">Canvas size</span>
+        <span className="section-title-strong">Canvas Size</span>
         <select
-          className="select input-sm"
+          className="select"
           aria-label="Canvas preset"
           value={presets.find((p) => p.id === doc.presetId) ? doc.presetId : 'custom'}
           onChange={(e) => {
@@ -283,36 +385,87 @@ function CanvasProps() {
         >
           {presets.map((p) => (
             <option key={p.id} value={p.id}>
-              {p.name} · {p.width}×{p.height} ({STATUS_LABEL[p.status]})
+              {p.name.replace(' — Recommended', '')} ({p.width} × {p.height}) · {STATUS_LABEL[p.status]}
             </option>
           ))}
           <option value="custom" disabled>
-            Custom size
+            Custom ({doc.width} × {doc.height})
           </option>
         </select>
-        <div className="grid-2">
-          <NumberField label="Width" value={w} min={CANVAS_LIMITS.min} max={CANVAS_LIMITS.max} onChange={setW} unit="px" />
-          <NumberField label="Height" value={h} min={CANVAS_LIMITS.min} max={CANVAS_LIMITS.max} onChange={setH} unit="px" />
+        <div className="ratio-grid" role="group" aria-label="Aspect ratio">
+          {quick.map((p) => {
+            const k = 22 / Math.max(p.width, p.height);
+            const on = doc.width === p.width && doc.height === p.height;
+            return (
+              <button key={p.id} type="button" className="ratio-btn" aria-pressed={on} title={`${p.name} — ${p.width}×${p.height}`} onClick={() => resize(p.width, p.height, p.id)}>
+                <span className="ratio-shape" style={{ width: p.width * k, height: p.height * k }} />
+                <span>{p.aspectRatio}</span>
+              </button>
+            );
+          })}
+          <button type="button" className="ratio-btn" aria-pressed={showCustom} title="Custom size" onClick={() => setShowCustom((v) => !v)}>
+            <Plus size={16} />
+            <span>Custom</span>
+          </button>
         </div>
-        <button className="btn btn-sm" disabled={w === doc.width && h === doc.height} onClick={() => resize(Math.round(w), Math.round(h), 'custom')}>
-          Resize canvas
-        </button>
+        {showCustom && (
+          <>
+            <div className="grid-2">
+              <NumberField label="Width" value={w} min={CANVAS_LIMITS.min} max={CANVAS_LIMITS.max} onChange={setW} unit="px" />
+              <NumberField label="Height" value={h} min={CANVAS_LIMITS.min} max={CANVAS_LIMITS.max} onChange={setH} unit="px" />
+            </div>
+            <button className="btn btn-sm" disabled={w === doc.width && h === doc.height} onClick={() => resize(Math.round(w), Math.round(h), 'custom')}>
+              Resize canvas
+            </button>
+          </>
+        )}
         <span className="subtle">Resizing re-flows the collage and scales other layers. Undo to revert.</span>
       </div>
+
       <div className="panel-section">
-        <Toggle label="Show safe-area guides" checked={showSafe} onChange={(v) => useUi.getState().set({ showSafeArea: v })} />
+        <span className="section-title-strong">Background</span>
+        <BackgroundControls />
+      </div>
+
+      <div className="panel-section">
+        <span className="section-title-strong">Grid &amp; Guides</span>
+        <Toggle label="Show Grid" checked={ui.showGrid} onChange={(v) => ui.set({ showGrid: v })} />
+        <Toggle label="Show Safe Area" checked={ui.showSafeArea} onChange={(v) => ui.set({ showSafeArea: v })} />
+        <Toggle label="Snap to Elements" checked={ui.snapEnabled} onChange={(v) => ui.set({ snapEnabled: v })} />
         <span className="subtle">Guides are never exported.</span>
       </div>
+
+      {c && (
+        <div className="panel-section">
+          <span className="section-title-strong">Border &amp; Frame</span>
+          <ColorField label="Border color" value={c.borderColor} onChange={(v) => setCollage({ borderColor: v }, 'bf-color')} />
+          <RangeField label="Border width" min={0} max={30} value={c.borderWidth} onChange={(v) => setCollage({ borderWidth: v }, 'bf-width')} format={(v) => `${Math.round(v)} px`} />
+          <RangeField label="Corner radius" min={0} max={120} value={c.cornerRadius} onChange={(v) => setCollage({ cornerRadius: v }, 'bf-radius')} format={(v) => `${Math.round(v)} px`} />
+          <RangeField label="Gap between images" min={0} max={80} value={c.gap} onChange={(v) => setCollage({ gap: v }, 'bf-gap')} format={(v) => `${Math.round(v)} px`} />
+        </div>
+      )}
+
       <div className="panel-section">
         <div className="row-between">
-          <span className="section-title">Design check</span>
+          <span className="section-title-strong">Design Check</span>
           {issues.length > 0 && <span className="chip chip-warn">{issues.length}</span>}
         </div>
         <IssueList
-          issues={showSafe ? issues : issues.filter((i) => i.code !== 'outside-safe-area')}
+          issues={ui.showSafeArea ? issues : issues.filter((i) => i.code !== 'outside-safe-area')}
           onPick={(i) => i.layerId && useEditor.getState().select([i.layerId])}
         />
-        <span className="subtle">Warnings only — you can always export.</span>
+      </div>
+
+      <div className="panel-section">
+        <span className="section-title-strong">Export Settings</span>
+        <select className="select" aria-label="Export format" value={ui.exportFormat} onChange={(e) => ui.set({ exportFormat: e.target.value as typeof ui.exportFormat })}>
+          <option value="png">PNG (High Quality)</option>
+          <option value="jpeg">JPEG (Smaller Size)</option>
+          <option value="webp">WEBP (Web Optimized)</option>
+        </select>
+        <button className="btn btn-primary btn-lg btn-block" onClick={() => ui.set({ modal: 'export' })}>
+          <Download size={17} /> Download Pin
+        </button>
       </div>
     </div>
   );

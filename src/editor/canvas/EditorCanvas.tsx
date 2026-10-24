@@ -4,7 +4,6 @@
  * crop mode, collage cell swapping and drag-and-drop of assets.
  */
 import Konva from 'konva';
-import { Minus, Plus } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Layer as KLayer, Line, Rect, Stage, Transformer } from 'react-konva';
 import { SAFE_AREA } from '../../config/colors';
@@ -15,7 +14,6 @@ import type { FrameLayer, Id, Layer, TextLayer } from '../../model/types';
 import { useAssets } from '../../store/assetStore';
 import { useEditor } from '../../store/editorStore';
 import { useUi } from '../../store/uiStore';
-import { IconButton } from '../../ui/controls';
 import { newFrame } from '../blocks';
 import { importAndPlace } from '../importImages';
 import { DocLayers, type ImageMap } from './nodes';
@@ -63,6 +61,9 @@ export function EditorCanvas() {
   }, []);
   const fit = Math.max(0.05, Math.min((viewport.w - 80) / doc.width, (viewport.h - 80) / doc.height));
   const scale = ui.zoom ?? fit;
+  useEffect(() => {
+    if (Math.abs(useUi.getState().effectiveZoom - scale) > 0.001) useUi.getState().set({ effectiveZoom: scale });
+  }, [scale]);
 
   const images: ImageMap = useMemo(() => {
     const map: ImageMap = {};
@@ -185,7 +186,7 @@ export function EditorCanvas() {
       setSwapHoverId(p ? frameAt(p.x, p.y, l.id)?.id ?? null : null);
       return;
     }
-    if (selection.length > 1) return;
+    if (selection.length > 1 || !ui.snapEnabled) return;
     const box = node.getClientRect({ relativeTo: stageRef.current! as unknown as Konva.Container });
     const targetsX = [0, doc.width / 2, doc.width];
     const targetsY = [0, doc.height / 2, doc.height];
@@ -315,7 +316,6 @@ export function EditorCanvas() {
       ? 'Drag to reposition · scroll to zoom · Enter or Esc when done'
       : null;
 
-  const zoomTo = (z: number | null) => ui.set({ zoom: z === null ? null : Math.max(0.1, Math.min(3, z)) });
 
   return (
     <div
@@ -370,6 +370,10 @@ export function EditorCanvas() {
               />
             </KLayer>
             <KLayer listening={true}>
+              {ui.showGrid &&
+                gridLines(doc.width, doc.height).map((pts, i) => (
+                  <Line key={`g${i}`} points={pts} stroke="#3B82F6" strokeWidth={1 / scale} opacity={0.22} listening={false} />
+                ))}
               {ui.showSafeArea && (
                 <Rect {...safe} stroke="#2F6FED" strokeWidth={1.5 / scale} dash={[8 / scale, 6 / scale]} opacity={0.7} listening={false} />
               )}
@@ -426,21 +430,16 @@ export function EditorCanvas() {
           )}
         </div>
       </div>
-      <div className="zoom-ctl" role="group" aria-label="Zoom">
-        <IconButton label="Zoom out" tipPos="top" onClick={() => zoomTo(scale / 1.2)}>
-          <Minus size={15} />
-        </IconButton>
-        <span aria-live="polite">{Math.round(scale * 100)}%</span>
-        <IconButton label="Zoom in" tipPos="top" onClick={() => zoomTo(scale * 1.2)}>
-          <Plus size={15} />
-        </IconButton>
-        <button type="button" className="btn btn-ghost btn-sm" onClick={() => zoomTo(null)} aria-pressed={ui.zoom === null}>
-          Fit
-        </button>
-        <button type="button" className="btn btn-ghost btn-sm" onClick={() => zoomTo(1)}>
-          100%
-        </button>
-      </div>
     </div>
   );
+}
+
+/** Layout grid: thirds plus a 10% subdivision, in canvas coordinates. */
+function gridLines(w: number, h: number): number[][] {
+  const lines: number[][] = [];
+  for (let i = 1; i < 10; i++) {
+    lines.push([(w * i) / 10, 0, (w * i) / 10, h]);
+    lines.push([0, (h * i) / 10, w, (h * i) / 10]);
+  }
+  return lines;
 }

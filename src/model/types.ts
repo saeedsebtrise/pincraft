@@ -185,7 +185,11 @@ export interface Project {
   id: Id;
   name: string;
   schemaVersion: 1;
+  /** The page being edited. Mirrors pages[activePage] (kept in sync on save). */
   doc: PinDocument;
+  /** All Pins (pages) in this project — e.g. several designs for one article. */
+  pages: PinDocument[];
+  activePage: number;
   assetIds: Id[];
   meta: ProjectMeta;
   thumbnail?: string;

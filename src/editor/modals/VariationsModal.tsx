@@ -76,6 +76,18 @@ export function VariationsModal() {
               Back
             </button>
             <button
+              className="btn btn-pink"
+              disabled={!keep.size || busy}
+              onClick={() => {
+                const chosen = batch.filter((p) => keep.has(p.id));
+                chosen.forEach((p) => useEditor.getState().addPage(p.doc));
+                useUi.getState().toast(`Added ${chosen.length} page${chosen.length > 1 ? 's' : ''} to this project`, 'success');
+                close();
+              }}
+            >
+              Add as pages
+            </button>
+            <button
               className="btn btn-dark"
               disabled={!keep.size || busy}
               onClick={async () => {
@@ -86,7 +98,7 @@ export function VariationsModal() {
                 close();
               }}
             >
-              <Check size={15} /> Keep selected
+              <Check size={15} /> Save as new projects
             </button>
           </>
         )

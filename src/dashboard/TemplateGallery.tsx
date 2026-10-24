@@ -1,4 +1,5 @@
-import { Copy, Eye, Pencil, Trash2 } from 'lucide-react';
+import { Copy, Eye, Pencil, Search, Trash2 } from 'lucide-react';
+import { matchesQuery } from '../templates/search';
 import { useMemo, useState } from 'react';
 import { simplifyRatio } from '../config/canvasPresets';
 import { DESIGN_TYPES, TEMPLATE_FAMILIES, templateDesignTypes, type DesignType, type TemplateFamilyId } from '../config/designTypes';
@@ -100,14 +101,15 @@ export function TemplateCard({ t, onUse, selected, compact }: { t: Template; onU
 }
 
 /** Gallery: design type → template family sections → cards, with category filters. */
-export function TemplateGallery({ onUse, initialType = 'all', compact, selectedId }: { onUse: (t: Template) => void; initialType?: DesignType | 'all'; compact?: boolean; selectedId?: string }) {
+export function TemplateGallery({ onUse, initialType = 'all', initialQuery = '', compact, selectedId }: { onUse: (t: Template) => void; initialType?: DesignType | 'all'; initialQuery?: string; compact?: boolean; selectedId?: string }) {
   useLibrary((s) => s.userTemplates);
   const [type, setType] = useState<DesignType | 'all'>(initialType);
   const [cat, setCat] = useState<TemplateCategory | 'all'>('all');
+  const [query, setQuery] = useState(initialQuery);
   const templates = allTemplates();
   const filtered = useMemo(
-    () => templates.filter((t) => (type === 'all' || templateDesignTypes(t).includes(type)) && (cat === 'all' || t.categories.includes(cat))),
-    [templates, type, cat],
+    () => templates.filter((t) => (type === 'all' || templateDesignTypes(t).includes(type)) && (cat === 'all' || t.categories.includes(cat)) && matchesQuery(t, query)),
+    [templates, type, cat, query],
   );
   const families = ([1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as TemplateFamilyId[]).map((f) => ({ f, list: filtered.filter((t) => t.family === f && t.source === 'builtin') }));
   const mine = filtered.filter((t) => t.source === 'user');
@@ -126,6 +128,10 @@ export function TemplateGallery({ onUse, initialType = 'all', compact, selectedI
         ))}
       </nav>
       <div className="stack">
+        <label className="search-box">
+          <Search size={17} />
+          <input placeholder="Search templates…" value={query} onChange={(e) => setQuery(e.target.value)} aria-label="Search templates" />
+        </label>
         <div className="row" style={{ flexWrap: 'wrap' }} role="group" aria-label="Category">
           <button type="button" className="filter-chip" aria-pressed={cat === 'all'} onClick={() => setCat('all')}>
             All categories

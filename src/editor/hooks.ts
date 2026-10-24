@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { normalizeProject } from '../model/factory';
 import type { FrameLayer, Layer } from '../model/types';
 import { useAssets } from '../store/assetStore';
 import { useEditor } from '../store/editorStore';
@@ -113,7 +114,7 @@ export function useAutosave() {
       dirty = false;
       useUi.getState().set({ saveState: 'saving' });
       try {
-        await repos.projects.put({ ...p, thumbnail: thumb.current, meta: { ...p.meta, updatedAt: Date.now() } });
+        await repos.projects.put({ ...normalizeProject(p), thumbnail: thumb.current, meta: { ...p.meta, updatedAt: Date.now() } });
         useUi.getState().set({ saveState: 'saved' });
       } catch {
         useUi.getState().set({ saveState: 'error' });

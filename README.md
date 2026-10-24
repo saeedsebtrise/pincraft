@@ -1,4 +1,4 @@
-# PinForge — Pinterest Pin Design Software
+# PinCraft — Pinterest Pin Design Software
 
 A focused, Canva-style editor built for Pinterest blog Pins. You choose a design type, then a Pin size, then a template. Upload images, pick a generated headline, adjust the typography, images, colors and layout, preview the Pin in a mobile feed, and export it at its exact size.
 
@@ -16,7 +16,7 @@ npm run dev          # http://localhost:5173
 | `npm run dev` | Vite dev server with hot reload |
 | `npm run build` | Type-check + production build into `dist/` |
 | `npm run preview` | Serve the production build |
-| `npm test` | Unit tests (Vitest, 41 tests) |
+| `npm test` | Unit tests (Vitest, 48 tests) |
 | `npm run typecheck` | TypeScript only |
 | `npm run ai-proxy` | Optional AI headline proxy (needs `ANTHROPIC_API_KEY`) |
 
@@ -32,13 +32,22 @@ ANTHROPIC_API_KEY=sk-ant-... npm run ai-proxy
 npm run dev
 ```
 
-Then turn on **Text → Enable AI text assistant**. Only the article title, keyword and website go to the proxy, never images. The API key lives only in the proxy's environment. The proxy uses `claude-opus-5-5` by default (override with `AI_MODEL`). It enables Anthropic's server-side refusal fallback (`fallbacks: "default"`), so a declined request is retried on a fallback model. Any AI error falls back to the on-device suggestions.
+Then open **AI Text** in the top bar and turn on **Use AI**. Only the article title, keyword and website go to the proxy, never images. The API key lives only in the proxy's environment. The proxy uses `claude-opus-5-5` by default (override with `AI_MODEL`). It enables Anthropic's server-side refusal fallback (`fallbacks: "default"`), so a declined request is retried on a fallback model. Any AI error falls back to the on-device suggestions.
 
 ## What's in the MVP
 
+- **The PinCraft workspace**:
+  - Dashboard with sidebar navigation, template search, "Create Stunning Pinterest Pins" design-type cards, Popular Templates and recent projects.
+  - Editor top bar with the Pin size, undo/redo, zoom, AI Text, Preview, Save and Export.
+  - A labeled left rail and a vertical tool strip (Select, Frame, Text, Shape, Line, Badge).
+  - Floating selection actions (duplicate, delete, forward/back, lock).
+  - A right panel with **Design · Images · Text · Layers** tabs. Design holds canvas size and ratio buttons, background, Grid / Safe Area / Snap toggles, border & frame, the design check, and export settings.
+- **Pages**: a project holds several Pins (for example different designs for one article). The bottom page strip has Add, Duplicate and Delete. Export the current page or all pages at once, and batch variations can be added as pages.
+- **AI Text Assistant**: Pin Headlines, Subtitles, CTA Text and Variations tabs, each suggestion with Copy and Use. It works on-device; AI is optional. The subtitle slot in a template fills automatically from the rest of the article title (for example "To Take to Your Next Salon Appointment").
+- **Template previews use your own photos** once a project has uploads.
 - **The 16 design types** are picked first: Single Image, Image + Text Overlay, Image + Text Panel, Split, 2-Image, 3-Image, 4-Image Collage, 5-Image Collage, Editorial, Listicle, Number Badge, Script + Bold, Quote / Advice, Home Decor, Hair / Beauty, and Blank.
 - **Pin sizes** come from one preset registry (`src/config/canvasPresets.ts`). Each is labeled Official · Recommended, Official · Supported, or Custom. The default is 1000×1500 (2:3). The 736×1472 Custom Blog Pin preset has its own template family. You can also enter a custom size and save it as a preset.
-- **37 editable starter templates** in 10 families: 2 top + center text + 2 bottom; 2 top + headline + 3 bottom; 4-image editorial; number-badge listicle; script + bold; single image + bold overlay; single image + text panel; hair / beauty; home decor / balcony / patio; and a blank canvas. Each template is tagged by category (Hair, Beauty, Home Decor, Balcony, Patio, Living Room, Fall Decor, Fashion, Lifestyle, Relationship, Quote, Listicle…).
+- **40 editable starter templates** in 10 families: 2 top + center text + 2 bottom; 2 top + headline + 3 bottom; 4-image editorial; number-badge listicle; script + bold; single image + bold overlay; single image + text panel; hair / beauty; home decor / balcony / patio; and a blank canvas. Each template is tagged by category (Hair, Beauty, Home Decor, Balcony, Patio, Living Room, Fall Decor, Fashion, Lifestyle, Relationship, Quote, Listicle…).
 - **Collage engine**
   - 23 layouts with 1–6 images, including center-band layouts whose band height is adjustable.
   - Controls for gap, margin, corner radius, border and collage area.
@@ -108,7 +117,7 @@ docs/            SPEC.md, ACCEPTANCE.md
 
 ## Tests
 
-- `npm test`: 41 unit tests covering presets, collage math, crop geometry, headline application, every template at every preset, template switching (keeps images and headline), smart image assignment, undo/redo, quality checks, file validation, filenames, recommendations and IndexedDB round trips.
+- `npm test`: 48 unit tests covering presets, collage math, crop geometry, headline application, every template at every preset, template switching (keeps images and headline), smart image assignment, undo/redo, quality checks, file validation, filenames, recommendations and IndexedDB round trips.
 - Browser acceptance tests 1–7 were run against the live app. Results are in [docs/ACCEPTANCE.md](docs/ACCEPTANCE.md).
 
 ## Notes and limits
@@ -116,4 +125,4 @@ docs/            SPEC.md, ACCEPTANCE.md
 - Grouping layers isn't in the MVP; multi-select with align/distribute covers most uses.
 - Fonts load from Google Fonts, so the first load needs internet. Bundling them locally is on the roadmap.
 - Data lives in this browser's IndexedDB. Clearing site data removes projects. Cloud storage is on the roadmap behind the repository interfaces that already exist.
-- PinForge doesn't promise reach, rankings or traffic. It makes professional Pin creatives; performance depends on your content, account and audience.
+- PinCraft doesn't promise reach, rankings or traffic. It makes professional Pin creatives; performance depends on your content, account and audience.

@@ -1,4 +1,4 @@
-# PinForge — Product & Technical Specification
+# PinCraft — Product & Technical Specification
 
 Status: MVP implemented and tested (see [ACCEPTANCE.md](ACCEPTANCE.md)). This document describes what is built, why it is built that way, and how it extends.
 
@@ -44,7 +44,7 @@ Contents
 | Sizes | Central preset registry with Official/Custom labels; 1000×1500 default; 3:4, 4:5, 9:16, 1:1; 736×1472 Custom Blog Pin | ✅ MVP |
 | | Custom width/height, save as preset, resize canvas (collage re-flows) | ✅ MVP |
 | Design types | 16 design types as step 1 of New Pin and as the gallery's primary filter | ✅ MVP |
-| Templates | 37 data-driven templates in 10 families; category tags; preview, use, duplicate | ✅ MVP |
+| Templates | 40 data-driven templates in 10 families; category tags; preview, use, duplicate | ✅ MVP |
 | | Save as template, rename and delete user templates | ✅ MVP |
 | | Recommend a design from the article title | ✅ MVP |
 | Collage | 23 layouts (1–6 images) including center-band layouts | ✅ MVP |

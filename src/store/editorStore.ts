@@ -5,7 +5,8 @@
  * replacement, template switch and layer operations.
  */
 import { create } from 'zustand';
-import { clone, newId } from '../model/factory';
+import { reId } from '../model/docOps';
+import { clone, newId, normalizeProject } from '../model/factory';
 import type { Id, Layer, PinDocument, Project } from '../model/types';
 
 const HISTORY_LIMIT = 120;
@@ -43,6 +44,12 @@ interface EditorState {
   toggleSelect: (id: Id) => void;
   updateProject: (patch: Partial<Omit<Project, 'doc'>>) => void;
   updateMeta: (patch: Partial<Project['meta']>) => void;
+  /** Pages: each project can hold several Pins. History is per page and resets on switch. */
+  goToPage: (index: number) => void;
+  addPage: (doc?: PinDocument) => void;
+  duplicatePage: (index: number) => void;
+  deletePage: (index: number) => void;
+  movePage: (from: number, to: number) => void;
 }
 
 export const useEditor = create<EditorState>((set, get) => {
@@ -64,6 +71,22 @@ export const useEditor = create<EditorState>((set, get) => {
     });
   };
 
+
+  const setPages = (pages: PinDocument[], activePage: number) => {
+    const p = get().project;
+    if (!p) return;
+    const i = Math.max(0, Math.min(pages.length - 1, activePage));
+    set({
+      project: { ...p, pages, activePage: i, doc: pages[i] },
+      selection: [],
+      past: [],
+      future: [],
+      lastKey: null,
+      revision: get().revision + 1,
+    });
+  };
+  const synced = () => normalizeProject(get().project!);
+
   const mapLayers = (d: PinDocument, ids: Set<Id>, fn: (l: Layer) => Layer): PinDocument => ({
     ...d,
     layers: d.layers.map((l) => (ids.has(l.id) ? fn(l) : l)),
@@ -79,7 +102,7 @@ export const useEditor = create<EditorState>((set, get) => {
     revision: 0,
     clipboard: [],
 
-    load: (p) => set({ project: p, selection: [], past: [], future: [], lastKey: null, revision: 0 }),
+    load: (p) => set({ project: normalizeProject(p), selection: [], past: [], future: [], lastKey: null, revision: 0 }),
     close: () => set({ project: null, selection: [], past: [], future: [] }),
     setDoc: commit,
     updateDoc: (fn, key) => {
@@ -201,6 +224,41 @@ export const useEditor = create<EditorState>((set, get) => {
     updateProject: (patch) => {
       const p = get().project;
       if (p) set({ project: { ...p, ...patch }, revision: get().revision + 1 });
+    },
+    goToPage: (index) => {
+      const p = get().project;
+      if (!p || index === p.activePage) return;
+      setPages(synced().pages, index);
+    },
+    addPage: (doc) => {
+      if (!get().project) return;
+      const p = synced();
+      const pages = [...p.pages];
+      pages.splice(p.activePage + 1, 0, doc ?? reId(clone(p.doc)));
+      setPages(pages, p.activePage + 1);
+    },
+    duplicatePage: (index) => {
+      if (!get().project) return;
+      const p = synced();
+      const pages = [...p.pages];
+      pages.splice(index + 1, 0, reId(clone(pages[index])));
+      setPages(pages, index + 1);
+    },
+    deletePage: (index) => {
+      if (!get().project) return;
+      const p = synced();
+      if (p.pages.length < 2) return;
+      const pages = p.pages.filter((_, i) => i !== index);
+      setPages(pages, index <= p.activePage ? Math.max(0, p.activePage - 1) : p.activePage);
+    },
+    movePage: (from, to) => {
+      if (!get().project || from === to) return;
+      const p = synced();
+      const pages = [...p.pages];
+      const [moved] = pages.splice(from, 1);
+      pages.splice(to, 0, moved);
+      const active = p.activePage === from ? to : pages.indexOf(p.pages[p.activePage]);
+      setPages(pages, active);
     },
     updateMeta: (patch) => {
       const p = get().project;

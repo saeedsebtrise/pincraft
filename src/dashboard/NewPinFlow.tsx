@@ -11,7 +11,7 @@ import { useUi } from '../store/uiStore';
 import { BLANK_TEMPLATE_ID } from '../templates/builtins';
 import { Field } from '../ui/controls';
 import { TemplateCard, TemplateGallery } from './TemplateGallery';
-import { TypeGlyph } from './TypeGlyph';
+import { TypeCard } from './TypeCard';
 
 const chipClass = (p: CanvasPreset) => (p.status === 'official-recommended' ? 'chip chip-rec' : p.status === 'official-supported' ? 'chip chip-sup' : 'chip chip-custom');
 
@@ -138,27 +138,18 @@ export function NewPinFlow({ initialTemplateId, initialType }: { initialTemplate
       {step === 1 && (
         <>
           {recs.length > 0 && <RecommendRow recs={recs.map((r) => ({ t: r.template, why: r.reasons.join(' · ') }))} onUse={(t) => { setTemplate(t); setStep(2); }} />}
-          <div className="type-grid" role="radiogroup" aria-label="Design type">
+          <div className="type-grid2" role="radiogroup" aria-label="Design type">
             {DESIGN_TYPES.map((d) => (
-              <button
+              <TypeCard
                 key={d.id}
-                type="button"
-                className="type-card"
-                role="radio"
-                aria-checked={type === d.id}
-                aria-pressed={type === d.id}
-                onClick={() => setType(d.id)}
-                onDoubleClick={() => {
+                def={d}
+                selected={type === d.id}
+                onPick={() => setType(d.id)}
+                onOpen={() => {
                   setType(d.id);
                   setStep(2);
                 }}
-              >
-                <div className="type-glyph">
-                  <TypeGlyph type={d.id} />
-                </div>
-                <strong>{d.label}</strong>
-                <span className="subtle">{d.hint}</span>
-              </button>
+              />
             ))}
           </div>
         </>

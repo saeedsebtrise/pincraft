@@ -1,5 +1,5 @@
 /**
- * Optional AI text-assistant proxy for PinForge.
+ * Optional AI text-assistant proxy for PinCraft.
  *
  * The browser never sees an API key: it POSTs { articleTitle, keyword, audience, website }
  * to /api/ai (proxied here by Vite in dev), and this server calls Claude with
@@ -21,11 +21,14 @@ const client = new Anthropic(); // reads ANTHROPIC_API_KEY (or an `ant auth logi
 
 const PinText = z.object({
   headlines: z.array(z.string()),
+  subtitles: z.array(z.string()),
   ctas: z.array(z.string()),
+  variations: z.array(z.string()),
 });
 
 const SYSTEM = `You write Pinterest Pin overlay text for bloggers.
-Return 8 short headline options (max 45 characters each) and 5 short calls to action.
+Return 8 short headline options (max 45 characters each), 6 short subtitles (max 45 characters, a supporting line under the headline),
+5 short calls to action, and 6 longer sentence-style headline variations (max 70 characters).
 Keep the article's number and main keyword when it has them. Use Title Case. No emojis, no hashtags, no quotation marks.
 Never promise virality, rankings or guaranteed traffic.`;
 
@@ -87,4 +90,4 @@ const server = http.createServer((req, res) => {
   });
 });
 
-server.listen(PORT, () => console.log(`PinForge AI proxy on http://localhost:${PORT}/api/ai (model ${MODEL})`));
+server.listen(PORT, () => console.log(`PinCraft AI proxy on http://localhost:${PORT}/api/ai (model ${MODEL})`));

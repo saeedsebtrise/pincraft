@@ -4,8 +4,9 @@
  */
 import { findPreset } from '../config/canvasPresets';
 import { assignImages, frames, instantiateTemplate, invertBlocks, readHeadline, slotFrames, switchTemplate } from '../model/docOps';
-import { clone, createDocument, createProject, newId } from '../model/factory';
+import { clone, createDocument, createProject, newId, normalizeProject } from '../model/factory';
 import type { BrandKit, PinDocument, Project, Template } from '../model/types';
+import { parseTitle, titleCase } from '../services/headlines';
 import { repos } from '../storage/repositories';
 import { BLANK_TEMPLATE_ID, BUILTIN_TEMPLATES } from '../templates/builtins';
 import { useAssets } from './assetStore';
@@ -38,6 +39,7 @@ export async function createPin(o: NewPinOptions): Promise<Project> {
       height: o.height,
       presetId: o.presetId,
       headline: o.headline,
+      subtitle: o.articleTitle ? titleCase(parseTitle(o.articleTitle).tail) || undefined : undefined,
       website: brand.website,
       brand: null, // templates keep their designed typography; brand fonts are one click away
     });
@@ -53,7 +55,7 @@ export async function createPin(o: NewPinOptions): Promise<Project> {
 }
 
 export async function saveProject(p: Project): Promise<Project> {
-  const next = { ...p, meta: { ...p.meta, updatedAt: Date.now() } };
+  const next = { ...normalizeProject(p), meta: { ...p.meta, updatedAt: Date.now() } };
   await repos.projects.put(next);
   return next;
 }
@@ -65,12 +67,15 @@ export function cloneProject(p: Project, name: string, doc: PinDocument = p.doc)
     id: newId('p_'),
     name,
     doc: clone(doc),
+    pages: [clone(doc)],
+    activePage: 0,
     meta: { ...p.meta, createdAt: now, updatedAt: now },
   };
 }
 
 export async function duplicateProject(p: Project): Promise<Project> {
-  const copy = cloneProject(p, `${p.name} (copy)`);
+  const src = normalizeProject(p);
+  const copy = { ...cloneProject(src, `${p.name} (copy)`), pages: clone(src.pages), activePage: src.activePage };
   await repos.projects.put(copy);
   return copy;
 }

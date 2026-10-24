@@ -191,10 +191,11 @@ function accent(x: number, y: number, w: number, h: number, text: string, p: TP 
   });
 }
 
+/** Small decorative caption ("The ultimate guide"). Real subtitles use role 'subtitle' and get filled from the article title. */
 function label(x: number, y: number, w: number, h: number, text: string, p: TP = {}): TextLayer {
   return createText({
     name: 'Label',
-    role: 'subtitle',
+    role: 'decor',
     x,
     y,
     width: w,
@@ -252,6 +253,90 @@ const inBand = (b: Rect, fy: number, fh: number, padX = 0.07) => ({
 
 // ---------- the library ----------
 export const BUILTIN_TEMPLATES: Template[] = [
+  // ===== Signature designs (modelled on the PinCraft mockups) =====
+  tpl({
+    id: 'm1-lob-pink-blocks',
+    name: 'Lob Haircut — Pink Blocks',
+    description: '2×2 photos, big pink circle badge, white headline block, pink keyword block and a black website bar.',
+    family: 3,
+    categories: ['Hair', 'Beauty', 'Listicle'],
+    designTypes: ['editorial', 'listicle'],
+    collage: { layoutId: 'grid-2x2', gap: 12, region: { x: 0, y: 0, width: 1, height: 0.945 } },
+    layers: ({ W, H }) => [
+      badge(W / 2 - 110, 352, 220, '50', 'circle', '#FF5C8D', '#111111', { fontFamily: 'Playfair Display', fontWeight: 900, fontSize: 150 }),
+      titleLine(W, 562, 140, 'Lob Haircut', { fontFamily: 'Anton', fontWeight: 400, x: W * 0.04, width: W * 0.92, letterSpacing: 0, background: bgOn('#FFFFFF', { paddingX: 30, paddingY: 6 }) }),
+      titleLine(W, 708, 130, 'Ideas', { fontFamily: 'Playfair Display', fontWeight: 800, fill: '#FFFFFF', background: bgOn('#FF5C8D', { paddingX: 44, paddingY: 4 }) }),
+      createShape({ name: 'Footer bar', role: 'decor', x: 0, y: H * 0.945, width: W, height: H * 0.055, fill: '#111111' }),
+      footer(W, H, 'plain-light', { y: H * 0.95, height: H * 0.045, fontSize: 34, letterSpacing: 9, fontWeight: 700 }),
+    ],
+  }),
+  tpl({
+    id: 'm2-lob-subtitle-band',
+    name: 'Lob Haircut — Subtitle Band',
+    description: 'Pink badge and blocks with a cream subtitle line (filled from your article title) and a soft pink website ribbon.',
+    family: 3,
+    categories: ['Hair', 'Beauty', 'Listicle'],
+    designTypes: ['editorial', 'listicle'],
+    collage: { layoutId: 'grid-2x2', gap: 12 },
+    layers: ({ W, H }) => [
+      badge(W / 2 - 105, 330, 210, '50', 'circle', '#FF5C8D', '#FFFFFF', { fontFamily: 'Playfair Display', fontWeight: 900, fontSize: 140 }),
+      titleLine(W, 526, 140, 'Lob Haircut', { fontFamily: 'Anton', fontWeight: 400, x: W * 0.04, width: W * 0.92, letterSpacing: 0, background: bgOn('#FFFFFF', { paddingX: 30, paddingY: 6 }) }),
+      titleLine(W, 668, 120, 'Ideas', { fontFamily: 'Playfair Display', fontWeight: 800, fill: '#FFFFFF', background: bgOn('#FF5C8D', { paddingX: 60, paddingY: 4 }) }),
+      createText({
+        name: 'Subtitle',
+        role: 'subtitle',
+        x: W * 0.1,
+        y: 790,
+        width: W * 0.8,
+        height: 120,
+        text: 'To take to your next salon appointment',
+        fontFamily: 'Montserrat',
+        fontWeight: 800,
+        fontSize: 40,
+        letterSpacing: 4,
+        lineHeight: 1.2,
+        textTransform: 'uppercase',
+        fill: '#2E2420',
+        minFontSize: 18,
+        background: bgOn('#FCEBDD', { paddingX: 28, paddingY: 12 }),
+      }),
+      footer(W, H, 'light-pill', { fill: '#2E2420', fontSize: 34, letterSpacing: 6, height: 70, y: H - 110, x: W * 0.12, width: W * 0.76, background: bgOn('#F8C8D4', { shape: 'rect', radius: 6, paddingX: 40, paddingY: 12 }) }),
+    ],
+  }),
+  tpl({
+    id: 'm3-balcony-stunning',
+    name: 'Balcony — Stunning Script Band',
+    description: 'Cream center band with a green number badge, a script accent, a distressed green keyword and bold caps.',
+    family: 9,
+    categories: ['Balcony', 'Home Decor', 'Patio', 'Listicle'],
+    designTypes: ['split', 'script-bold', 'listicle'],
+    bg: '#FBF4EA',
+    collage: { layoutId: 'band-2-2', gap: 10, band: 0.36, region: { x: 0, y: 0, width: 1, height: 0.95 } },
+    layers: ({ W, H, band }) => [
+      bandShape('#FBF4EA'),
+      badge(W / 2 - 100, band.y - 120, 200, '28', 'circle', '#3F5A2A', '#FFFFFF', { fontFamily: 'Playfair Display', fontWeight: 900, fontSize: 130 }),
+      accent(W * 0.04, band.y + 60, W * 0.62, 170, 'Stunning', { fontFamily: 'Allura', fill: '#1F1A17', fontSize: 170, rotation: -6, align: 'left' }),
+      titleLine(W, band.y + 170, 200, 'Balcony', {
+        fontFamily: 'Rubik Distressed',
+        fontWeight: 400,
+        fill: '#4A6B2E',
+        x: W * 0.03,
+        width: W * 0.94,
+        letterSpacing: 2,
+        background: { ...bgOn('#FFFFFF'), enabled: false },
+      }),
+      titleLine(W, band.y + 370, 120, 'Decor Ideas', {
+        fontFamily: 'Archivo Black',
+        fontWeight: 400,
+        fill: '#111111',
+        x: W * 0.05,
+        width: W * 0.9,
+        background: { ...bgOn('#FFFFFF'), enabled: false },
+      }),
+      footer(W, H, 'plain-dark', { y: H * 0.955, height: H * 0.04, fontSize: 30, letterSpacing: 10, fontWeight: 700, x: W * 0.08, width: W * 0.84 }),
+    ],
+  }),
+
   // ===== Family 1 — 2 top + 2 bottom + center text =====
   tpl({
     id: 'f1-center-white-badge',

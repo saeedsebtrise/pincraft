@@ -4,7 +4,7 @@ import { EditorScreen } from './editor/Editor';
 import { useLibrary } from './store/libraryStore';
 import { ErrorBoundary, Toasts } from './ui/controls';
 
-/** Hash routes: #/  #/templates  #/brand  #/new?template=…  #/editor/:id */
+/** Hash routes: #/  #/projects  #/templates?q=…  #/brand  #/new?type=…|template=…  #/editor/:id */
 function parseRoute(hash: string): { screen: 'editor'; id: string } | { screen: DashTab; params: URLSearchParams } {
   const [path, query = ''] = hash.replace(/^#/, '').split('?');
   const params = new URLSearchParams(query);
@@ -12,8 +12,9 @@ function parseRoute(hash: string): { screen: 'editor'; id: string } | { screen: 
   if (m) return { screen: 'editor', id: m[1] };
   if (path.startsWith('/templates')) return { screen: 'templates', params };
   if (path.startsWith('/brand')) return { screen: 'brand', params };
+  if (path.startsWith('/projects')) return { screen: 'projects', params };
   if (path.startsWith('/new')) return { screen: 'new', params };
-  return { screen: 'projects', params };
+  return { screen: 'home', params };
 }
 
 export function App() {

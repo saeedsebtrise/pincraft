@@ -1,41 +1,40 @@
 import {
-  ArrowLeft, Check, Cloud, Copy, Download, Eye, FolderOpen, Image as ImageIcon, LayoutGrid, LayoutTemplate,
-  Layers, Loader2, Palette, PaintBucket, Redo2, Save, Shapes, Sparkles, Type, Undo2, Upload,
+  FolderOpen, Home, Layers, LayoutGrid, LayoutTemplate, Loader2, PaintBucket, Palette, Shapes, Type, Upload,
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
-import { STATUS_LABEL, findPreset } from '../config/canvasPresets';
 import { useEditor } from '../store/editorStore';
 import { useLibrary } from '../store/libraryStore';
-import { saveProject } from '../store/projectActions';
-import { useUi, type LeftTab, type ModalName } from '../store/uiStore';
+import { useUi, type LeftTab } from '../store/uiStore';
 import { repos } from '../storage/repositories';
 import { docTextLayers, ensureFonts } from '../services/fonts';
-import { ErrorBoundary, IconButton } from '../ui/controls';
+import { ErrorBoundary } from '../ui/controls';
 import { EditorCanvas } from './canvas/EditorCanvas';
 import { useAutosave, usePasteImages, useProjectAssets, useShortcuts } from './hooks';
 import { importAndPlace } from './importImages';
+import { AiAssistantModal } from './modals/AiAssistantModal';
 import { ExportModal } from './modals/ExportModal';
 import { PreviewModal } from './modals/PreviewModal';
 import { SaveTemplateModal } from './modals/SaveTemplateModal';
 import { VariationsModal } from './modals/VariationsModal';
 import { BackgroundPanel, BrandPanel, ElementsPanel, ProjectsPanel } from './panels/MiscPanels';
-import { LayersPanel } from './panels/LayersPanel';
 import { LayoutsPanel } from './panels/LayoutsPanel';
 import { TemplatesPanel } from './panels/TemplatesPanel';
 import { TextPanel } from './panels/TextPanel';
 import { UploadsPanel } from './panels/UploadsPanel';
 import { PropertiesPanel } from './properties/PropertiesPanel';
+import { CanvasActions, ToolStrip } from './shell/CanvasTools';
+import { PageStrip } from './shell/PageStrip';
+import { TopBar } from './shell/TopBar';
 
 const TABS: { id: LeftTab; label: string; icon: React.ReactNode }[] = [
-  { id: 'templates', label: 'Templates', icon: <LayoutTemplate size={20} /> },
-  { id: 'uploads', label: 'Uploads', icon: <Upload size={20} /> },
-  { id: 'layouts', label: 'Layouts', icon: <LayoutGrid size={20} /> },
-  { id: 'text', label: 'Text', icon: <Type size={20} /> },
-  { id: 'brand', label: 'Brand Kit', icon: <Palette size={20} /> },
-  { id: 'background', label: 'Background', icon: <PaintBucket size={20} /> },
-  { id: 'elements', label: 'Elements', icon: <Shapes size={20} /> },
-  { id: 'layers', label: 'Layers', icon: <Layers size={20} /> },
-  { id: 'projects', label: 'Projects', icon: <FolderOpen size={20} /> },
+  { id: 'templates', label: 'Templates', icon: <LayoutTemplate size={22} /> },
+  { id: 'layouts', label: 'Layouts', icon: <LayoutGrid size={22} /> },
+  { id: 'uploads', label: 'Uploads', icon: <Upload size={22} /> },
+  { id: 'text', label: 'Text', icon: <Type size={22} /> },
+  { id: 'elements', label: 'Elements', icon: <Shapes size={22} /> },
+  { id: 'background', label: 'Background', icon: <PaintBucket size={22} /> },
+  { id: 'brand', label: 'Brand Kit', icon: <Palette size={22} /> },
+  { id: 'projects', label: 'Projects', icon: <FolderOpen size={22} /> },
 ];
 
 export function EditorScreen({ projectId }: { projectId: string }) {
@@ -84,7 +83,7 @@ export function EditorScreen({ projectId }: { projectId: string }) {
   if (!project || project.id !== projectId) {
     return (
       <div className="error-screen">
-        <Loader2 className="spin" aria-label="Loading" />
+        <Loader2 aria-label="Loading" />
       </div>
     );
   }
@@ -107,21 +106,28 @@ function EditorLoaded() {
 
   // Load fonts whenever the document starts using a new face.
   const doc = useEditor((s) => s.project!.doc);
-  const fontSig = doc.layers.filter((l) => l.type === 'text').map((l) => (l.type === 'text' ? `${l.fontFamily}${l.fontWeight}${l.italic}` : '')).join('|');
+  const fontSig = doc.layers.map((l) => (l.type === 'text' ? `${l.fontFamily}${l.fontWeight}${l.italic}` : '')).join('|');
   useEffect(() => {
-    const doc = useEditor.getState().project?.doc;
-    if (doc) ensureFonts(docTextLayers(doc)).then(() => useUi.getState().bumpFonts());
+    const current = useEditor.getState().project?.doc;
+    if (current) ensureFonts(docTextLayers(current)).then(() => useUi.getState().bumpFonts());
   }, [fontSig]);
+
+  const panelError = (e: Error, reset: () => void) => <PanelError message={e.message} reset={reset} />;
 
   return (
     <div className="editor">
       <TopBar />
       <div className={`editor-body ${panelOpen ? '' : 'panel-closed'}`}>
         <nav className="rail" aria-label="Editor tools">
+          <a className="rail-item" href="#/">
+            <Home size={22} />
+            Home
+          </a>
           {TABS.map((t) => (
             <button
               key={t.id}
               type="button"
+              className="rail-item"
               aria-pressed={tab === t.id && panelOpen}
               onClick={() => {
                 if (tab === t.id) setPanelOpen((o) => !o);
@@ -135,27 +141,38 @@ function EditorLoaded() {
               {t.label}
             </button>
           ))}
+          <div className="grow" />
+          <button type="button" className="rail-item" onClick={() => ui.set({ modal: 'variations' })}>
+            <Layers size={22} />
+            Variations
+          </button>
         </nav>
         <aside className="side-panel" aria-label={`${tab} panel`}>
           {panelOpen && (
-            <ErrorBoundary fallback={(e, reset) => <PanelError message={e.message} reset={reset} />}>
-              {tab === 'templates' && <TemplatesPanel />}
+            <ErrorBoundary fallback={panelError}>
+              {tab === 'templates' && <TemplatesPanel onClose={() => setPanelOpen(false)} />}
               {tab === 'uploads' && <UploadsPanel />}
               {tab === 'layouts' && <LayoutsPanel />}
               {tab === 'text' && <TextPanel />}
               {tab === 'brand' && <BrandPanel />}
               {tab === 'background' && <BackgroundPanel />}
               {tab === 'elements' && <ElementsPanel />}
-              {tab === 'layers' && <LayersPanel />}
               {tab === 'projects' && <ProjectsPanel />}
             </ErrorBoundary>
           )}
         </aside>
-        <ErrorBoundary fallback={(e, reset) => <PanelError message={e.message} reset={reset} />}>
-          <EditorCanvas />
-        </ErrorBoundary>
+        <main className="work-column">
+          <div className="work-area">
+            <ToolStrip />
+            <ErrorBoundary fallback={panelError}>
+              <EditorCanvas />
+            </ErrorBoundary>
+            <CanvasActions />
+          </div>
+          <PageStrip />
+        </main>
         <aside className="props" aria-label="Properties">
-          <ErrorBoundary fallback={(e, reset) => <PanelError message={e.message} reset={reset} />}>
+          <ErrorBoundary fallback={panelError}>
             <PropertiesPanel />
           </ErrorBoundary>
         </aside>
@@ -164,6 +181,7 @@ function EditorLoaded() {
       {ui.modal === 'preview' && <PreviewModal />}
       {ui.modal === 'variations' && <VariationsModal />}
       {ui.modal === 'saveTemplate' && <SaveTemplateModal />}
+      {ui.modal === 'aiAssistant' && <AiAssistantModal />}
     </div>
   );
 }
@@ -177,78 +195,5 @@ function PanelError({ message, reset }: { message: string; reset: () => void }) 
         Retry
       </button>
     </div>
-  );
-}
-
-function TopBar() {
-  const project = useEditor((s) => s.project!);
-  const canUndo = useEditor((s) => s.past.length > 0);
-  const canRedo = useEditor((s) => s.future.length > 0);
-  const saveState = useUi((s) => s.saveState);
-  const setModal = (m: ModalName) => useUi.getState().set({ modal: m });
-  const custom = useLibrary((s) => s.customPresets);
-  const preset = findPreset(project.doc.presetId, custom);
-  const [name, setName] = useState(project.name);
-  useEffect(() => setName(project.name), [project.name]);
-
-  return (
-    <header className="topbar">
-      <a className="btn btn-ghost btn-sm" href="#/" aria-label="Back to dashboard" data-tip="Dashboard">
-        <ArrowLeft size={16} />
-        <span className="logo-mark" style={{ width: 24, height: 24, borderRadius: 6 }}>
-          <ImageIcon size={14} />
-        </span>
-      </a>
-      <input
-        className="name-input"
-        value={name}
-        aria-label="Project name"
-        onChange={(e) => setName(e.target.value)}
-        onBlur={() => name.trim() && name !== project.name && useEditor.getState().updateProject({ name: name.trim() })}
-        onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
-      />
-      <span className="chip hide-sm" title={preset?.description}>
-        {project.doc.width}×{project.doc.height} · {preset ? STATUS_LABEL[preset.status] : 'Custom'}
-      </span>
-      <span className="save-state hide-sm" aria-live="polite">
-        {saveState === 'saving' ? <Loader2 size={13} /> : saveState === 'error' ? <Cloud size={13} /> : <Check size={13} />}
-        {saveState === 'saving' ? 'Saving…' : saveState === 'error' ? 'Save failed' : 'Saved'}
-      </span>
-      <div className="grow" />
-      <IconButton label="Undo (Ctrl+Z)" onClick={() => useEditor.getState().undo()} disabled={!canUndo}>
-        <Undo2 size={17} />
-      </IconButton>
-      <IconButton label="Redo (Ctrl+Shift+Z)" onClick={() => useEditor.getState().redo()} disabled={!canRedo}>
-        <Redo2 size={17} />
-      </IconButton>
-      <span className="tb-sep" />
-      <button className="btn btn-sm hide-sm" onClick={() => setModal('variations')} data-tip="Create a fresh variation or batch">
-        <Sparkles size={15} /> Fresh Variation
-      </button>
-      <button className="btn btn-sm hide-sm" onClick={() => setModal('saveTemplate')} data-tip="Save this design as a reusable template">
-        <Copy size={15} /> Save as Template
-      </button>
-      <button className="btn btn-sm" onClick={() => setModal('preview')} data-tip="Full size and mobile feed preview">
-        <Eye size={15} /> Preview
-      </button>
-      <button
-        className="btn btn-sm"
-        data-tip="Save now (autosave is on)"
-        aria-label="Save"
-        onClick={async () => {
-          try {
-            await saveProject(useEditor.getState().project!);
-            useUi.getState().toast('Project saved', 'success');
-          } catch {
-            useUi.getState().toast('Saving failed — browser storage may be full.', 'error');
-          }
-        }}
-      >
-        <Save size={15} /> <span className="hide-sm">Save</span>
-      </button>
-      <button className="btn btn-primary btn-sm" onClick={() => setModal('export')}>
-        <Download size={15} /> Export
-      </button>
-    </header>
   );
 }

@@ -1,3 +1,5 @@
+import { ACCENT_WORDS } from '../model/docOps';
+
 /**
  * Local, rule-based Pin headline suggestions. Runs entirely in the browser and
  * is always available; the AI provider (services/ai) adds to it when enabled.
@@ -9,7 +11,8 @@ export interface HeadlineInput {
   audience?: string;
 }
 
-const TRAILING_CLAUSE = /\s+(?:to|for|that|which|you|when|if|in\s+\d{4}|this|from|with)\s+.*$/i;
+const TRAILING_CLAUSE = /\s+((?:to|for|that|which|you|when|if|in\s+\d{4}|this|from|with)\s+.*)$/i;
+const UNCOUNTABLE = /^(decor|makeup|hair|furniture|clothing|inspiration|inspo|skincare|art|lighting|storage)$/i;
 const SEPARATORS = /\s*(?:[:|–—]|\s-\s|\().*$/;
 const LIST_NOUNS = ['ideas', 'ways', 'tips', 'looks', 'styles', 'designs', 'recipes', 'outfits', 'hacks', 'examples', 'inspo'];
 const ADJECTIVES = ['Chic', 'Stunning', 'Easy', 'Gorgeous', 'Best'];
@@ -35,24 +38,35 @@ function pluralize(word: string): string {
 
 export interface ParsedTitle {
   number: string | null;
+  /** Leading descriptive word ("Stunning", "Minimalist"), if any. */
+  descriptor: string | null;
   subject: string;
   listNoun: string | null;
   core: string;
+  /** What follows the core ("to Take to Your Next Salon Appointment"), used for subtitles. */
+  tail: string;
 }
 
 export function parseTitle(title: string): ParsedTitle {
   let t = title.replace(/\s+/g, ' ').trim().replace(/[.!?]+$/, '');
+  const sep = t.match(SEPARATORS);
+  let tail = sep ? sep[0].replace(/^\s*[:|–—(-]\s*/, '').replace(/\)$/, '') : '';
   t = t.replace(SEPARATORS, '');
   const numberMatch = t.match(/^(\d+\+?)\s+/);
   const number = numberMatch ? numberMatch[1] : null;
   let rest = number ? t.slice(numberMatch![0].length) : t;
-  rest = rest.replace(TRAILING_CLAUSE, '').trim() || rest;
+  const clause = rest.match(TRAILING_CLAUSE);
+  if (clause && rest.replace(TRAILING_CLAUSE, '').trim()) {
+    tail = tail || clause[1];
+    rest = rest.replace(TRAILING_CLAUSE, '').trim();
+  }
   const words = rest.split(' ');
   const last = words[words.length - 1]?.toLowerCase() ?? '';
   const listNoun = LIST_NOUNS.includes(last) ? words.pop()! : null;
+  const descriptor = words.length > 1 && ACCENT_WORDS.test(words[0]) ? words.shift()! : null;
   const subject = words.join(' ').replace(/^(the|best|top)\s+/i, '');
   const core = [number, rest].filter(Boolean).join(' ');
-  return { number, subject, listNoun, core };
+  return { number, descriptor, subject, listNoun, core, tail: tail.trim() };
 }
 
 /** Returns up to `max` short, distinct overlay headlines for an article title. */
@@ -71,7 +85,8 @@ export function suggestHeadlines(input: HeadlineInput, max = 8): string[] {
   push(core);
   if (subj) {
     const words = subj.split(' ');
-    const pluralSubject = [...words.slice(0, -1), pluralize(words[words.length - 1])].join(' ');
+    const lastWord = words[words.length - 1];
+    const pluralSubject = UNCOUNTABLE.test(lastWord) ? `${subj} ${noun}` : [...words.slice(0, -1), pluralize(lastWord)].join(' ');
     if (number) {
       push(`${number} ${subj} ${noun}`);
       push(`${number} ${ADJECTIVES[0]} ${pluralSubject}`);
@@ -88,6 +103,54 @@ export function suggestHeadlines(input: HeadlineInput, max = 8): string[] {
   }
   if (title.length <= 60) push(title);
   return out.slice(0, max);
+}
+
+const TOPIC_SUBTITLES: [RegExp, string[]][] = [
+  [/hair|haircut|bob\b|lob\b|braid|bangs|balayage|blonde|bronde|brunette/i, ['For Your Next Salon Appointment', 'Easy Looks to Show Your Stylist', 'Low-Maintenance Styles You’ll Love']],
+  [/decor|room|balcon|patio|home|kitchen|bedroom|living/i, ['To Transform Your Space', 'Easy Ideas for Every Budget', 'Cozy Inspiration to Save Now']],
+  [/outfit|fashion|wear|wardrobe/i, ['Easy Looks to Recreate', 'Effortless Outfits for Every Day']],
+  [/recipe|dinner|meal|food|bake|chicken|pasta/i, ['Easy Recipes Ready in 30 Minutes', 'Simple Weeknight Favorites']],
+  [/makeup|nail|skin|beauty/i, ['Easy Looks to Try This Week', 'Pretty Ideas for Every Occasion']],
+  [/love|relationship|marriage|dating|couple/i, ['Simple Habits for a Stronger Bond', 'Advice Worth Saving']],
+];
+
+/** Short supporting lines for under a headline (subtitle / ribbon text). */
+export function suggestSubtitles(input: HeadlineInput, max = 6): string[] {
+  const title = input.articleTitle.trim();
+  if (!title) return [];
+  const { tail } = parseTitle(title);
+  const out: string[] = [];
+  const push = (v: string) => {
+    const c = titleCase(v.replace(/\s+/g, ' ').trim());
+    if (c && c.length <= 48 && !out.some((o) => o.toLowerCase() === c.toLowerCase())) out.push(c);
+  };
+  if (tail) push(tail);
+  const topic = `${title} ${input.keyword ?? ''}`;
+  for (const [re, lines] of TOPIC_SUBTITLES) if (re.test(topic)) lines.forEach(push);
+  ['Ideas You’ll Want to Save', 'Everything You Need to Know', 'Simple Ideas You Can Copy'].forEach(push);
+  return out.slice(0, max);
+}
+
+/** Longer, sentence-style alternatives of the headline (title cards, Pin titles). */
+export function suggestVariations(input: HeadlineInput, max = 6): string[] {
+  const title = input.articleTitle.trim();
+  if (!title) return [];
+  const { number, descriptor, subject, listNoun, tail } = parseTitle(title);
+  const subj = titleCase(subject || input.keyword || '');
+  if (!subj) return [];
+  const noun = listNoun ? titleCase(listNoun) : 'Ideas';
+  const n = number ? `${number} ` : '';
+  const benefit = titleCase(tail || suggestSubtitles(input, 1)[0] || 'You’ll Love');
+  const adj = [...new Set([descriptor ? titleCase(descriptor) : 'Stunning', 'Beautiful', 'Creative', 'Easy', 'Gorgeous'])];
+  const out = [
+    `${n}${adj[0]} ${subj} ${noun} ${benefit}`,
+    `${n}${adj[1]} ${subj} ${noun} ${benefit}`,
+    `${n}${adj[2]} ${subj} ${noun}`,
+    number ? `${subj} ${noun}: ${number} ${adj[3]} Ideas to Try` : `${adj[3]} ${subj} ${noun} to Try Today`,
+    `The Ultimate Guide to ${subj} ${noun}`,
+    `${n}${adj[4]} ${subj} ${noun} You Need to See`,
+  ].map((v) => titleCase(v.replace(/\s+/g, ' ').trim()).replace(/: (\w)/, (_, c: string) => `: ${c.toUpperCase()}`));
+  return [...new Set(out)].slice(0, max);
 }
 
 export function suggestCtas(website?: string): string[] {

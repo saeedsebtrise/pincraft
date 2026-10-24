@@ -235,6 +235,10 @@ export function readHeadline(doc: PinDocument): string {
   return [badge, accent, main].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
 }
 
+export function setRoleText(doc: PinDocument, role: TextLayer['role'], text: string): PinDocument {
+  return { ...doc, layers: doc.layers.map((l) => (isText(l) && l.role === role ? { ...l, text } : l)) };
+}
+
 export function setWebsite(doc: PinDocument, website: string): PinDocument {
   if (!website) return doc;
   return {
@@ -250,6 +254,8 @@ export interface InstantiateOptions {
   assetIds?: Id[];
   assetMetas?: Record<Id, AssetMeta>;
   headline?: string;
+  /** Supporting line for layers with role "subtitle" (e.g. the rest of the article title). */
+  subtitle?: string;
   website?: string;
   brand?: BrandKit | null;
 }
@@ -263,6 +269,7 @@ export function instantiateTemplate(template: Template, o: InstantiateOptions): 
   if (o.headline) doc = applyHeadline(doc, o.headline);
   const site = o.website || o.brand?.website;
   if (site) doc = setWebsite(doc, site);
+  if (o.subtitle) doc = setRoleText(doc, 'subtitle', o.subtitle);
   if (o.assetIds?.length) doc = assignImages(doc, o.assetIds, o.assetMetas ?? {}, { onlyEmpty: true });
   return doc;
 }
@@ -285,6 +292,7 @@ export function switchTemplate(
   const ordered = [...new Set([...used, ...projectAssetIds])];
   const headline = readHeadline(current);
   const website = current.layers.find((l): l is TextLayer => isText(l) && l.role === 'website')?.text;
+  const subtitle = current.layers.find((l): l is TextLayer => isText(l) && l.role === 'subtitle')?.text;
   return instantiateTemplate(template, {
     width: current.width,
     height: current.height,
@@ -292,6 +300,7 @@ export function switchTemplate(
     assetIds: ordered,
     assetMetas: metas,
     headline,
+    subtitle,
     website,
     brand,
   });

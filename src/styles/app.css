@@ -1,27 +1,29 @@
 /* ===== Design tokens ===== */
 :root {
-  --bg: #f4f3f1;
+  --bg: #f3f5f9;
   --surface: #ffffff;
-  --surface-2: #f8f7f5;
-  --surface-3: #efeeeb;
-  --border: #e3e1dd;
-  --border-strong: #cfccc6;
-  --text: #1c1b19;
-  --text-2: #5f5b55;
-  --text-3: #8f8a83;
-  --accent: #e60023; /* Pinterest red, used sparingly for primary actions */
-  --accent-hover: #c8001e;
-  --accent-soft: #fde8eb;
-  --focus: #2f6fed;
+  --surface-2: #f8f9fc;
+  --surface-3: #eef1f6;
+  --border: #e4e7ee;
+  --border-strong: #cdd3de;
+  --text: #1f2433;
+  --text-2: #5b6275;
+  --text-3: #8d93a5;
+  --accent: #ee4b7f; /* PinCraft pink: primary actions, active states */
+  --accent-hover: #dd3a6e;
+  --accent-strong: #e0245e; /* Export */
+  --accent-soft: #fdeaf1;
+  --slider: #3b82f6;
+  --focus: #3b82f6;
   --success: #12805c;
   --warning: #b54708;
   --warning-soft: #fef3e2;
   --danger: #d92d20;
-  --selection: #2f6fed;
+  --selection: #3b82f6;
 
   --r-sm: 6px;
   --r-md: 10px;
-  --r-lg: 14px;
+  --r-lg: 16px;
   --r-pill: 999px;
 
   --s-1: 4px;
@@ -43,10 +45,10 @@
   --fs-lg: 16px;
   --fs-xl: 22px;
 
-  --topbar-h: 56px;
-  --rail-w: 72px;
-  --panel-w: 320px;
-  --props-w: 300px;
+  --topbar-h: 68px;
+  --rail-w: 92px;
+  --panel-w: 330px;
+  --props-w: 330px;
 }
 
 * { box-sizing: border-box; }
@@ -121,7 +123,7 @@ a { color: inherit; }
 .unit { font-size: var(--fs-xs); color: var(--text-3); }
 
 .range-row { display: grid; grid-template-columns: 1fr 52px; gap: 8px; align-items: center; }
-input[type='range'] { width: 100%; accent-color: var(--text); }
+input[type='range'] { width: 100%; accent-color: var(--slider); }
 
 .seg { display: inline-flex; background: var(--surface-3); border-radius: var(--r-sm); padding: 2px; gap: 2px; }
 .seg button {
@@ -133,7 +135,7 @@ input[type='range'] { width: 100%; accent-color: var(--text); }
 .toggle { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: var(--fs-sm); cursor: pointer; }
 .toggle input { width: 34px; height: 20px; appearance: none; background: var(--border-strong); border-radius: 999px; position: relative; cursor: pointer; flex: none; transition: background .15s; }
 .toggle input::after { content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: transform .15s; box-shadow: var(--shadow-sm); }
-.toggle input:checked { background: var(--text); }
+.toggle input:checked { background: var(--accent); }
 .toggle input:checked::after { transform: translateX(14px); }
 
 /* ===== Layout helpers ===== */

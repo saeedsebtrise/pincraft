@@ -138,6 +138,21 @@ export function BrandPanel() {
 }
 
 export function BackgroundPanel() {
+  return (
+    <div>
+      <div className="panel-head">
+        <h2>Background</h2>
+      </div>
+      <div className="panel-section">
+        <BackgroundControls />
+        <span className="subtle">The background shows through collage gaps, so it doubles as the divider color.</span>
+      </div>
+    </div>
+  );
+}
+
+/** Background type + color/gradient/image controls (used by the Background tab and the Design panel). */
+export function BackgroundControls() {
   const doc = useEditor((s) => s.project!.doc);
   const assetIds = useEditor((s) => s.project!.assetIds);
   const kit = useLibrary((s) => s.activeKit());
@@ -146,12 +161,8 @@ export function BackgroundPanel() {
   const brandColors = [kit.primary, kit.secondary, kit.accent];
 
   return (
-    <div>
-      <div className="panel-head">
-        <h2>Background</h2>
-      </div>
-      <div className="panel-section">
-        <div className="seg" role="group" aria-label="Background type">
+    <>
+        <div className="seg seg-wide" role="group" aria-label="Background type">
           {(['solid', 'gradient', 'image', 'transparent'] as const).map((t) => (
             <button key={t} type="button" aria-pressed={bg.type === t} onClick={() => set({ type: t })}>
               {t[0].toUpperCase() + t.slice(1)}
@@ -180,9 +191,7 @@ export function BackgroundPanel() {
           </div>
         )}
         {bg.type === 'transparent' && <span className="subtle">Transparent backgrounds export only as PNG. Pinterest Pins normally use an opaque background.</span>}
-        <span className="subtle">The background shows through collage gaps, so it doubles as the divider color.</span>
-      </div>
-    </div>
+    </>
   );
 }
 

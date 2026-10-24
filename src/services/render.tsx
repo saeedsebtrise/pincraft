@@ -61,7 +61,9 @@ export async function renderDocToCanvas(doc: PinDocument, o: RenderOptions): Pro
         </Stage>,
       );
     });
-    await new Promise((r) => requestAnimationFrame(() => r(null)));
+    // flushSync has committed the tree and layout effects (filter caches); toCanvas draws synchronously.
+    // Don't wait for requestAnimationFrame: it never fires in a background tab and would hang the export.
+    await Promise.resolve();
     if (!stage) throw new Error('Renderer failed to initialise');
     return (stage as Konva.Stage).toCanvas({ x: 0, y: 0, width: doc.width, height: doc.height, pixelRatio: o.pixelRatio ?? 1 });
   } finally {

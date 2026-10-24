@@ -1,53 +1,131 @@
-import { Copy, Image as ImageIcon, MoreHorizontal, Pencil, Plus, Trash2, X } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { ArrowRight, Copy, FolderOpen, Home, Image as ImageIcon, LayoutTemplate, MoreHorizontal, Palette, Pencil, Plus, PlusCircle, Search, Trash2, X } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { DESIGN_TYPES, type DesignType } from '../config/designTypes';
 import type { BrandKit, Project } from '../model/types';
-import { duplicateProject } from '../store/projectActions';
+import { allTemplates, duplicateProject } from '../store/projectActions';
 import { useLibrary } from '../store/libraryStore';
 import { useUi } from '../store/uiStore';
 import { deleteProjectAndOrphans, repos } from '../storage/repositories';
 import { BrandKitEditor } from '../editor/panels/MiscPanels';
+import { BrandMark } from '../ui/BrandMark';
 import { IconButton } from '../ui/controls';
-import { TemplateGallery } from './TemplateGallery';
+import { TemplateCard, TemplateGallery } from './TemplateGallery';
 import { NewPinFlow } from './NewPinFlow';
-import type { DesignType } from '../config/designTypes';
+import { TypeCard } from './TypeCard';
 
-export type DashTab = 'projects' | 'templates' | 'brand' | 'new';
+export type DashTab = 'home' | 'projects' | 'templates' | 'brand' | 'new';
+
+const NAV: { id: DashTab; label: string; href: string; icon: React.ReactNode }[] = [
+  { id: 'home', label: 'Home', href: '#/', icon: <Home size={18} /> },
+  { id: 'new', label: 'Create New', href: '#/new', icon: <PlusCircle size={18} /> },
+  { id: 'templates', label: 'Templates', href: '#/templates', icon: <LayoutTemplate size={18} /> },
+  { id: 'brand', label: 'Brand Kit', href: '#/brand', icon: <Palette size={18} /> },
+  { id: 'projects', label: 'Projects', href: '#/projects', icon: <FolderOpen size={18} /> },
+];
+
+/** Design types shown on the home screen (the full list of 16 is in Create New). */
+const HOME_TYPES: DesignType[] = ['single-image', 'image-text-overlay', 'image-text-panel', 'collage-4', 'editorial', 'listicle', 'quote-advice', 'number-badge', 'script-bold', 'blank'];
+const POPULAR = ['f2-balcony-white', 'f3-editorial-white-blocks', 'f4-text-first-number', 'f5-script-bold-white-band', 'f1-center-cream-script', 'f9-patio-band-23'];
 
 export function Dashboard({ tab, params }: { tab: DashTab; params: URLSearchParams }) {
+  const [query, setQuery] = useState(params.get('q') ?? '');
+  useEffect(() => setQuery(params.get('q') ?? ''), [params]);
   return (
-    <div className="dash">
-      <header className="dash-top">
-        <a href="#/" className="logo" style={{ textDecoration: 'none' }}>
-          <span className="logo-mark">
-            <ImageIcon size={17} />
+    <div className="dash2">
+      <aside className="dash-side" aria-label="Main">
+        <a href="#/" className="brand">
+          <BrandMark size={40} />
+          <span className="brand-text">
+            <strong>PinCraft</strong>
+            <span>Pinterest Design Studio</span>
           </span>
-          PinForge
         </a>
-        <nav className="dash-nav" aria-label="Main">
-          <button aria-current={tab === 'projects' ? 'page' : undefined} onClick={() => (location.hash = '#/')}>
-            Projects
-          </button>
-          <button aria-current={tab === 'templates' ? 'page' : undefined} onClick={() => (location.hash = '#/templates')}>
-            Templates
-          </button>
-          <button aria-current={tab === 'brand' ? 'page' : undefined} onClick={() => (location.hash = '#/brand')}>
-            Brand Kit
-          </button>
+        <nav className="dash-side-nav">
+          {NAV.map((n) => (
+            <a key={n.id} href={n.href} className="dash-side-item" aria-current={tab === n.id ? 'page' : undefined}>
+              {n.icon}
+              {n.label}
+            </a>
+          ))}
         </nav>
-        <div className="grow" />
-        <a className="btn btn-primary" href="#/new">
-          <Plus size={16} /> Create New Pin
-        </a>
-      </header>
-      {tab === 'projects' && <ProjectsHome />}
-      {tab === 'templates' && (
-        <div className="dash-main">
-          <h1 style={{ fontSize: 24 }}>Template gallery</h1>
-          <TemplateGallery onUse={(t) => (location.hash = `#/new?template=${t.id}`)} />
+      </aside>
+      <div className="dash-content">
+        <header className="dash-top2">
+          <form
+            className="search-box dash-search"
+            role="search"
+            onSubmit={(e) => {
+              e.preventDefault();
+              location.hash = `#/templates?q=${encodeURIComponent(query.trim())}`;
+            }}
+          >
+            <Search size={17} />
+            <input placeholder="Search templates (e.g. balcony, hair, decor, listicle…)" value={query} onChange={(e) => setQuery(e.target.value)} aria-label="Search templates" />
+          </form>
+          <div className="grow" />
+          <a className="btn btn-pink btn-lg" href="#/new">
+            <Plus size={18} /> Create New Pin
+          </a>
+        </header>
+        {tab === 'home' && <HomeScreen />}
+        {tab === 'projects' && (
+          <div className="dash-main">
+            <h1 className="dash-h1">Projects</h1>
+            <ProjectGrid />
+          </div>
+        )}
+        {tab === 'templates' && (
+          <div className="dash-main">
+            <h1 className="dash-h1">Template gallery</h1>
+            <TemplateGallery key={params.get('q') ?? ''} initialQuery={params.get('q') ?? ''} onUse={(t) => (location.hash = `#/new?template=${t.id}`)} />
+          </div>
+        )}
+        {tab === 'brand' && <BrandHome />}
+        {tab === 'new' && <NewPinFlow key={params.toString()} initialTemplateId={params.get('template') ?? undefined} initialType={(params.get('type') as DesignType) ?? undefined} />}
+      </div>
+    </div>
+  );
+}
+
+function HomeScreen() {
+  const popular = useMemo(() => POPULAR.map((id) => allTemplates().find((t) => t.id === id)).filter((t): t is NonNullable<typeof t> => !!t), []);
+  return (
+    <div className="dash-main">
+      <section className="card home-hero">
+        <div className="stack-sm">
+          <h1 className="dash-h1">Create Stunning Pinterest Pins</h1>
+          <p className="muted">Choose a design type to get started</p>
         </div>
-      )}
-      {tab === 'brand' && <BrandHome />}
-      {tab === 'new' && <NewPinFlow key={params.toString()} initialTemplateId={params.get('template') ?? undefined} initialType={(params.get('type') as DesignType) ?? undefined} />}
+        <div className="home-types" role="radiogroup" aria-label="Design type">
+          {HOME_TYPES.map((id) => {
+            const def = DESIGN_TYPES.find((d) => d.id === id)!;
+            return <TypeCard key={id} def={def} compact onPick={() => (location.hash = `#/new?type=${id}`)} />;
+          })}
+        </div>
+      </section>
+      <Onboarding />
+      <section className="stack">
+        <div className="row-between">
+          <h2 className="dash-h2">Popular Templates</h2>
+          <a className="link-pink" href="#/templates">
+            See All <ArrowRight size={15} />
+          </a>
+        </div>
+        <div className="popular-row">
+          {popular.map((t) => (
+            <TemplateCard key={t.id} t={t} compact onUse={(x) => (location.hash = `#/new?template=${x.id}`)} />
+          ))}
+        </div>
+      </section>
+      <section className="stack">
+        <div className="row-between">
+          <h2 className="dash-h2">Recent projects</h2>
+          <a className="link-pink" href="#/projects">
+            All projects <ArrowRight size={15} />
+          </a>
+        </div>
+        <ProjectGrid limit={8} />
+      </section>
     </div>
   );
 }
@@ -59,7 +137,7 @@ function Onboarding() {
   return (
     <section className="stack-sm" aria-label="Getting started">
       <div className="row-between">
-        <h2 style={{ fontSize: 16 }}>Get started in four steps</h2>
+        <h2 className="dash-h2">Get started in four steps</h2>
         <IconButton label="Dismiss" onClick={() => useUi.getState().set({ onboardingDone: true })}>
           <X size={16} />
         </IconButton>
@@ -76,7 +154,7 @@ function Onboarding() {
   );
 }
 
-function ProjectsHome() {
+function ProjectGrid({ limit }: { limit?: number }) {
   const [projects, setProjects] = useState<Project[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [menu, setMenu] = useState<string | null>(null);
@@ -88,98 +166,82 @@ function ProjectsHome() {
   useEffect(() => {
     refresh();
   }, []);
+  const shown = limit ? projects?.slice(0, limit) : projects;
 
   return (
-    <div className="dash-main">
-      <div className="card hero-card">
-        <div className="stack-sm">
-          <h1>Design Pinterest Pins in minutes</h1>
-          <p className="muted">Collages, number-badge listicles, script + bold headlines, text overlays and editorial blocks — always fully editable.</p>
+    <>
+      {error && <div className="issue">{error}</div>}
+      {projects === null && !error && <span className="subtle">Loading…</span>}
+      {projects?.length === 0 && (
+        <div className="card" style={{ padding: 32, textAlign: 'center' }}>
+          <p className="muted">No Pins yet. Create your first one — it autosaves as you work.</p>
         </div>
-        <div className="row">
-          <a className="btn btn-lg" href="#/templates">
-            Browse templates
-          </a>
-          <a className="btn btn-primary btn-lg" href="#/new">
-            <Plus size={18} /> Create New Pin
-          </a>
-        </div>
-      </div>
-      <Onboarding />
-      <section className="stack">
-        <h2 style={{ fontSize: 18 }}>Recent projects</h2>
-        {error && <div className="issue">{error}</div>}
-        {projects === null && !error && <span className="subtle">Loading…</span>}
-        {projects?.length === 0 && (
-          <div className="card" style={{ padding: 32, textAlign: 'center' }}>
-            <p className="muted">No Pins yet. Create your first one — it autosaves as you work.</p>
-          </div>
-        )}
-        <div className="project-grid">
-          {projects?.map((p) => (
-            <div key={p.id} className="card project-card" onClick={() => (location.hash = `#/editor/${p.id}`)} role="link" tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && (location.hash = `#/editor/${p.id}`)} aria-label={`Open ${p.name}`}>
-              <div className="project-thumb" style={{ aspectRatio: `${p.doc.width} / ${p.doc.height}` }}>
-                {p.thumbnail ? <img src={p.thumbnail} alt="" /> : <ImageIcon className="subtle" />}
+      )}
+      <div className="project-grid">
+        {shown?.map((p) => (
+          <div key={p.id} className="card project-card" onClick={() => (location.hash = `#/editor/${p.id}`)} role="link" tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && (location.hash = `#/editor/${p.id}`)} aria-label={`Open ${p.name}`}>
+            <div className="project-thumb" style={{ aspectRatio: `${p.doc.width} / ${p.doc.height}` }}>
+              {p.thumbnail ? <img src={p.thumbnail} alt="" /> : <ImageIcon className="subtle" />}
+            </div>
+            <div className="project-meta" onClick={(e) => e.stopPropagation()}>
+              <div style={{ minWidth: 0 }}>
+                <strong title={p.name}>{p.name}</strong>
+                <span className="subtle">
+                  {p.doc.width}×{p.doc.height}
+                  {(p.pages?.length ?? 1) > 1 ? ` · ${p.pages.length} pages` : ''} · {new Date(p.meta.updatedAt).toLocaleDateString()}
+                </span>
               </div>
-              <div className="project-meta" onClick={(e) => e.stopPropagation()}>
-                <div style={{ minWidth: 0 }}>
-                  <strong title={p.name}>{p.name}</strong>
-                  <span className="subtle">
-                    {p.doc.width}×{p.doc.height} · {new Date(p.meta.updatedAt).toLocaleDateString()}
-                  </span>
-                </div>
-                <div style={{ position: 'relative' }}>
-                  <IconButton label="Project actions" onClick={() => setMenu(menu === p.id ? null : p.id)}>
-                    <MoreHorizontal size={16} />
-                  </IconButton>
-                  {menu === p.id && (
-                    <div className="popover stack-sm" style={{ right: 0, bottom: '100%', width: 180 }} role="menu">
-                      <button
-                        className="btn btn-ghost btn-sm"
-                        role="menuitem"
-                        onClick={async () => {
-                          const n = prompt('Rename project', p.name);
-                          if (n?.trim()) {
-                            await repos.projects.put({ ...p, name: n.trim() });
-                            refresh();
-                          }
-                          setMenu(null);
-                        }}
-                      >
-                        <Pencil size={14} /> Rename
-                      </button>
-                      <button
-                        className="btn btn-ghost btn-sm"
-                        role="menuitem"
-                        onClick={async () => {
-                          await duplicateProject(p);
-                          setMenu(null);
+              <div style={{ position: 'relative' }}>
+                <IconButton label="Project actions" onClick={() => setMenu(menu === p.id ? null : p.id)}>
+                  <MoreHorizontal size={16} />
+                </IconButton>
+                {menu === p.id && (
+                  <div className="popover menu" style={{ right: 0, bottom: '100%', width: 180 }} role="menu">
+                    <button
+                      className="menu-item"
+                      role="menuitem"
+                      onClick={async () => {
+                        const n = prompt('Rename project', p.name);
+                        if (n?.trim()) {
+                          await repos.projects.put({ ...p, name: n.trim() });
                           refresh();
-                        }}
-                      >
-                        <Copy size={14} /> Duplicate
-                      </button>
-                      <button
-                        className="btn btn-ghost btn-sm btn-danger"
-                        role="menuitem"
-                        onClick={async () => {
-                          setMenu(null);
-                          if (!confirm(`Delete “${p.name}”? This can't be undone.`)) return;
-                          await deleteProjectAndOrphans(p.id);
-                          refresh();
-                        }}
-                      >
-                        <Trash2 size={14} /> Delete
-                      </button>
-                    </div>
-                  )}
-                </div>
+                        }
+                        setMenu(null);
+                      }}
+                    >
+                      <Pencil size={14} /> Rename
+                    </button>
+                    <button
+                      className="menu-item"
+                      role="menuitem"
+                      onClick={async () => {
+                        await duplicateProject(p);
+                        setMenu(null);
+                        refresh();
+                      }}
+                    >
+                      <Copy size={14} /> Duplicate
+                    </button>
+                    <button
+                      className="menu-item btn-danger"
+                      role="menuitem"
+                      onClick={async () => {
+                        setMenu(null);
+                        if (!confirm(`Delete “${p.name}”? This can't be undone.`)) return;
+                        await deleteProjectAndOrphans(p.id);
+                        refresh();
+                      }}
+                    >
+                      <Trash2 size={14} /> Delete
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
-          ))}
-        </div>
-      </section>
-    </div>
+          </div>
+        ))}
+      </div>
+    </>
   );
 }
 
@@ -189,15 +251,15 @@ function BrandHome() {
   const [draft, setDraft] = useState<BrandKit>(kit);
   useEffect(() => setDraft(kit), [kit]);
   return (
-    <div className="dash-main" style={{ maxWidth: 640 }}>
-      <h1 style={{ fontSize: 24 }}>Brand Kit</h1>
+    <div className="dash-main" style={{ maxWidth: 680 }}>
+      <h1 className="dash-h1">Brand Kit</h1>
       <p className="muted">Your website, colors and fonts. Used by website footers, the color picker and “Apply brand”.</p>
       <div className="card" style={{ padding: 20 }}>
         <BrandKitEditor kit={draft} onChange={setDraft} />
       </div>
       <div className="row">
         <button
-          className="btn btn-dark"
+          className="btn btn-pink"
           onClick={async () => {
             await lib.saveBrandKit(draft);
             useUi.getState().toast('Brand Kit saved', 'success');
