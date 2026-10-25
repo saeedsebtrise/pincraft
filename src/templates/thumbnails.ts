@@ -74,3 +74,9 @@ export function templateThumbnail(t: Template, width = 260, photos?: PreviewPhot
   return cache.get(key)!;
 }
 
+/** Preview of any document with placeholder photos in its empty frames (Auto Design results). */
+export function docThumbnail(doc: PinDocument, width = 260): Promise<string> {
+  const { doc: filled, images } = fillFrames(doc);
+  return renderThumbnail(filled, width, images).catch(() => '');
+}
+

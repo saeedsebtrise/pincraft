@@ -143,6 +143,10 @@
 .search-box { flex: 1; display: flex; align-items: center; gap: 8px; height: 44px; border: 1px solid var(--border); border-radius: 12px; padding: 0 12px; color: var(--text-3); background: var(--surface); }
 .search-box:focus-within { border-color: var(--focus); }
 .search-box input { border: 0; outline: 0; flex: 1; min-width: 0; font-size: 14px; background: transparent; color: var(--text); }
+/* Auto Design: one big title field, Enter designs the Pins */
+.auto-input { flex: none; height: 58px; padding: 0 8px 0 16px; border-width: 1.5px; }
+.auto-input input { font-size: 16px; }
+.auto-card[data-checked='false'] { opacity: .55; }
 .search-row .icon-btn { width: 44px; height: 44px; border: 1px solid var(--border); border-radius: 12px; }
 .pill-row { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: thin; }
 .pill { flex: none; height: 34px; padding: 0 16px; border-radius: var(--r-pill); border: 1px solid var(--border); background: var(--surface-2); font-size: 13px; font-weight: 500; white-space: nowrap; cursor: pointer; color: var(--text); }

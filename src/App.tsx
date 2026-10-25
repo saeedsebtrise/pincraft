@@ -10,7 +10,7 @@ import { ErrorBoundary, Toasts } from './ui/controls';
 
 type Route = { screen: 'editor'; id: string } | { screen: 'auth'; view: AuthView } | { screen: DashTab; params: URLSearchParams };
 
-/** Hash routes: #/  #/projects  #/templates?q=…  #/brand  #/new?type=…|template=…  #/editor/:id
+/** Hash routes: #/  #/auto?q=…  #/projects  #/templates?q=…  #/brand  #/new?type=…|template=…  #/editor/:id
  *  #/account  #/pricing  #/login  #/signup  #/forgot  #/reset-password */
 function parseRoute(hash: string): Route {
   const [path, query = ''] = hash.replace(/^#/, '').split('?');
@@ -19,6 +19,7 @@ function parseRoute(hash: string): Route {
   if (m) return { screen: 'editor', id: m[1] };
   const auth: Record<string, AuthView> = { '/login': 'login', '/signup': 'signup', '/forgot': 'forgot', '/reset-password': 'reset' };
   if (auth[path]) return { screen: 'auth', view: auth[path] };
+  if (path.startsWith('/auto')) return { screen: 'auto', params };
   if (path.startsWith('/templates')) return { screen: 'templates', params };
   if (path.startsWith('/brand')) return { screen: 'brand', params };
   if (path.startsWith('/projects')) return { screen: 'projects', params };

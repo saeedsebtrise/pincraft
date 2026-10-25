@@ -1,4 +1,5 @@
-import { ArrowRight, Copy, CreditCard, FolderOpen, Home, Image as ImageIcon, LayoutTemplate, MoreHorizontal, Palette, Pencil, Plus, PlusCircle, Search, Settings, Trash2, X } from 'lucide-react';
+import { ArrowRight, Copy, CreditCard, FolderOpen, Home, Image as ImageIcon, LayoutTemplate, MoreHorizontal, Palette, Pencil, Plus, PlusCircle, Search, Settings, Sparkles, Trash2, Wand2, X } from 'lucide-react';
+import { AutoDesign } from './AutoDesign';
 import { ensureCanCreateProject, handleLimitError } from '../saas/gates';
 import { AccountPage, PricingPage, UpgradeButton, UserCard } from '../saas/ui/PlanViews';
 import { useEffect, useMemo, useState } from 'react';
@@ -15,10 +16,11 @@ import { TemplateCard, TemplateGallery } from './TemplateGallery';
 import { NewPinFlow } from './NewPinFlow';
 import { TypeCard } from './TypeCard';
 
-export type DashTab = 'home' | 'projects' | 'templates' | 'brand' | 'new' | 'account' | 'pricing';
+export type DashTab = 'home' | 'auto' | 'projects' | 'templates' | 'brand' | 'new' | 'account' | 'pricing';
 
 const NAV: { id: DashTab; label: string; href: string; icon: React.ReactNode }[] = [
   { id: 'home', label: 'Home', href: '#/', icon: <Home size={18} /> },
+  { id: 'auto', label: 'Auto Design', href: '#/auto', icon: <Wand2 size={18} /> },
   { id: 'new', label: 'Create New', href: '#/new', icon: <PlusCircle size={18} /> },
   { id: 'templates', label: 'Templates', href: '#/templates', icon: <LayoutTemplate size={18} /> },
   { id: 'brand', label: 'Brand Kit', href: '#/brand', icon: <Palette size={18} /> },
@@ -31,8 +33,10 @@ const HOME_TYPES: DesignType[] = ['single-image', 'image-text-overlay', 'image-t
 const POPULAR = ['f2-balcony-white', 'f3-editorial-white-blocks', 'f4-text-first-number', 'f5-script-bold-white-band', 'f1-center-cream-script', 'f9-patio-band-23'];
 
 export function Dashboard({ tab, params }: { tab: DashTab; params: URLSearchParams }) {
-  const [query, setQuery] = useState(params.get('q') ?? '');
-  useEffect(() => setQuery(params.get('q') ?? ''), [params]);
+  // ?q= is a template search only on the gallery (on Auto Design it's the article title).
+  const searchQuery = tab === 'templates' ? params.get('q') ?? '' : '';
+  const [query, setQuery] = useState(searchQuery);
+  useEffect(() => setQuery(searchQuery), [searchQuery]);
   return (
     <div className="dash2">
       <aside className="dash-side" aria-label="Main">
@@ -77,6 +81,7 @@ export function Dashboard({ tab, params }: { tab: DashTab; params: URLSearchPara
           </a>
         </header>
         {tab === 'home' && <HomeScreen />}
+        {tab === 'auto' && <AutoDesign key={params.get('q') ?? ''} initialTitle={params.get('q') ?? ''} />}
         {tab === 'projects' && (
           <div className="dash-main">
             <h1 className="dash-h1">Projects</h1>
@@ -100,8 +105,31 @@ export function Dashboard({ tab, params }: { tab: DashTab; params: URLSearchPara
 
 function HomeScreen() {
   const popular = useMemo(() => POPULAR.map((id) => allTemplates().find((t) => t.id === id)).filter((t): t is NonNullable<typeof t> => !!t), []);
+  const [title, setTitle] = useState('');
   return (
     <div className="dash-main">
+      <section className="card home-hero">
+        <div className="stack-sm">
+          <h2 className="dash-h2">
+            <Wand2 size={20} style={{ verticalAlign: '-3px' }} /> Auto Design — type a title, press Enter
+          </h2>
+          <p className="muted">Enter your article title or primary keyword and get a dozen ready-made Pins with the text already fitted.</p>
+        </div>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (title.trim()) location.hash = `#/auto?q=${encodeURIComponent(title.trim())}`;
+          }}
+        >
+          <div className="search-box auto-input">
+            <Sparkles size={20} />
+            <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. 20 Bronde Hair Color Ideas — or just “bronde hair”" aria-label="Article title or primary keyword" />
+            <button className="btn btn-pink" type="submit" disabled={!title.trim()}>
+              Design Pins
+            </button>
+          </div>
+        </form>
+      </section>
       <section className="card home-hero">
         <div className="stack-sm">
           <h1 className="dash-h1">Create Stunning Pinterest Pins</h1>
