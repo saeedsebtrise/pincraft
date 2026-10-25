@@ -117,7 +117,8 @@ const HEAD_TEXT = new Set(['title', 'title-line', 'accent', 'subtitle']);
  * could not be cleared.
  */
 export function clearCutText(doc: PinDocument, ink: InkMeasure): { doc: PinDocument; blocked: number } {
-  const badges = doc.layers.filter((l): l is TextLayer => isText(l) && l.visible && l.role === 'badge' && !!l.text.trim());
+  // A faded number (opacity < 0.9) is a backdrop the text sits on by design, not something to keep clear of.
+  const badges = doc.layers.filter((l): l is TextLayer => isText(l) && l.visible && l.role === 'badge' && !!l.text.trim() && l.opacity >= 0.9);
   const badgeInk = badges.map((b) => ink(b)).filter((r): r is Rect => !!r);
   const isCut = (l: TextLayer) => {
     const r = ink(l);

@@ -11,6 +11,7 @@ import { createShape, createText } from '../model/factory';
 import type { Template } from '../model/types';
 import { accent, badge, bandShape, bgOn, divider, footer, inBand, label, SHADOW, title, titleLine, tpl } from './kit';
 import { HAIR_TEMPLATES } from './hairStyles';
+import { PACK_STYLE_TEMPLATES } from './packStyles';
 import { PIN_STYLE_TEMPLATES } from './pinStyles';
 
 export { bgOn, footer, type FooterStyle } from './kit';
@@ -18,6 +19,8 @@ export { bgOn, footer, type FooterStyle } from './kit';
 export const BUILTIN_TEMPLATES: Template[] = [
   // Recreated from real high-performing Pins (Auto Design ranks these first).
   ...[...PIN_STYLE_TEMPLATES, ...HAIR_TEMPLATES].map((t) => ({ ...t, reference: true })),
+  // Layouts inspired by popular blog-Pin template packs (original PinCraft designs).
+  ...PACK_STYLE_TEMPLATES,
 
   // ===== Signature designs (modelled on the PinCraft mockups) =====
   tpl({

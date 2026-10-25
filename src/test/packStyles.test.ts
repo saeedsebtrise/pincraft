@@ -1,0 +1,40 @@
+import { describe, expect, it } from 'vitest';
+import { readHeadline } from '../model/docOps';
+import type { TextLayer } from '../model/types';
+import { autoDesign } from '../services/autoDesign';
+import { BUILTIN_TEMPLATES } from '../templates/builtins';
+import { PACK_STYLE_TEMPLATES } from '../templates/packStyles';
+
+describe('pack-inspired layouts', () => {
+  it('adds 60 distinct layouts to the library, each once', () => {
+    expect(PACK_STYLE_TEMPLATES).toHaveLength(60);
+    const ids = PACK_STYLE_TEMPLATES.map((t) => t.id);
+    expect(new Set(ids).size).toBe(60);
+    for (const id of ids) expect(BUILTIN_TEMPLATES.filter((t) => t.id === id), id).toHaveLength(1);
+  });
+
+  it('every layout has headline lines, a website and at least one photo frame', () => {
+    for (const t of PACK_STYLE_TEMPLATES) {
+      const texts = t.doc.layers.filter((l): l is TextLayer => l.type === 'text');
+      expect(texts.some((l) => l.role === 'title-line' || l.role === 'title'), t.id).toBe(true);
+      expect(texts.some((l) => l.role === 'website'), t.id).toBe(true);
+      expect(t.imageCount, t.id).toBeGreaterThan(0);
+    }
+  });
+
+  it('every layout carries the user’s exact headline', () => {
+    const out = autoDesign({ title: '25 Easy Fall Porch Decor Ideas', cta: false }, PACK_STYLE_TEMPLATES, { measure: () => 1, limit: 60 });
+    expect(out).toHaveLength(60);
+    for (const r of out) expect(readHeadline(r.doc).toLowerCase(), r.template.id).toContain('fall porch decor');
+  });
+
+  it('keeps everything inside the Pin', () => {
+    for (const t of PACK_STYLE_TEMPLATES) {
+      for (const l of t.doc.layers) {
+        if (l.type !== 'text' || l.rotation) continue;
+        expect(l.x, `${t.id} ${l.name}`).toBeGreaterThanOrEqual(-1);
+        expect(l.y + l.height, `${t.id} ${l.name}`).toBeLessThanOrEqual(t.doc.height + 1);
+      }
+    }
+  });
+});

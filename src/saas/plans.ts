@@ -31,7 +31,7 @@ export const PLANS: Record<PlanTier, PlanDef> = {
     highlights: [
       '10 Pin exports per month',
       '3 projects (multiple pages each)',
-      'All 71 templates & every Pin size',
+      'All 131 templates & every Pin size',
       'Collage editor, text, badges, footers',
       'On-device headline suggestions',
       'No watermark',
