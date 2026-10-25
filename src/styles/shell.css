@@ -212,3 +212,18 @@ details > summary { cursor: pointer; }
 .bulk-pin input { position: absolute; top: 6px; left: 6px; width: 18px; height: 18px; accent-color: var(--accent); }
 
 .chip-ai { background: #1a1a2e; color: #fff; font-weight: 700; }
+
+/* Pinterest research */
+.research { padding: 20px 24px; display: flex; flex-direction: column; gap: 14px; }
+.research-drop { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 22px; border: 2px dashed var(--border); border-radius: 14px; cursor: pointer; text-align: center; color: var(--text-2); }
+.research-drop:hover, .research-drop:focus-visible { border-color: var(--accent); background: var(--accent-soft); }
+.research-shots { display: flex; gap: 8px; flex-wrap: wrap; }
+.research-shot { position: relative; width: 84px; height: 84px; border-radius: 10px; overflow: hidden; background: var(--surface-3); }
+.research-shot img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.research-shot button { position: absolute; top: 4px; right: 4px; width: 20px; height: 20px; border-radius: 50%; border: 0; background: rgba(0,0,0,.65); color: #fff; display: grid; place-items: center; cursor: pointer; }
+.research-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 18px; }
+.research-bar { display: grid; grid-template-columns: 1fr 90px 40px; gap: 8px; align-items: center; font-size: 13px; }
+.research-bar-track { height: 8px; border-radius: 4px; background: var(--surface-3); overflow: hidden; }
+.research-bar-track > span { display: block; height: 100%; background: var(--accent); border-radius: 4px; }
+.research-swatch { width: 22px; height: 22px; border-radius: 6px; border: 1px solid var(--border); }
+.research-gaps { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }

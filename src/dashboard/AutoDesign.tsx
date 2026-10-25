@@ -14,6 +14,8 @@ import { useUi } from '../store/uiStore';
 import { docThumbnail } from '../templates/thumbnails';
 import { inkWithCanvas, measureWithCanvas, saveAsProject, SIZES } from './autoShared';
 import { BulkDesign } from './BulkDesign';
+import { PinResearch } from './PinResearch';
+import type { ResearchReport } from '../services/pinResearch';
 
 function PhotoChip({ id, off, onToggle }: { id: Id; off: boolean; onToggle: () => void }) {
   const preview = useAssets((s) => s.previews[id]);
@@ -68,6 +70,7 @@ export function AutoDesign({ initialTitle = '', initialMode = 'one' }: { initial
   const [keyword, setKeyword] = useState('');
   const [sizeId, setSizeId] = useState('native');
   const [cta, setCta] = useState(true);
+  const [research, setResearch] = useState<ResearchReport | null>(null);
   const [limit, setLimit] = useState(50);
   const [input, setInput] = useState<AutoInput | null>(null);
   const [keep, setKeep] = useState<Set<string>>(new Set());
@@ -92,7 +95,7 @@ export function AutoDesign({ initialTitle = '', initialMode = 'one' }: { initial
     const website = kitWebsite && !/yourwebsite/i.test(kitWebsite) ? kitWebsite : src?.host || kitWebsite;
     setLimit(50);
     setAiResults([]);
-    setInput({ title: t, keyword: k, website, size: SIZES.find((s) => s.id === sizeId)?.size, assetIds: ids, assetMetas: useAssets.getState().metas, cta });
+    setInput({ title: t, keyword: k, website, size: SIZES.find((s) => s.id === sizeId)?.size, assetIds: ids, assetMetas: useAssets.getState().metas, cta, research });
   };
 
   const generate = async (t = title, k = keyword) => {
@@ -171,6 +174,7 @@ export function AutoDesign({ initialTitle = '', initialMode = 'one' }: { initial
         width: size.width,
         height: size.height,
         count: 4,
+        research,
         photos: Object.values(photoMap).filter((p): p is NonNullable<typeof p> => !!p),
       });
       const templates = specs.map((sp) => specToTemplate(sp, size.width, size.height)).filter((t): t is Template => !!t);
@@ -205,6 +209,9 @@ export function AutoDesign({ initialTitle = '', initialMode = 'one' }: { initial
       setBusy(false);
     }
   };
+
+  // The focus keyword to research: the keyword field, else the headline without its number.
+  const researchKeyword = keyword.trim() || (source?.title ?? (looksLikeUrl(title) ? '' : autoText(title).headline)).replace(/^\d+\+?\s+/, '');
 
   const modeSwitch = (
     <div className="row" role="tablist" aria-label="Auto Design mode" style={{ gap: 8, flexWrap: 'wrap' }}>
@@ -344,6 +351,15 @@ export function AutoDesign({ initialTitle = '', initialMode = 'one' }: { initial
           </div>
         )}
       </section>
+
+      <PinResearch
+        keyword={researchKeyword}
+        report={research}
+        onReport={(r) => {
+          setResearch(r);
+          setInput((cur) => cur && { ...cur, research: r });
+        }}
+      />
 
       {input && !results.length && <div className="issue">Nothing to design yet — type a title or keyword.</div>}
       {!!results.length && (

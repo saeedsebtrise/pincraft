@@ -49,6 +49,15 @@ The app turns each design into an ordinary editable Pin (`src/services/aiDesign.
 
 Only text goes to the AI: the headline, the photos' height-to-width ratios and their colour palette. The photos themselves are never sent. The server side is `server/aiDesign.mjs` (`POST /api/ai-design`).
 
+### Pinterest research (Pro)
+
+In Auto Design, **Research Pinterest first** works in three steps:
+1. It opens Pinterest's own search page for your focus keyword in a new tab. PinCraft never scrapes Pinterest, which its Terms forbid.
+2. You take 3–4 screenshots while scrolling (about 50 Pins) and drop or paste them in.
+3. AI (`POST /api/pin-research`, `server/pinResearch.mjs`) reports what wins: layouts, headline treatments, fonts, colours, number badges, CTAs, headline patterns, and the gaps a new Pin can fill.
+
+Auto Design then ranks templates that match the winning styles higher (`src/services/pinResearch.ts`), and AI designs are briefed to match the feed and beat it. Screenshots are sent to the Anthropic API only for that analysis and are not stored.
+
 ### Blog URL → Pins
 
 In **Auto Design**, paste a blog post link and press Enter. PinCraft reads the post's title and photos, then designs 50 Pins with those photos already in the frames. You can click a photo to leave it out, and the footer uses the post's site unless your Brand Kit has a website.

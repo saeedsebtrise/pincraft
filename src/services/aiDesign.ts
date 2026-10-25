@@ -12,6 +12,7 @@ import type { ImageSource } from '../editor/canvas/nodes';
 import { createShape, createText } from '../model/factory';
 import type { Layer, Template, TextLayer } from '../model/types';
 import { badge, bgOff, bgOn, tpl } from '../templates/kit';
+import type { ResearchReport } from './pinResearch';
 
 // ---------------------------------------------------------------- spec (mirrors server/aiDesign.mjs)
 
@@ -58,6 +59,8 @@ export interface AiDesignRequest {
   height: number;
   count: number;
   photos?: ImageSource[];
+  /** Pinterest research for the keyword: the AI is briefed to match what wins, then beat it. */
+  research?: ResearchReport | null;
 }
 
 /** Up to 6 colours that dominate the photos (coarse buckets, greys and near-white/black skipped). */
@@ -107,6 +110,7 @@ export async function requestAiDesigns(req: AiDesignRequest): Promise<AiDesignSp
         fonts: FONT_LIBRARY.map((f) => f.family),
         palette: req.photos?.length ? photoPalette(req.photos) : [],
         photoRatios: (req.photos ?? []).map((p) => p.height / p.width),
+        research: req.research ?? undefined,
       }),
     });
   } catch {

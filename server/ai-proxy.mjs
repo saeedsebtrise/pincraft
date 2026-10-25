@@ -15,10 +15,12 @@ import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
 import { z } from 'zod';
 import { designPins } from './aiDesign.mjs';
 import { pageMiddleware } from './pageFetch.mjs';
+import { researchPins } from './pinResearch.mjs';
 
 const PORT = Number(process.env.AI_PROXY_PORT || 8787);
 const MODEL = process.env.AI_MODEL || 'claude-opus-5-5';
 const MAX_BODY = 32 * 1024; // AI designs send the layout and font lists
+const MAX_RESEARCH_BODY = 60 * 1024 * 1024; // Pinterest research sends up to 12 screenshots
 
 const client = new Anthropic(); // reads ANTHROPIC_API_KEY (or an `ant auth login` profile) from the server env
 
@@ -76,13 +78,15 @@ const server = http.createServer((req, res) => {
   };
   // Blog URL → Pins (GET /api/page, /api/image) for production builds served behind this proxy.
   if (req.method === 'GET') return void readPages(req, res, () => send(404, { error: 'Not found' }));
-  const route = req.url === '/api/ai' ? suggest : req.url === '/api/ai-design' ? (input) => designPins(client, input) : null;
+  const routes = { '/api/ai': suggest, '/api/ai-design': (input) => designPins(client, input), '/api/pin-research': (input) => researchPins(client, input) };
+  const route = Object.hasOwn(routes, req.url) ? routes[req.url] : null;
+  const maxBody = req.url === '/api/pin-research' ? MAX_RESEARCH_BODY : MAX_BODY;
   if (req.method !== 'POST' || !route) return send(404, { error: 'Not found' });
 
   let raw = '';
   req.on('data', (chunk) => {
     raw += chunk;
-    if (raw.length > MAX_BODY) {
+    if (raw.length > maxBody) {
       send(413, { error: 'Request too large' });
       req.destroy();
     }

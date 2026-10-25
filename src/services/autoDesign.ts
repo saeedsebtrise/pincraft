@@ -10,6 +10,7 @@ import { assignImages, instantiateTemplate, isText } from '../model/docOps';
 import type { AssetMeta, Id, PinDocument, Rect, Template, TextLayer } from '../model/types';
 import { applyCta, ctaOptions } from './autoCta';
 import { parseTitle, suggestSubtitles, titleCase } from './headlines';
+import { designTraits, researchBoost, type ResearchReport } from './pinResearch';
 import { recommendTemplates } from './recommend';
 
 export interface AutoInput {
@@ -26,6 +27,8 @@ export interface AutoInput {
   cta?: boolean;
   /** Shifts the CTA wording (Bulk Design: each post starts at a different one). */
   ctaOffset?: number;
+  /** Pinterest research for the keyword: designs that match the winning styles rank higher. */
+  research?: ResearchReport | null;
 }
 
 /**
@@ -198,7 +201,8 @@ export function autoDesign(
     // Fit matters most, then a big readable headline, then designs recreated from
     // real high-performing Pins; the topic match keeps the results on-theme.
     const impact = opts.ink ? headlineImpact(doc, opts.ink) : 0.5;
-    return { template, doc, fit, score: fit * 2 + impact * 1.2 + (template.reference ? 0.8 : 0) + rank };
+    const matches = input.research ? researchBoost(designTraits(template, doc), input.research) : 0;
+    return { template, doc, fit, score: fit * 2 + impact * 1.2 + (template.reference ? 0.8 : 0) + matches + rank };
   });
   const pool = scored.sort((a, b) => b.score - a.score);
   // Variety: no two look-alike designs, and no more than three from one family, in the first results.
@@ -206,11 +210,14 @@ export function autoDesign(
   const perFamily = new Map<number, number>();
   const looks = new Set<string>();
   const out: AutoDesignResult[] = [];
+  // The variety rules shape the first screen of results; after that it's purely by score.
+  const firstScreen = Math.min(limit, 12);
+  const familyCap = input.research ? 4 : 3;
   for (const r of pool) {
-    if (out.length >= limit) break;
+    if (out.length >= firstScreen) break;
     const n = perFamily.get(r.template.family) ?? 0;
     const look = lookKey(r.doc);
-    if (n >= 3 || looks.has(look)) continue;
+    if (n >= familyCap || looks.has(look)) continue;
     perFamily.set(r.template.family, n + 1);
     looks.add(look);
     out.push({ template: r.template, doc: r.doc, fit: r.fit });

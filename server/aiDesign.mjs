@@ -93,6 +93,19 @@ export async function designPins(client, raw) {
   const palette = (Array.isArray(raw.palette) ? raw.palette : []).map((c) => clean(c, 7)).filter((c) => /^#[0-9a-f]{6}$/i.test(c)).slice(0, 8);
   const ratios = (Array.isArray(raw.photoRatios) ? raw.photoRatios : []).map(Number).filter((n) => n > 0 && n < 10).slice(0, 12);
 
+  // Optional Pinterest research for this keyword (server/pinResearch.mjs): match what's winning, then beat it.
+  const r = raw.research && typeof raw.research === 'object' ? raw.research : null;
+  const list = (v, n, max) => (Array.isArray(v) ? v.map((x) => clean(x, max)).filter(Boolean).slice(0, n) : []);
+  const research = r && [
+    "What the top Pinterest Pins for this keyword look like (from the user's research):",
+    clean(r.summary, 600),
+    list(r.headlinePatterns, 5, 120).length && `Headline patterns: ${list(r.headlinePatterns, 5, 120).join('; ')}`,
+    list(r.palette, 6, 7).length && `Their colours: ${list(r.palette, 6, 7).join(', ')}`,
+    list(r.gaps, 5, 200).length && `How to stand out: ${list(r.gaps, 5, 200).join('; ')}`,
+    clean(r.designBrief, 800) && `Brief: ${clean(r.designBrief, 800)}`,
+    'Design Pins that clearly belong in this feed (same kind of layouts and text treatments that win) but are better: bigger, clearer keyword, stronger contrast, and the gaps above.',
+  ].filter(Boolean).join('\n');
+
   const brief = [
     `Design ${count} different Pins.`,
     `Canvas: ${Math.round(Number(raw.width) || 1000)} x ${Math.round(Number(raw.height) || 1500)} px.`,
@@ -103,6 +116,7 @@ export async function designPins(client, raw) {
     palette.length && `Photo colour palette: ${palette.join(', ')}`,
     `Photo layouts you can use: ${layouts.join('; ')}`,
     `Fonts you can use: ${fonts.join(', ')}`,
+    research,
   ].filter(Boolean);
 
   const response = await client.beta.messages.create({
