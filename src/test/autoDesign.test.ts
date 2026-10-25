@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readHeadline } from '../model/docOps';
 import type { TextLayer } from '../model/types';
-import { autoDesign, autoText, clearCutText, fitScore } from '../services/autoDesign';
+import { autoDesign, autoText, clearCutText, fitScore, headlineImpact, lookKey } from '../services/autoDesign';
 import { BUILTIN_TEMPLATES } from '../templates/builtins';
 
 const fits = () => 1;
@@ -70,6 +70,19 @@ describe('auto design results', () => {
   });
   it('shows up to 50 designs by default', () => {
     expect(autoDesign({ title: '50 Short Hairstyles' }, BUILTIN_TEMPLATES, { measure: fits })).toHaveLength(50);
+  });
+  it('puts designs recreated from real Pins first and never shows two look-alikes up top', () => {
+    const out = autoDesign({ title: '20 Burgundy Hair Color Ideas' }, BUILTIN_TEMPLATES, { measure: fits, limit: 10 });
+    expect(out.slice(0, 5).every((r) => r.template.reference), out.slice(0, 5).map((r) => r.template.id).join()).toBe(true);
+    const keys = out.slice(0, 10).map((r) => lookKey(r.doc));
+    expect(new Set(keys).size).toBe(keys.length);
+  });
+  it('scores big headlines above small ones', () => {
+    const t = BUILTIN_TEMPLATES.find((x) => x.id === 'hb-bronde-blocks')!;
+    const big = (l: TextLayer) => ({ x: l.x, y: l.y, width: l.width, height: l.height });
+    const small = (l: TextLayer) => ({ x: l.x, y: l.y, width: l.width / 4, height: l.height / 4 });
+    expect(headlineImpact(t.doc, big)).toBeGreaterThan(headlineImpact(t.doc, small));
+    expect(headlineImpact(t.doc, big)).toBeLessThanOrEqual(1);
   });
   it('returns nothing for an empty title', () => {
     expect(autoDesign({ title: '  ' }, BUILTIN_TEMPLATES, { measure: fits })).toEqual([]);

@@ -16,8 +16,8 @@ import { PIN_STYLE_TEMPLATES } from './pinStyles';
 export { bgOn, footer, type FooterStyle } from './kit';
 
 export const BUILTIN_TEMPLATES: Template[] = [
-  ...PIN_STYLE_TEMPLATES,
-  ...HAIR_TEMPLATES,
+  // Recreated from real high-performing Pins (Auto Design ranks these first).
+  ...[...PIN_STYLE_TEMPLATES, ...HAIR_TEMPLATES].map((t) => ({ ...t, reference: true })),
 
   // ===== Signature designs (modelled on the PinCraft mockups) =====
   tpl({

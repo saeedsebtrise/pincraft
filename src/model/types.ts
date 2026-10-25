@@ -246,6 +246,8 @@ export interface Template {
   /** Document authored at its native size; instantiation scales it to any canvas. */
   doc: PinDocument;
   source: 'builtin' | 'user';
+  /** Recreated from a real high-performing Pin — Auto Design prefers these. */
+  reference?: boolean;
   createdAt: number;
 }
 

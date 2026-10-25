@@ -74,8 +74,9 @@ export function applyCta(doc: PinDocument, text: string, ink: (l: TextLayer) => 
 
   const W = doc.width;
   const H = doc.height;
-  const w = Math.round(W * 0.44);
-  const h = Math.round(H * 0.042);
+  // Big enough to read on a phone in the feed (a Pin shows ~240px wide there).
+  const w = Math.round(W * 0.52);
+  const h = Math.round(H * 0.052);
   const x = Math.round((W - w) / 2);
   const texts = doc.layers.filter((l): l is TextLayer => isText(l) && l.visible && !!l.text.trim());
   const blocked = texts.map((l) => ink(l)).filter((r): r is Rect => !!r).map((r) => grow(r, H * 0.008));
@@ -104,7 +105,7 @@ export function applyCta(doc: PinDocument, text: string, ink: (l: TextLayer) => 
     text,
     fontFamily: 'Montserrat',
     fontWeight: 800,
-    fontSize: Math.round(h * 0.46),
+    fontSize: Math.round(h * 0.5),
     minFontSize: 10,
     letterSpacing: 1,
     textTransform: 'uppercase',

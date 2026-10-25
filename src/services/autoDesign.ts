@@ -133,6 +133,40 @@ export function clearCutText(doc: PinDocument, ink: InkMeasure): { doc: PinDocum
   return { doc: { ...doc, layers }, blocked };
 }
 
+const MAIN_HEADLINE = new Set(['title', 'title-line', 'badge', 'accent']);
+
+/**
+ * 0..1 — how much of the Pin the headline letters cover. Pins that win on
+ * Pinterest have a big, bold headline; ~10% of the canvas or more counts as full.
+ */
+export function headlineImpact(doc: PinDocument, ink: InkMeasure): number {
+  let area = 0;
+  for (const l of doc.layers) {
+    if (!isText(l) || !l.visible || !MAIN_HEADLINE.has(l.role) || !l.text.trim()) continue;
+    const r = ink(l);
+    if (r) area += Math.max(0, r.width) * Math.max(0, r.height);
+  }
+  return Math.min(1, area / (doc.width * doc.height * 0.1));
+}
+
+/**
+ * What a design looks like at a glance: photo layout + the main headline line's
+ * font, colour and block colour + whether it has a badge. Two designs with the
+ * same key read as the same template to a viewer.
+ */
+export function lookKey(doc: PinDocument): string {
+  const heads = doc.layers.filter((l): l is TextLayer => isText(l) && (l.role === 'title-line' || l.role === 'title') && !!l.text.trim());
+  const main = heads.sort((a, b) => b.fontSize * b.width - a.fontSize * a.width)[0];
+  const badge = doc.layers.some((l) => isText(l) && l.role === 'badge' && l.text.trim());
+  return [
+    doc.collage?.layoutId ?? 'none',
+    main?.fontFamily ?? '',
+    main?.fill.toLowerCase() ?? '',
+    main?.background.enabled ? main.background.color.toLowerCase() : 'none',
+    badge ? 'badge' : '',
+  ].join('|');
+}
+
 /** Templates to try for this title: best topic matches first, then everything else. */
 function candidates(title: string, templates: Template[]): { template: Template; rank: number }[] {
   const usable = templates.filter((t) => t.id !== BLANK_TEMPLATE_ID && t.imageCount > 0);
@@ -161,19 +195,24 @@ export function autoDesign(
     if (opts.ink) ({ doc, blocked } = clearCutText(doc, opts.ink));
     // A design that still cuts the keyword goes to the very end.
     const fit = blocked ? 0 : fitScore(doc, opts.measure);
-    // Fit matters most; the topic match breaks ties and keeps the results on-theme.
-    return { template, doc, fit, score: fit * 2 + rank };
+    // Fit matters most, then a big readable headline, then designs recreated from
+    // real high-performing Pins; the topic match keeps the results on-theme.
+    const impact = opts.ink ? headlineImpact(doc, opts.ink) : 0.5;
+    return { template, doc, fit, score: fit * 2 + impact * 1.2 + (template.reference ? 0.8 : 0) + rank };
   });
   const pool = scored.sort((a, b) => b.score - a.score);
-  // Variety: no more than three designs from one family in a row of results.
+  // Variety: no two look-alike designs, and no more than three from one family, in the first results.
   const limit = opts.limit ?? 50;
   const perFamily = new Map<number, number>();
+  const looks = new Set<string>();
   const out: AutoDesignResult[] = [];
   for (const r of pool) {
     if (out.length >= limit) break;
     const n = perFamily.get(r.template.family) ?? 0;
-    if (n >= 3) continue;
+    const look = lookKey(r.doc);
+    if (n >= 3 || looks.has(look)) continue;
     perFamily.set(r.template.family, n + 1);
+    looks.add(look);
     out.push({ template: r.template, doc: r.doc, fit: r.fit });
   }
   for (const r of pool) {
