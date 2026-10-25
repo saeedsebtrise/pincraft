@@ -12,6 +12,7 @@ import http from 'node:http';
 import Anthropic from '@anthropic-ai/sdk';
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
 import { z } from 'zod';
+import { pageMiddleware } from './pageFetch.mjs';
 
 const PORT = Number(process.env.AI_PROXY_PORT || 8787);
 const MODEL = process.env.AI_MODEL || 'claude-opus-5-5';
@@ -64,11 +65,15 @@ async function suggest(input) {
   return parsed.data;
 }
 
+const readPages = pageMiddleware();
+
 const server = http.createServer((req, res) => {
   const send = (status, body) => {
     res.writeHead(status, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(body));
   };
+  // Blog URL → Pins (GET /api/page, /api/image) for production builds served behind this proxy.
+  if (req.method === 'GET') return void readPages(req, res, () => send(404, { error: 'Not found' }));
   if (req.method !== 'POST' || req.url !== '/api/ai') return send(404, { error: 'Not found' });
 
   let raw = '';

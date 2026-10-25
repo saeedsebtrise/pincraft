@@ -74,9 +74,15 @@ export function templateThumbnail(t: Template, width = 260, photos?: PreviewPhot
   return cache.get(key)!;
 }
 
-/** Preview of any document with placeholder photos in its empty frames (Auto Design results). */
-export function docThumbnail(doc: PinDocument, width = 260): Promise<string> {
-  const { doc: filled, images } = fillFrames(doc);
-  return renderThumbnail(filled, width, images).catch(() => '');
+/**
+ * Preview of any document (Auto Design results): frames showing one of `photos`
+ * keep it, empty frames get placeholder photos.
+ */
+export function docThumbnail(doc: PinDocument, width = 260, photos: ImageMap = {}): Promise<string> {
+  const empty = { ...doc, layers: doc.layers.filter((l) => !(l.type === 'frame' && l.assetId && photos[l.assetId])) };
+  const { doc: placeholderDoc, images } = fillFrames(empty);
+  const filledIds = new Map(placeholderDoc.layers.map((l) => [l.id, l]));
+  const merged = { ...doc, layers: doc.layers.map((l) => filledIds.get(l.id) ?? l) };
+  return renderThumbnail(merged, width, { ...images, ...photos }).catch(() => '');
 }
 

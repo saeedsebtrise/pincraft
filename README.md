@@ -34,6 +34,16 @@ npm run dev
 
 Then open **AI Text** in the top bar and turn on **Use AI**. Only the article title, keyword and website go to the proxy, never images. The API key lives only in the proxy's environment. The proxy uses `claude-opus-5-5` by default (override with `AI_MODEL`). It enables Anthropic's server-side refusal fallback (`fallbacks: "default"`), so a declined request is retried on a fallback model. Any AI error falls back to the on-device suggestions.
 
+### Blog URL → Pins
+
+In **Auto Design**, paste a blog post link and press Enter. PinCraft reads the post's title and photos, then designs 50 Pins with those photos already in the frames. You can click a photo to leave it out, and the footer uses the post's site unless your Brand Kit has a website.
+
+Browsers can't read other websites directly, so the app's own server does it (`server/pageFetch.mjs`, routes `GET /api/page` and `GET /api/image`):
+- **Development:** `npm run dev` and `npm run preview` include it, with nothing to set up.
+- **Production:** run `npm run ai-proxy` behind your static host and route `/api/*` to it. It serves these routes too, and they don't need an API key.
+
+The reader only fetches public `http(s)` addresses. Every hostname, including each redirect, is checked when it connects, so it can't reach `localhost` or private networks. Pages are capped at 3 MB and photos at 15 MB. Some sites block automatic readers; for those, type the title and upload the photos instead.
+
 ## What's in the MVP
 
 - **The PinCraft workspace**:

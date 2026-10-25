@@ -1,11 +1,15 @@
-import { Check, Loader2, Pencil, Sparkles, Wand2 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { Check, Link2, Loader2, Pencil, Sparkles, Wand2 } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { cssFontFamily } from '../config/fonts';
 import { konvaFontStyle, layoutText } from '../editor/canvas/textLayout';
 import { createProject } from '../model/factory';
-import type { PinDocument, Rect, TextLayer } from '../model/types';
+import type { ImageMap } from '../editor/canvas/nodes';
+import type { Id, PinDocument, Rect, TextLayer } from '../model/types';
 import { ensureCanCreateProject, handleLimitError } from '../saas/gates';
 import { autoDesign, autoText, type AutoDesignResult, type AutoInput } from '../services/autoDesign';
+import { fetchPage, importPagePhotos, looksLikeUrl, siteHost } from '../services/blogImport';
+import { useAssets } from '../store/assetStore';
+import { thumbUrl } from '../ui/imageUrl';
 import { repos } from '../storage/repositories';
 import { useLibrary } from '../store/libraryStore';
 import { allTemplates } from '../store/projectActions';
@@ -51,10 +55,11 @@ const inkWithCanvas = (l: TextLayer): Rect => {
 };
 
 /** Start a project from finished designs: one Pin per page, opened in the editor. */
-async function saveAsProject(docs: PinDocument[], name: string, articleTitle: string, headline: string, templateId: string) {
+async function saveAsProject(docs: PinDocument[], name: string, articleTitle: string, headline: string, templateId: string, assetIds: Id[] = []) {
   if (!(await ensureCanCreateProject())) return;
   const p = createProject(docs[0], name);
   p.pages = docs;
+  p.assetIds = assetIds;
   p.meta = { ...p.meta, articleTitle, headline, templateId, brandKitId: useLibrary.getState().activeKit().id };
   try {
     await repos.projects.put(p);
@@ -66,16 +71,26 @@ async function saveAsProject(docs: PinDocument[], name: string, articleTitle: st
   useUi.getState().toast(docs.length > 1 ? `${docs.length} Pins created — each one is a page in this project` : 'Pin created', 'success');
 }
 
-function ResultCard({ r, checked, onToggle, onEdit }: { r: AutoDesignResult; checked: boolean; onToggle: () => void; onEdit: () => void }) {
+function PhotoChip({ id, off, onToggle }: { id: Id; off: boolean; onToggle: () => void }) {
+  const preview = useAssets((s) => s.previews[id]);
+  const src = useMemo(() => (preview ? thumbUrl(preview, 120) : ''), [preview]);
+  return (
+    <button type="button" className="auto-photo" data-off={off} onClick={onToggle} aria-pressed={!off} title={off ? 'Use this photo' : 'Leave this photo out'}>
+      {src && <img src={src} alt="" />}
+    </button>
+  );
+}
+
+function ResultCard({ r, checked, onToggle, onEdit, photos }: { r: AutoDesignResult; checked: boolean; onToggle: () => void; onEdit: () => void; photos: ImageMap }) {
   const [src, setSrc] = useState('');
   useEffect(() => {
     let alive = true;
     setSrc('');
-    docThumbnail(r.doc, 300).then((u) => alive && setSrc(u));
+    docThumbnail(r.doc, 300, photos).then((u) => alive && setSrc(u));
     return () => {
       alive = false;
     };
-  }, [r]);
+  }, [r, photos]);
   return (
     <div className="card tpl-card auto-card" data-checked={checked}>
       <div className="tpl-thumb" style={{ aspectRatio: '1 / 1.6' }}>
@@ -94,6 +109,14 @@ function ResultCard({ r, checked, onToggle, onEdit }: { r: AutoDesignResult; che
   );
 }
 
+/** A blog post read from its link: its photos are stored as assets and used in every design. */
+interface Source {
+  url: string;
+  host: string;
+  title: string;
+  photoIds: Id[];
+}
+
 export function AutoDesign({ initialTitle = '' }: { initialTitle?: string }) {
   const [title, setTitle] = useState(initialTitle);
   const [keyword, setKeyword] = useState('');
@@ -102,16 +125,79 @@ export function AutoDesign({ initialTitle = '' }: { initialTitle?: string }) {
   const [input, setInput] = useState<AutoInput | null>(null);
   const [keep, setKeep] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
-  const website = useLibrary((s) => s.activeKit().website);
+  const [source, setSource] = useState<Source | null>(null);
+  const [excluded, setExcluded] = useState<Set<Id>>(new Set());
+  const [reading, setReading] = useState('');
+  const [error, setError] = useState('');
+  const runId = useRef(0);
+  const kitWebsite = useLibrary((s) => s.activeKit().website);
+  const metas = useAssets((s) => s.metas);
+  const previews = useAssets((s) => s.previews);
 
-  const generate = (t = title, k = keyword) => {
-    if (!t.trim() && !k.trim()) return;
+  const photoIds = useMemo(() => (source ? source.photoIds.filter((id) => !excluded.has(id)) : []), [source, excluded]);
+  const photoMap = useMemo<ImageMap>(
+    () => Object.fromEntries(photoIds.filter((id) => previews[id] && metas[id]).map((id) => [id, { image: previews[id], width: metas[id].width, height: metas[id].height }])),
+    [photoIds, previews, metas],
+  );
+
+  const design = (t: string, k: string, src: Source | null, ids: Id[]) => {
+    // The post's own site goes in the footer unless the brand kit has a real website.
+    const website = kitWebsite && !/yourwebsite/i.test(kitWebsite) ? kitWebsite : src?.host || kitWebsite;
     setLimit(50);
-    setInput({ title: t.trim() || k.trim(), keyword: k.trim(), website, size: SIZES.find((s) => s.id === sizeId)?.size });
+    setInput({ title: t, keyword: k, website, size: SIZES.find((s) => s.id === sizeId)?.size, assetIds: ids, assetMetas: useAssets.getState().metas });
+  };
+
+  const generate = async (t = title, k = keyword) => {
+    // Only the latest request may update the page (a slow read must not overwrite a newer one).
+    const run = ++runId.current;
+    setError('');
+    if (!t.trim() && !k.trim()) return;
+    if (!looksLikeUrl(t)) {
+      setSource(null);
+      design(t.trim() || k.trim(), k.trim(), null, []);
+      return;
+    }
+    // Blog URL → Pins: read the post, bring in its photos, then design with them.
+    setInput(null);
+    setReading('Reading the blog post…');
+    try {
+      const page = await fetchPage(t);
+      if (run !== runId.current) return;
+      if (!page.title) throw new Error('That page has no title. Type the title instead.');
+      setReading(page.images.length ? `Bringing in photos from ${siteHost(page.url)}…` : '');
+      const { ids } = page.images.length
+        ? await importPagePhotos(page.images, {
+            max: 8,
+            onProgress: (d, n) => run === runId.current && setReading(`Bringing in photos from ${siteHost(page.url)}… ${d}/${n}`),
+          })
+        : { ids: [] as Id[] };
+      if (run !== runId.current) return;
+      const src: Source = { url: page.url, host: siteHost(page.url), title: page.title, photoIds: ids };
+      setSource(src);
+      setExcluded(new Set());
+      design(page.title, k.trim(), src, ids);
+    } catch (e) {
+      if (run === runId.current) setError((e as Error).message || 'Couldn’t read that page.');
+    } finally {
+      if (run === runId.current) setReading('');
+    }
+  };
+
+  // Removing a photo from the post re-designs with the rest.
+  const togglePhoto = (id: Id) => {
+    const next = new Set(excluded);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setExcluded(next);
+    if (source) design(source.title, keyword.trim(), source, source.photoIds.filter((x) => !next.has(x)));
   };
   // Arriving with ?q=… (from the home screen) designs straight away.
+  // (Once only: React's dev mode runs effects twice, which would import the post's photos twice.)
+  const started = useRef(false);
   useEffect(() => {
-    if (initialTitle.trim()) generate(initialTitle);
+    if (started.current || !initialTitle.trim()) return;
+    started.current = true;
+    void generate(initialTitle);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -124,7 +210,7 @@ export function AutoDesign({ initialTitle = '' }: { initialTitle?: string }) {
     if (!list.length || !input || !text) return;
     setBusy(true);
     try {
-      await saveAsProject(list.map((r) => r.doc), text.headline, input.title, text.headline, list[0].template.id);
+      await saveAsProject(list.map((r) => r.doc), text.headline, input.title, text.headline, list[0].template.id, photoIds);
     } catch (e) {
       useUi.getState().toast((e as Error).message, 'error');
     } finally {
@@ -139,26 +225,29 @@ export function AutoDesign({ initialTitle = '' }: { initialTitle?: string }) {
           <h1 className="dash-h1">
             <Wand2 size={26} style={{ verticalAlign: '-4px' }} /> Auto Design
           </h1>
-          <p className="muted">Type your article title or primary keyword and press Enter — PinCraft designs the Pins and fits the text for you.</p>
+          <p className="muted">
+            Paste a blog post link — or type your article title or primary keyword — and press Enter. PinCraft designs the Pins with the post’s own photos and fits the
+            text for you.
+          </p>
         </div>
         <form
           className="stack-sm"
           onSubmit={(e) => {
             e.preventDefault();
-            generate();
+            void generate();
           }}
         >
           <div className="search-box auto-input">
-            <Sparkles size={20} />
+            {looksLikeUrl(title) ? <Link2 size={20} /> : <Sparkles size={20} />}
             <input
               autoFocus
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g. 50 Lob Haircut Ideas to Take to Your Next Salon Appointment — or just “lob haircut”"
-              aria-label="Article title or primary keyword"
+              placeholder="Paste a blog post link, or type a title — e.g. 50 Lob Haircut Ideas, or just “lob haircut”"
+              aria-label="Blog post link, article title or primary keyword"
             />
-            <button className="btn btn-pink" type="submit" disabled={!title.trim() && !keyword.trim()}>
-              Design Pins
+            <button className="btn btn-pink" type="submit" disabled={(!title.trim() && !keyword.trim()) || !!reading}>
+              {reading ? <Loader2 size={15} /> : null} Design Pins
             </button>
           </div>
           <div className="row" style={{ flexWrap: 'wrap', gap: 10 }}>
@@ -172,6 +261,37 @@ export function AutoDesign({ initialTitle = '' }: { initialTitle?: string }) {
             </select>
           </div>
         </form>
+        {reading && (
+          <div className="row subtle" role="status">
+            <Loader2 size={16} /> {reading}
+          </div>
+        )}
+        {error && (
+          <div className="issue" role="alert">
+            {error}
+          </div>
+        )}
+        {source && (
+          <div className="stack-sm">
+            <div className="row" style={{ flexWrap: 'wrap', gap: 8 }}>
+              <span className="chip">
+                <Link2 size={13} /> From {source.host}
+              </span>
+              <span className="subtle">
+                {source.photoIds.length
+                  ? `${photoIds.length} of ${source.photoIds.length} photos used — click a photo to leave it out.`
+                  : 'No usable photos on that page — the designs show sample photos; add yours in the editor.'}
+              </span>
+            </div>
+            {!!source.photoIds.length && (
+              <div className="auto-photos">
+                {source.photoIds.map((id) => (
+                  <PhotoChip key={id} id={id} off={excluded.has(id)} onToggle={() => togglePhoto(id)} />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
         {text && (
           <div className="row" style={{ flexWrap: 'wrap', gap: 8 }}>
             <span className="chip">Headline: {text.headline}</span>
@@ -212,6 +332,7 @@ export function AutoDesign({ initialTitle = '' }: { initialTitle?: string }) {
                   })
                 }
                 onEdit={() => create([r])}
+                photos={photoMap}
               />
             ))}
           </div>
@@ -220,7 +341,11 @@ export function AutoDesign({ initialTitle = '' }: { initialTitle?: string }) {
               Show more designs
             </button>
           </div>
-          <p className="subtle">All selected Pins go into one project as pages — add your photos there and every frame fills automatically.</p>
+          <p className="subtle">
+            {source?.photoIds.length
+              ? 'All selected Pins go into one project as pages, with the post’s photos already in place.'
+              : 'All selected Pins go into one project as pages — add your photos there and every frame fills automatically.'}
+          </p>
         </section>
       )}
     </div>

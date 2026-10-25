@@ -6,8 +6,8 @@
  * down, so the first results are the ones where the title reads best.
  */
 import { BLANK_TEMPLATE_ID } from '../templates/builtins';
-import { instantiateTemplate, isText } from '../model/docOps';
-import type { PinDocument, Rect, Template, TextLayer } from '../model/types';
+import { assignImages, instantiateTemplate, isText } from '../model/docOps';
+import type { AssetMeta, Id, PinDocument, Rect, Template, TextLayer } from '../model/types';
 import { parseTitle, suggestSubtitles, titleCase } from './headlines';
 import { recommendTemplates } from './recommend';
 
@@ -18,6 +18,20 @@ export interface AutoInput {
   website?: string;
   /** Render every design at this size instead of each template's own size. */
   size?: { width: number; height: number; presetId: string };
+  /** Real photos (e.g. from the blog post) to put in every design's frames. */
+  assetIds?: Id[];
+  assetMetas?: Record<Id, AssetMeta>;
+}
+
+/**
+ * Fills a design's frames with the photos, best aspect match first. Each design
+ * starts the list at a different photo so the results don't all lead with the
+ * same image; photos repeat only when a layout has more frames than photos.
+ */
+export function withPhotos(doc: PinDocument, ids: Id[], metas: Record<Id, AssetMeta>, offset: number): PinDocument {
+  if (!ids.length) return doc;
+  const k = offset % ids.length;
+  return assignImages(doc, [...ids.slice(k), ...ids.slice(0, k)], metas, { smart: true, allowDuplicates: true });
 }
 
 export interface AutoText {
@@ -131,9 +145,13 @@ export function autoDesign(
   const { headline, subtitle } = autoText(input.title, input.keyword);
   if (!headline) return [];
   const topic = `${input.title} ${input.keyword ?? ''}`.trim();
-  const scored = candidates(topic, templates).map(({ template, rank }) => {
+  const photos = input.assetIds ?? [];
+  const scored = candidates(topic, templates).map(({ template, rank }, i) => {
     const size = input.size ?? { width: template.doc.width, height: template.doc.height, presetId: template.doc.presetId };
     let doc = keepOwnWords(instantiateTemplate(template, { ...size, headline, subtitle: subtitle || undefined, website: input.website || undefined, brand: null }), headline);
+    doc = withPhotos(doc, photos, input.assetMetas ?? {}, i);
+    // With real photos, layouts needing more photos than the post has (repeats) rank lower.
+    if (photos.length && template.imageCount > photos.length) rank -= 0.3;
     let blocked = 0;
     if (opts.ink) ({ doc, blocked } = clearCutText(doc, opts.ink));
     // A design that still cuts the keyword goes to the very end.

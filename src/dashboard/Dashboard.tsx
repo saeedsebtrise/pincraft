@@ -113,7 +113,7 @@ function HomeScreen() {
           <h2 className="dash-h2">
             <Wand2 size={20} style={{ verticalAlign: '-3px' }} /> Auto Design — type a title, press Enter
           </h2>
-          <p className="muted">Enter your article title or primary keyword and get a dozen ready-made Pins with the text already fitted.</p>
+          <p className="muted">Paste a blog post link (its title and photos come in automatically), or type a title or keyword — and get 50 ready-made Pins with the text already fitted.</p>
         </div>
         <form
           onSubmit={(e) => {
@@ -123,7 +123,7 @@ function HomeScreen() {
         >
           <div className="search-box auto-input">
             <Sparkles size={20} />
-            <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. 20 Bronde Hair Color Ideas — or just “bronde hair”" aria-label="Article title or primary keyword" />
+            <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Paste a blog post link, or type a title — e.g. 20 Bronde Hair Color Ideas" aria-label="Blog post link, article title or primary keyword" />
             <button className="btn btn-pink" type="submit" disabled={!title.trim()}>
               Design Pins
             </button>

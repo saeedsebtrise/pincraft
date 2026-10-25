@@ -148,6 +148,10 @@
 .auto-input { flex: none; height: 58px; padding: 0 8px 0 16px; border-width: 1.5px; }
 .auto-input input { font-size: 16px; }
 .auto-card[data-checked='false'] { opacity: .55; }
+.auto-photos { display: flex; gap: 8px; flex-wrap: wrap; }
+.auto-photo { width: 64px; height: 64px; padding: 0; border: 2px solid var(--accent); border-radius: 10px; overflow: hidden; background: var(--surface-3); cursor: pointer; }
+.auto-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.auto-photo[data-off='true'] { border-color: var(--border); opacity: .35; filter: grayscale(1); }
 .search-row .icon-btn { width: 44px; height: 44px; border: 1px solid var(--border); border-radius: 12px; }
 .pill-row { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: thin; }
 .pill { flex: none; height: 34px; padding: 0 16px; border-radius: var(--r-pill); border: 1px solid var(--border); background: var(--surface-2); font-size: 13px; font-weight: 500; white-space: nowrap; cursor: pointer; color: var(--text); }
