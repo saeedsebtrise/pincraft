@@ -10,12 +10,14 @@
 import { createShape, createText } from '../model/factory';
 import type { Template } from '../model/types';
 import { accent, badge, bandShape, bgOn, divider, footer, inBand, label, SHADOW, title, titleLine, tpl } from './kit';
+import { HAIR_TEMPLATES } from './hairStyles';
 import { PIN_STYLE_TEMPLATES } from './pinStyles';
 
 export { bgOn, footer, type FooterStyle } from './kit';
 
 export const BUILTIN_TEMPLATES: Template[] = [
   ...PIN_STYLE_TEMPLATES,
+  ...HAIR_TEMPLATES,
 
   // ===== Signature designs (modelled on the PinCraft mockups) =====
   tpl({

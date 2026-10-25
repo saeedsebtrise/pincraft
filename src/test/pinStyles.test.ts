@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { distributeLines, instantiateTemplate, readHeadline } from '../model/docOps';
 import type { TextLayer } from '../model/types';
 import { BUILTIN_TEMPLATES } from '../templates/builtins';
+import { HAIR_TEMPLATES } from '../templates/hairStyles';
 import { PIN_STYLE_TEMPLATES } from '../templates/pinStyles';
 
 const make = (id: string, headline: string, subtitle?: string) => {
@@ -52,11 +53,37 @@ describe('pin-style templates reproduce the reference headlines', () => {
     expect(byRole('title-line')).toEqual(['Trendy', 'Short', 'Hairstyles', 'Ideas']);
     expect(byRole('subtitle')).toEqual(['For Every Woman']);
   });
-  it('every pin-style template has a number badge or headline lines and a website footer', () => {
-    for (const t of PIN_STYLE_TEMPLATES) {
-      const roles = new Set(t.doc.layers.map((l) => l.role));
-      expect(roles.has('title-line'), t.id).toBe(true);
-      expect(roles.has('website'), t.id).toBe(true);
-    }
+  it('every pin-style template has headline lines; most carry a website footer', () => {
+    for (const t of PIN_STYLE_TEMPLATES) expect(t.doc.layers.some((l) => l.role === 'title-line'), t.id).toBe(true);
+    // Some reference designs (e.g. the LOB pyramid) have no footer, so it stays optional.
+    expect(PIN_STYLE_TEMPLATES.filter((t) => t.doc.layers.some((l) => l.role === 'website')).length).toBeGreaterThan(PIN_STYLE_TEMPLATES.length - 3);
+  });
+});
+
+describe('hair templates reproduce the reference headlines', () => {
+  const cases: [string, string, string[], string?][] = [
+    ['hb-bronde-blocks', '20+ Most Gorgeous Bronde Hair Color Ideas', ['20+ Most', 'Gorgeous', 'Bronde Hair Color', 'Ideas']],
+    ['hb-fall-blocks', 'Biggest Fall Hair Color Trends 2026', ['Biggest', 'Fall Hair Color', 'Trends 2026']],
+    ['hb-hottest-left-blocks', '12 Hottest Hair Color 2026 Trends', ['12 Hottest', 'Hair Color', '2026', 'Trends']],
+    ['hb-modern-white-caps', '22 Modern Short Hairstyles For Women Over 50', ['Modern', 'Short', 'Hairstyles', 'For Women', 'Over 50'], '22'],
+    ['hb-half-up-yellow', '21 Short Half Up Half Down Hairstyles', ['Short', 'Half Up', 'Half Down', 'Hairstyles'], '21'],
+    ['hb-huge-number-for-lines', '20 Short Haircut Ideas For Women', ['Short', 'Haircut', 'Ideas', 'For', 'Women'], '20'],
+    ['hb-outline-white-black', '27+ Short Hairstyles Ideas For Fine Thin Hair', ['Short', 'Hairstyles', 'Ideas For', 'Fine Thin', 'Hair'], '27+'],
+    ['hb-shaggy-lavender', '22 Short Shaggy Hairstyles', ['Short', 'Shaggy', 'Hairstyles'], '22'],
+    ['hb-chic-teal-brush', '31 Chic Short Haircuts', ['Chic', 'Short', 'Haircuts'], '31'],
+    ['hb-sticker-serif-spring', '50+ Medium Length Spring Hairstyles 2026', ['Medium', 'Length', 'Spring', 'Hairstyles', '2026'], '50+'],
+    ['hb-sticker-serif-curly', '50 Gorgeous Curly Hairstyle Ideas For Women', ['Gorgeous', 'Curly', 'Hairstyle', 'Ideas', 'For Women'], '50'],
+    ['hb-sticker-serif-pixie', '50 Pixie Cut Ideas For Women', ['Pixie Cut', 'Ideas', 'For Women'], '50'],
+    ['hb-sticker-serif-over-50', '50 Short Hair Styles For Women Over 50', ['Short', 'Hair Styles', 'For Women', 'Over 50'], '50'],
+  ];
+  it.each(cases)('%s', (id, headline, lines, num) => {
+    const { byRole, doc } = make(id, headline);
+    expect(byRole('title-line')).toEqual(lines);
+    if (num) expect(byRole('badge')).toEqual([num]);
+    expect(readHeadline(doc)).toBe(headline);
+  });
+  it('every hair template is listed once in the library', () => {
+    expect(HAIR_TEMPLATES).toHaveLength(13);
+    for (const t of HAIR_TEMPLATES) expect(BUILTIN_TEMPLATES.filter((b) => b.id === t.id)).toHaveLength(1);
   });
 });

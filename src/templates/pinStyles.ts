@@ -299,22 +299,40 @@ export const PIN_STYLE_TEMPLATES = [
   }),
   tpl({
     id: 'ps-hair-brown-ribbons',
-    name: 'Hair — Brown Keyword & Italic Ribbons',
-    description: 'Serif number and brown keyword, bold serif headline, italic subtitle on cream and brown ribbons (filled from your article title).',
+    name: 'Hair — Serif Pyramid & Brown Ribbon',
+    description: 'Stepped pyramid of touching white blocks (number, brown keyword, headline) over a 2×2 grid, then italic subtitle strips in cream and brown.',
     family: 8,
     categories: ['Hair', 'Beauty', 'Listicle'],
     designTypes: ['editorial', 'listicle'],
     w: 736,
     h: 1472,
-    collage: { layoutId: 'grid-2x2', gap: 8 },
-    layers: ({ W, H }) => [
-      badge(W / 2 - 110, 470, 220, '50', 'square', '#FFFFFF', '#111111', { width: 220, height: 150, fontSize: 135, fontFamily: SERIF }),
-      titleLine(W, 618, 150, 'Lob', { fontFamily: SERIF, fontWeight: 400, fill: '#7A4A22', x: W * 0.15, width: W * 0.7, fontSize: 150, background: bgOn('#FFFFFF', { paddingX: 26, paddingY: 0 }), wordCount: 1 }),
-      titleLine(W, 766, 104, 'Haircut Ideas', { fontFamily: SERIF, fontWeight: 400, x: W * 0.03, width: W * 0.94, fontSize: 96, background: bgOn('#FFFFFF', { paddingX: 18, paddingY: 4 }) }),
-      subtitleLine(W * 0.14, 876, W * 0.72, 80, 'to Take to Your', { fontFamily: 'Playfair Display', fontWeight: 700, italic: true, fontSize: 60, fill: '#111111', background: bgOn('#F3E7DA', { paddingX: 18, paddingY: 4 }) }),
-      subtitleLine(W * 0.08, 958, W * 0.84, 80, 'Next Salon Appointment', { fontFamily: 'Playfair Display', fontWeight: 600, italic: true, fontSize: 56, fill: '#FFFFFF', background: bgOn('#7A4A22', { paddingX: 18, paddingY: 6 }) }),
-      footer(W, H, 'plain-dark', { fontFamily: 'Playfair Display', fontWeight: 400, italic: true, textTransform: 'none', letterSpacing: 1, fontSize: 30, background: bgOn('#F7F1EA', { shape: 'rect', paddingX: 24, paddingY: 8 }) }),
-    ],
+    collage: { layoutId: 'grid-2x2', gap: 5 },
+    // Measured from the reference Pin (887×1774) and scaled to 736×1472.
+    // Blocks hug the text width but keep the full line height, so they touch and form a pyramid.
+    layers: ({ W }) => {
+      const block = (color: string, padX: number) => bgOn(color, { hug: true, hugHeight: false, paddingX: padX, paddingY: 0 });
+      return [
+        badge(W * 0.1, 446, 122, '50', 'square', '#FFFFFF', '#111111', {
+          x: W * 0.1, width: W * 0.8, height: 122, fontFamily: SERIF, fontSize: 148, lineHeight: 0.82, background: block('#FFFFFF', 12),
+        }),
+        titleLine(W, 568, 108, 'Lob', {
+          fontFamily: SERIF, fontWeight: 400, fill: '#7B4A21', x: W * 0.05, width: W * 0.9, fontSize: 130, lineHeight: 0.83, letterSpacing: 0,
+          background: block('#FFFFFF', 22), wordCount: 1,
+        }),
+        titleLine(W, 676, 108, 'Haircut Ideas', {
+          fontFamily: SERIF, fontWeight: 400, fill: '#111111', x: W * 0.04, width: W * 0.92, fontSize: 92, lineHeight: 1, letterSpacing: -3,
+          background: block('#FFFFFF', 18),
+        }),
+        subtitleLine(W * 0.06, 784, W * 0.88, 56, 'to Take to Your', {
+          fontFamily: 'Playfair Display', fontWeight: 600, italic: true, fontSize: 50, lineHeight: 1, letterSpacing: 0, fill: '#111111',
+          background: block('#EFE6E1', 16),
+        }),
+        subtitleLine(W * 0.06, 840, W * 0.88, 60, 'Next Salon Appointment', {
+          fontFamily: 'Playfair Display', fontWeight: 600, italic: true, fontSize: 48, lineHeight: 1, letterSpacing: 0, fill: '#FFFFFF',
+          background: block('#7A4A1F', 16),
+        }),
+      ];
+    },
   }),
   tpl({
     id: 'ps-hair-italic-mix',

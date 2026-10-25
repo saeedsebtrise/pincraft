@@ -115,9 +115,14 @@ export function layoutText(l: TextLayer): TextLayout {
   if (l.background.enabled && text.trim()) {
     if (l.background.hug) {
       const bw = Math.min(l.width, textWidth + pad.paddingX * 2);
-      const bh = Math.min(l.height, textHeight + pad.paddingY * 2);
       const ax = l.align === 'left' ? 0 : l.align === 'right' ? 1 : 0.5;
-      bg = { x: (l.width - bw) * ax, y: textY - pad.paddingY, width: bw, height: bh };
+      if (l.background.hugHeight === false) {
+        // Width hugs the text, height fills the line: stacked blocks touch like a pyramid.
+        bg = { x: (l.width - bw) * ax, y: 0, width: bw, height: l.height };
+      } else {
+        const bh = Math.min(l.height, textHeight + pad.paddingY * 2);
+        bg = { x: (l.width - bw) * ax, y: textY - pad.paddingY, width: bw, height: bh };
+      }
     } else {
       bg = { x: 0, y: 0, width: l.width, height: l.height };
     }

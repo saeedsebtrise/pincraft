@@ -31,6 +31,7 @@ export const FONT_LIBRARY: FontDef[] = [
   { family: 'Pacifico', category: 'Script', weights: [400], italic: false, fallback: 'cursive' },
   { family: 'Sacramento', category: 'Script', weights: [400], italic: false, fallback: 'cursive' },
   { family: 'Allura', category: 'Script', weights: [400], italic: false, fallback: 'cursive' },
+  { family: 'Permanent Marker', category: 'Script', weights: [400], italic: false, fallback: 'cursive' },
   { family: 'Great Vibes', category: 'Script', weights: [400], italic: false, fallback: 'cursive' },
   { family: 'Italiana', category: 'Elegant', weights: [400], italic: false, fallback: 'serif' },
   { family: 'Josefin Sans', category: 'Minimal', weights: [300, 400, 600, 700], italic: true, fallback: 'sans-serif' },

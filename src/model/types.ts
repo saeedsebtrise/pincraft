@@ -90,6 +90,8 @@ export interface TextBackground {
   borderColor: string;
   /** Background hugs the text instead of filling the layer box. */
   hug: boolean;
+  /** With hug: false keeps the block at the full line height (only the width hugs), so stacked lines touch. */
+  hugHeight?: boolean;
 }
 
 export interface TextShadow {

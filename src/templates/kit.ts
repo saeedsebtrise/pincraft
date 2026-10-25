@@ -34,7 +34,7 @@ export const FULL = { x: 0, y: 0, width: 1, height: 1 };
 export function tpl(s: TplSpec): Template {
   const W = s.w ?? 1000;
   const H = s.h ?? 1500;
-  let doc: PinDocument = createDocument(W, H, W === 736 && H === 1472 ? 'custom-blog-736' : 'pin-standard');
+  let doc: PinDocument = createDocument(W, H, W === 736 && H === 1472 ? 'custom-blog-736' : W === 1080 && H === 1920 ? 'pin-full-vertical' : 'pin-standard');
   doc.background = defaultBackground(s.bg ?? '#FFFFFF');
   let band: Rect = { x: 0, y: H * 0.4, width: W, height: H * 0.2 };
   if (s.collage) {
