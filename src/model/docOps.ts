@@ -134,7 +134,7 @@ const NUMBER_PREFIX = /^\s*(\d+[+]?)\s+(.*)$/;
 
 /** Descriptive words that read well as a script accent ("Stunning", "Perfect"…). */
 export const ACCENT_WORDS =
-  /^(best|stunning|perfect|charming|cozy|chic|gorgeous|beautiful|cute|easy|modern|dreamy|elegant|minimalist|simple|bohemian|boho|trendy|fresh|stylish|amazing|lovely|pretty|classic|timeless)$/i;
+  /^(best|stunning|perfect|charming|cozy|chic|gorgeous|beautiful|cute|easy|modern|dreamy|elegant|minimalist|simple|bohemian|boho|trendy|fresh|stylish|amazing|lovely|pretty|classic|timeless|new|clever|genius)$/i;
 
 /** Splits words into n lines with balanced character counts. */
 export function balanceLines(text: string, n: number): string[] {
@@ -209,11 +209,12 @@ export function applyHeadline(doc: PinDocument, headline: string): PinDocument {
       updates.set(accent.id, words[0]);
       rest = words.slice(1).join(' ');
     } else {
-      updates.set(accent.id, ACCENT_WORDS.test(accent.text.trim()) ? accent.text.trim() : '');
+      // Keep the design's own accent ("best!") when it is a descriptive word, ignoring punctuation.
+      updates.set(accent.id, ACCENT_WORDS.test(accent.text.trim().replace(/[^a-z]/gi, '')) ? accent.text.trim() : '');
     }
   }
   if (lines.length) {
-    balanceLines(rest, lines.length).forEach((line, i) => updates.set(lines[i].id, line));
+    distributeLines(rest, lines).forEach((line, i) => updates.set(lines[i].id, line));
     if (title) updates.set(title.id, rest);
   } else if (title) {
     updates.set(title.id, rest);
@@ -235,8 +236,59 @@ export function readHeadline(doc: PinDocument): string {
   return [badge, accent, main].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
 }
 
+/**
+ * Splits text over stacked lines (top to bottom). Lines with a wordCount take
+ * exactly that many words; the others share what's left, balanced by length.
+ */
+export function distributeLines(text: string, lines: Pick<TextLayer, 'wordCount'>[]): string[] {
+  const words = text.split(/\s+/).filter(Boolean);
+  const out: string[] = Array(lines.length).fill('');
+  let w = 0;
+  let i = 0;
+  while (i < lines.length) {
+    const fixed = lines[i].wordCount;
+    if (fixed && fixed > 0) {
+      out[i] = words.slice(w, w + fixed).join(' ');
+      w += fixed;
+      i++;
+      continue;
+    }
+    // A run of flexible lines gets the words not reserved by later fixed lines.
+    let j = i;
+    while (j < lines.length && !(lines[j].wordCount && lines[j].wordCount! > 0)) j++;
+    const reservedLater = lines.slice(j).reduce((s, l) => s + (l.wordCount ?? 0), 0);
+    const take = Math.max(0, words.length - w - reservedLater);
+    balanceLines(words.slice(w, w + take).join(' '), j - i).forEach((t, k) => (out[i + k] = t));
+    w += take;
+    i = j;
+  }
+  return out;
+}
+
+const DETERMINERS = /^(your|the|a|an|my|our|this|every|their|his|her)$/i;
+
+/**
+ * Two-line phrase split as editorial Pins do it: break after the last
+ * determiner ("to Take to Your / Next Salon Appointment"), else balance.
+ */
+export function splitPhrase(text: string): [string, string] {
+  const words = text.split(/\s+/).filter(Boolean);
+  for (let i = words.length - 2; i >= 1; i--) {
+    if (DETERMINERS.test(words[i])) return [words.slice(0, i + 1).join(' '), words.slice(i + 1).join(' ')];
+  }
+  const [a = '', b = ''] = balanceLines(words.join(' '), 2);
+  return [a, b];
+}
+
+/** Sets text on every layer with this role; several subtitle lines share the text top to bottom. */
 export function setRoleText(doc: PinDocument, role: TextLayer['role'], text: string): PinDocument {
-  return { ...doc, layers: doc.layers.map((l) => (isText(l) && l.role === role ? { ...l, text } : l)) };
+  const targets = doc.layers.filter((l): l is TextLayer => isText(l) && l.role === role).sort((a, b) => a.y - b.y);
+  if (targets.length < 2 || role !== 'subtitle') {
+    return { ...doc, layers: doc.layers.map((l) => (isText(l) && l.role === role ? { ...l, text } : l)) };
+  }
+  const parts = targets.length === 2 && !targets.some((t) => t.wordCount) ? splitPhrase(text) : distributeLines(text, targets);
+  const byId = new Map(targets.map((t, k) => [t.id, parts[k]]));
+  return { ...doc, layers: doc.layers.map((l) => (byId.has(l.id) ? { ...(l as TextLayer), text: byId.get(l.id)! } : l)) };
 }
 
 export function setWebsite(doc: PinDocument, website: string): PinDocument {
@@ -292,7 +344,13 @@ export function switchTemplate(
   const ordered = [...new Set([...used, ...projectAssetIds])];
   const headline = readHeadline(current);
   const website = current.layers.find((l): l is TextLayer => isText(l) && l.role === 'website')?.text;
-  const subtitle = current.layers.find((l): l is TextLayer => isText(l) && l.role === 'subtitle')?.text;
+  const subtitle =
+    current.layers
+      .filter((l): l is TextLayer => isText(l) && l.role === 'subtitle')
+      .sort((a, b) => a.y - b.y)
+      .map((l) => l.text.trim())
+      .filter(Boolean)
+      .join(' ') || undefined;
   return instantiateTemplate(template, {
     width: current.width,
     height: current.height,

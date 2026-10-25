@@ -120,6 +120,12 @@ export interface TextLayer extends LayerBase {
   /** When on, fontSize is the maximum and the rendered size shrinks to fit the box. */
   autoFit: boolean;
   minFontSize: number;
+  /**
+   * For stacked headline lines (title-line / subtitle): how many words of the
+   * headline this line takes, e.g. 1 for a keyword line like "BALCONY".
+   * Lines without it share the remaining words evenly.
+   */
+  wordCount?: number;
   background: TextBackground;
   shadow: TextShadow;
   strokeWidth: number;

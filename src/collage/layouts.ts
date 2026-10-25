@@ -44,6 +44,17 @@ export const COLLAGE_LAYOUTS: CollageLayout[] = [
     cells: [c(0, 0, 0.5, 0.5), c(0.5, 0, 0.5, 0.5), c(0, 0.5, third, 0.5), c(third, 0.5, third, 0.5), c(2 * third, 0.5, third, 0.5)],
   },
   {
+    id: 'band-2-4',
+    name: '2 top + band + 4 bottom',
+    count: 6,
+    bandable: true,
+    cells: [
+      c(0, 0, 0.5, 0.5), c(0.5, 0, 0.5, 0.5),
+      c(0, 0.5, 0.5, 0.25), c(0.5, 0.5, 0.5, 0.25),
+      c(0, 0.75, 0.5, 0.25), c(0.5, 0.75, 0.5, 0.25),
+    ],
+  },
+  {
     id: 'band-1-2',
     name: '1 top + band + 2 bottom',
     count: 3,

@@ -16,7 +16,7 @@ npm run dev          # http://localhost:5173
 | `npm run dev` | Vite dev server with hot reload |
 | `npm run build` | Type-check + production build into `dist/` |
 | `npm run preview` | Serve the production build |
-| `npm test` | Unit tests (Vitest, 48 tests) |
+| `npm test` | Unit tests (Vitest, 67 tests) |
 | `npm run typecheck` | TypeScript only |
 | `npm run ai-proxy` | Optional AI headline proxy (needs `ANTHROPIC_API_KEY`) |
 
@@ -47,7 +47,7 @@ Then open **AI Text** in the top bar and turn on **Use AI**. Only the article ti
 - **Template previews use your own photos** once a project has uploads.
 - **The 16 design types** are picked first: Single Image, Image + Text Overlay, Image + Text Panel, Split, 2-Image, 3-Image, 4-Image Collage, 5-Image Collage, Editorial, Listicle, Number Badge, Script + Bold, Quote / Advice, Home Decor, Hair / Beauty, and Blank.
 - **Pin sizes** come from one preset registry (`src/config/canvasPresets.ts`). Each is labeled Official · Recommended, Official · Supported, or Custom. The default is 1000×1500 (2:3). The 736×1472 Custom Blog Pin preset has its own template family. You can also enter a custom size and save it as a preset.
-- **40 editable starter templates** in 10 families: 2 top + center text + 2 bottom; 2 top + headline + 3 bottom; 4-image editorial; number-badge listicle; script + bold; single image + bold overlay; single image + text panel; hair / beauty; home decor / balcony / patio; and a blank canvas. Each template is tagged by category (Hair, Beauty, Home Decor, Balcony, Patio, Living Room, Fall Decor, Fashion, Lifestyle, Relationship, Quote, Listicle…).
+- **57 editable templates** in 10 families, including 17 "Pin style" templates modelled on real blog Pins (decor headline bands, hair serif stacks, sticker-outline overlays): 2 top + center text + 2 bottom; 2 top + headline + 3 bottom; 4-image editorial; number-badge listicle; script + bold; single image + bold overlay; single image + text panel; hair / beauty; home decor / balcony / patio; and a blank canvas. Each template is tagged by category (Hair, Beauty, Home Decor, Balcony, Patio, Living Room, Fall Decor, Fashion, Lifestyle, Relationship, Quote, Listicle…).
 - **Collage engine**
   - 23 layouts with 1–6 images, including center-band layouts whose band height is adjustable.
   - Controls for gap, margin, corner radius, border and collage area.
