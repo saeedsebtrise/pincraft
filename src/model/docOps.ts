@@ -134,7 +134,7 @@ const NUMBER_PREFIX = /^\s*(\d+[+]?)\s+(.*)$/;
 
 /** Descriptive words that read well as a script accent ("Stunning", "Perfect"…). */
 export const ACCENT_WORDS =
-  /^(best|stunning|perfect|charming|cozy|chic|gorgeous|beautiful|cute|easy|modern|dreamy|elegant|minimalist|simple|bohemian|boho|trendy|fresh|stylish|amazing|lovely|pretty|classic|timeless|new|clever|genius)$/i;
+  /^(best|stunning|perfect|charming|cozy|chic|gorgeous|beautiful|cute|easy|modern|dreamy|elegant|minimalist|simple|bohemian|boho|trendy|fresh|stylish|amazing|lovely|pretty|classic|timeless|new|clever|genius|creative|fun|compact|tasty|smart|unique|cool|bold|delicious|inspiring|adorable|fabulous|brilliant|budget|luxe|luxury|aesthetic|magical|festive)$/i;
 
 /** Splits words into n lines with balanced character counts. */
 export function balanceLines(text: string, n: number): string[] {

@@ -6,10 +6,10 @@ import { BUILTIN_TEMPLATES } from '../templates/builtins';
 import { PACK_STYLE_TEMPLATES } from '../templates/packStyles';
 
 describe('pack-inspired layouts', () => {
-  it('adds 60 distinct layouts to the library, each once', () => {
-    expect(PACK_STYLE_TEMPLATES).toHaveLength(60);
+  it('adds 85 distinct layouts to the library, each once', () => {
+    expect(PACK_STYLE_TEMPLATES).toHaveLength(85);
     const ids = PACK_STYLE_TEMPLATES.map((t) => t.id);
-    expect(new Set(ids).size).toBe(60);
+    expect(new Set(ids).size).toBe(85);
     for (const id of ids) expect(BUILTIN_TEMPLATES.filter((t) => t.id === id), id).toHaveLength(1);
   });
 
@@ -23,8 +23,8 @@ describe('pack-inspired layouts', () => {
   });
 
   it('every layout carries the user’s exact headline', () => {
-    const out = autoDesign({ title: '25 Easy Fall Porch Decor Ideas', cta: false }, PACK_STYLE_TEMPLATES, { measure: () => 1, limit: 60 });
-    expect(out).toHaveLength(60);
+    const out = autoDesign({ title: '25 Easy Fall Porch Decor Ideas', cta: false }, PACK_STYLE_TEMPLATES, { measure: () => 1, limit: 85 });
+    expect(out).toHaveLength(85);
     for (const r of out) expect(readHeadline(r.doc).toLowerCase(), r.template.id).toContain('fall porch decor');
   });
 

@@ -69,6 +69,23 @@ export const COLLAGE_LAYOUTS: CollageLayout[] = [
     cells: [c(0, 0, 1, 0.5), c(0, 0.5, 1, 0.5)],
   },
   {
+    id: 'hero-top-grid-6',
+    name: 'Wide top + gap + 3×2 grid',
+    count: 7,
+    cells: [
+      c(0, 0, 1, 0.26),
+      c(0, 0.64, third, 0.18), c(third, 0.64, third, 0.18), c(2 * third, 0.64, third, 0.18),
+      c(0, 0.82, third, 0.18), c(third, 0.82, third, 0.18), c(2 * third, 0.82, third, 0.18),
+    ],
+  },
+  {
+    id: 'band-2-1',
+    name: '2 top + band + 1 bottom',
+    count: 3,
+    bandable: true,
+    cells: [c(0, 0, 0.5, 0.5), c(0.5, 0, 0.5, 0.5), c(0, 0.5, 1, 0.5)],
+  },
+  {
     id: 'grid-2x2',
     name: '2 × 2 grid',
     count: 4,

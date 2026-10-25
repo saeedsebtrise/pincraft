@@ -31,6 +31,12 @@ function turned(cx: number, cy: number, w: number, h: number, deg: number, fill:
   return rect(cx - ox, cy - oy, w, h, fill, { rotation: deg, ...p });
 }
 
+/** x, y, w, h of a box of size w×h centred on (cx, cy) once rotated by deg about its top-left corner. */
+function turnedBox(cx: number, cy: number, w: number, h: number, deg: number): [number, number, number, number] {
+  const a = (deg * Math.PI) / 180;
+  return [cx - ((w / 2) * Math.cos(a) - (h / 2) * Math.sin(a)), cy - ((w / 2) * Math.sin(a) + (h / 2) * Math.cos(a)), w, h];
+}
+
 /** Headline line (no box unless given). */
 const L = (W: number, y: number, h: number, text: string, p: TP = {}) =>
   titleLine(W, y, h, text, { background: bgOff(), letterSpacing: 0, fontWeight: 400, lineHeight: 0.9, fontSize: h * 0.92, ...p });
@@ -44,6 +50,8 @@ const N = (x: number, y: number, w: number, h: number, text: string, p: TP = {})
 const outline = (color: string, width: number): TP => ({ stroke: color, strokeWidth: width });
 const hard = (color: string, dx: number, dy: number): TextLayer['shadow'] => ({ enabled: true, color, blur: 0, offsetX: dx, offsetY: dy, opacity: 1 });
 
+/** Sticker script: black letters with a thick white outline, overlapping the photo edge. */
+const sticker = (p: TP = {}): TP => ({ fontFamily: 'Pacifico', fill: '#111111', textTransform: 'none', ...outline('#FFFFFF', 12), ...p });
 /** Full-width website bar along the bottom. */
 const bar = (W: number, H: number, color: string, text: string, p: TP = {}): Layer[] => [
   rect(0, H * 0.955, W, H * 0.045, color, { name: 'Footer bar' }),
@@ -74,7 +82,7 @@ const TWO_THIRDS = [
       oval(-W * 0.15, H * 0.365, W * 1.3, H * 0.61, 'transparent', { stroke: '#FFFFFF', strokeWidth: 5, opacity: 0.85 }),
       L(W, H * 0.47, H * 0.075, 'How to Style', { fontFamily: 'Oswald', fontWeight: 700, fill: '#2B2B2B', wordCount: 3 }),
       L(W, H * 0.548, H * 0.09, 'Edgy Outfits', { fontFamily: 'Oswald', fontWeight: 700, fill: '#E07B45', shadow: hard('#2B2B2B', 4, 4), wordCount: 2 }),
-      S(W * 0.2, H * 0.645, W * 0.6, H * 0.045, 'and instantly', { fontFamily: 'Sacramento', fill: '#2B2B2B', fontSize: H * 0.045 }),
+      L(W, H * 0.645, H * 0.045, 'and instantly', { x: W * 0.2, width: W * 0.6, textTransform: 'none', lineHeight: 1, wordCount: 2, fontFamily: 'Sacramento', fill: '#2B2B2B', fontSize: H * 0.045 }),
       L(W, H * 0.69, H * 0.075, 'Look Better', { fontFamily: 'Oswald', fontWeight: 700, fill: '#2B2B2B' }),
       ...bar(W, H, '#111111', '#FFFFFF'),
     ],
@@ -90,8 +98,8 @@ const TWO_THIRDS = [
     layers: ({ W, H }) => [
       rect(W * 0.13, H * 0.42, W * 0.74, H * 0.23, '#FFFFFF', { cornerRadius: 26 }),
       badge(W / 2 - W * 0.1, H * 0.31, W * 0.2, '16', 'circle', '#F1E4D1', '#2B2B2B', { fontFamily: 'Montserrat', fontWeight: 800 }),
-      L(W, H * 0.485, H * 0.095, 'Poses', { fontFamily: 'Montserrat', fontWeight: 900, fill: '#FFFFFF', ...outline('#111111', 9), x: W * 0.15, width: W * 0.7 }),
-      S(W * 0.25, H * 0.59, W * 0.5, H * 0.042, 'for pictures', { fontFamily: 'Poppins', fontWeight: 500, fill: '#2B2B2B', background: bgOn('#EAD9C4', { hug: true, paddingX: 22, paddingY: 6 }) }),
+      L(W, H * 0.485, H * 0.095, 'Poses', { fontFamily: 'Montserrat', fontWeight: 900, fill: '#FFFFFF', ...outline('#111111', 9), x: W * 0.15, width: W * 0.7, wordCount: 1 }),
+      L(W, H * 0.59, H * 0.042, 'for pictures', { x: W * 0.25, width: W * 0.5, textTransform: 'none', lineHeight: 1, fontSize: (H * 0.042) * 0.8, fontFamily: 'Poppins', fontWeight: 500, fill: '#2B2B2B', background: bgOn('#EAD9C4', { hug: true, paddingX: 22, paddingY: 6 }) }),
       ...bar(W, H, '#111111', '#FFFFFF'),
     ],
   }),
@@ -125,9 +133,9 @@ const TWO_THIRDS = [
       rect(W / 2 - W * 0.085, H * 0.025, W * 0.17, H * 0.115, '#FFFFFF', { cornerRadius: W * 0.085 }),
       N(W / 2 - W * 0.085, H * 0.035, W * 0.17, H * 0.1, '6', { fontFamily: 'Montserrat', fontWeight: 900 }),
       L(W, H * 0.16, H * 0.06, 'Uncommon', { fontFamily: 'Montserrat', fontWeight: 800, fill: '#FFFFFF', wordCount: 1 }),
-      L(W, H * 0.225, H * 0.1, 'Beauty Tips', { fontFamily: 'Archivo Black', fill: '#F6D36B', shadow: hard('#5A1E1A', 4, 4) }),
-      S(W * 0.15, H * 0.335, W * 0.7, H * 0.05, 'for glowing', { fontFamily: 'Poppins', fontWeight: 600, fill: '#FFFFFF' }),
-      S(W * 0.15, H * 0.385, W * 0.7, H * 0.085, 'Skin', { fontFamily: 'Pacifico', fill: '#F6D36B' }),
+      L(W, H * 0.225, H * 0.1, 'Beauty Tips', { fontFamily: 'Archivo Black', fill: '#F6D36B', shadow: hard('#5A1E1A', 4, 4), wordCount: 2 }),
+      L(W, H * 0.335, H * 0.05, 'for glowing', { x: W * 0.15, width: W * 0.7, textTransform: 'none', lineHeight: 1, fontSize: (H * 0.05) * 0.8, wordCount: 2, fontFamily: 'Poppins', fontWeight: 600, fill: '#FFFFFF' }),
+      L(W, H * 0.385, H * 0.085, 'Skin', { x: W * 0.15, width: W * 0.7, textTransform: 'none', lineHeight: 1, fontSize: (H * 0.085) * 0.8, fontFamily: 'Pacifico', fill: '#F6D36B' }),
       turned(W * 0.27, H * 0.42, W * 0.06, 5, -25, '#F6D36B', { cornerRadius: 3 }),
       turned(W * 0.73, H * 0.42, W * 0.06, 5, 25, '#F6D36B', { cornerRadius: 3 }),
       ...bar(W, H, '#111111', '#FFFFFF'),
@@ -191,7 +199,7 @@ const TWO_THIRDS = [
         rect(0, b.y(0.96), W, 6, '#FFFFFF'),
         badge(W / 2 - b.h(0.24), b.y(-0.16), b.h(0.3), '10', 'pill', '#E25C6A', '#FFFFFF', { fontFamily: 'Montserrat', fontWeight: 800, background: bgOn('#E25C6A', { hug: false, shape: 'pill', paddingX: 10, paddingY: 4, borderWidth: 6, borderColor: '#FFFFFF' }) }),
         L(W, b.y(0.17), b.h(0.27), 'Easy Skin Care Tips', { fontFamily: 'Montserrat', fontWeight: 800, fill: '#FFFFFF', x: W * 0.04, width: W * 0.92, wordCount: 4 }),
-        S(W * 0.1, b.y(0.46), W * 0.8, b.h(0.18), 'To Keep Looking', { fontFamily: 'Poppins', fontWeight: 600, fill: '#FFFFFF' }),
+        L(W, b.y(0.46), b.h(0.18), 'To Keep Looking', { x: W * 0.1, width: W * 0.8, textTransform: 'none', lineHeight: 1, fontSize: (b.h(0.18)) * 0.8, wordCount: 3, fontFamily: 'Poppins', fontWeight: 600, fill: '#FFFFFF' }),
         L(W, b.y(0.66), b.h(0.27), 'Young After 25', { fontFamily: 'Montserrat', fontWeight: 800, fill: '#FFFFFF' }),
         ...bar(W, H, '#111111', '#FFFFFF'),
       ];
@@ -267,10 +275,10 @@ const TWO_THIRDS = [
     layers: ({ W, H }) => [
       N(W * 0.06, H * 0.03, W * 0.3, H * 0.1, '39', { fontFamily: 'Poppins', fontWeight: 800, fill: '#FFFFFF', ...outline('#111111', 10), align: 'left' }),
       L(W, H * 0.135, H * 0.1, 'Side', { fontFamily: 'Archivo Black', fill: '#111111', x: W * 0.06, width: W * 0.88, align: 'left', wordCount: 1 }),
-      L(W, H * 0.235, H * 0.1, 'Jobs', { fontFamily: 'Archivo Black', fill: '#111111', x: W * 0.06, width: W * 0.88, align: 'left' }),
-      S(W * 0.06, H * 0.345, W * 0.7, H * 0.045, 'to make up to', { fontFamily: 'Poppins', fontWeight: 700, fill: '#FFFFFF', align: 'left' }),
+      L(W, H * 0.235, H * 0.1, 'Jobs', { fontFamily: 'Archivo Black', fill: '#111111', x: W * 0.06, width: W * 0.88, align: 'left', wordCount: 1 }),
+      L(W, H * 0.345, H * 0.045, 'to make up to', { x: W * 0.06, width: W * 0.7, textTransform: 'none', lineHeight: 1, fontSize: (H * 0.045) * 0.8, wordCount: 4, fontFamily: 'Poppins', fontWeight: 700, fill: '#FFFFFF', align: 'left' }),
       rect(0, H * 0.4, W, H * 0.075, '#E2452F'),
-      S(W * 0.06, H * 0.405, W * 0.88, H * 0.065, '$20/hr', { fontFamily: 'Poppins', fontWeight: 800, fill: '#FFFFFF', textTransform: 'uppercase' }),
+      L(W, H * 0.405, H * 0.065, '$20/hr', { x: W * 0.06, width: W * 0.88, lineHeight: 1, fontSize: (H * 0.065) * 0.8, fontFamily: 'Poppins', fontWeight: 800, fill: '#FFFFFF', textTransform: 'uppercase' }),
       ...bar(W, H, '#111111', '#FFFFFF'),
     ],
   }),
@@ -304,9 +312,9 @@ const TWO_THIRDS = [
       return [
         bandShape('#FFFFFF'),
         L(W, b.y(0.05), b.h(0.24), '20 Delicious', { fontFamily: 'Montserrat', fontWeight: 900, fill: '#111111', wordCount: 2 }),
-        L(W, b.y(0.29), b.h(0.24), 'Grab & Go', { fontFamily: 'Montserrat', fontWeight: 900, fill: '#111111', wordCount: 3 }),
-        L(W, b.y(0.53), b.h(0.24), 'Breakfast Ideas', { fontFamily: 'Montserrat', fontWeight: 900, fill: '#111111' }),
-        S(W * 0.08, b.y(0.81), W * 0.84, b.h(0.13), 'For the most important meal', { fontFamily: 'Montserrat', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 3, fill: '#111111' }),
+        L(W, b.y(0.29), b.h(0.24), 'Grab & Go', { fontFamily: 'Montserrat', fontWeight: 900, fill: '#111111', wordCount: 2 }),
+        L(W, b.y(0.53), b.h(0.24), 'Breakfast Ideas', { fontFamily: 'Montserrat', fontWeight: 900, fill: '#111111', wordCount: 2 }),
+        L(W, b.y(0.81), b.h(0.13), 'For the most important meal', { x: W * 0.08, width: W * 0.84, lineHeight: 1, fontSize: (b.h(0.13)) * 0.8, fontFamily: 'Montserrat', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 3, fill: '#111111' }),
         ...bar(W, H, '#111111', '#FFFFFF'),
       ];
     },
@@ -328,8 +336,8 @@ const TWO_THIRDS = [
         N(W * 0.06, H * 0.03, W * 0.3, H * 0.13, '15', { fontFamily: 'Archivo Black', fill: '#F39A4A' }),
         L(W, H * 0.045, H * 0.1, 'Social', { fontFamily: 'Pacifico', fill: '#111111', textTransform: 'none', x: W * 0.38, width: W * 0.56, align: 'left', wordCount: 1 }),
         L(W, H * 0.17, H * 0.07, 'Hobbies to', { fontFamily: 'Montserrat', fontWeight: 800, fill: '#5E9E6E', wordCount: 2 }),
-        L(W, H * 0.245, H * 0.1, 'Meet People', { fontFamily: 'Montserrat', fontWeight: 800, fill: '#5E9E6E' }),
-        S(W * 0.08, H * 0.36, W * 0.84, H * 0.07, 'and make connections', { fontFamily: 'Sacramento', fill: '#111111' }),
+        L(W, H * 0.245, H * 0.1, 'Meet People', { fontFamily: 'Montserrat', fontWeight: 800, fill: '#5E9E6E', wordCount: 2 }),
+        L(W, H * 0.36, H * 0.07, 'and make connections', { x: W * 0.08, width: W * 0.84, textTransform: 'none', lineHeight: 1, fontSize: (H * 0.07) * 0.8, fontFamily: 'Sacramento', fill: '#111111' }),
         ...bar(W, H, '#111111', '#FFFFFF'),
       ];
     },
@@ -349,8 +357,8 @@ const TWO_THIRDS = [
         N(W * 0.04, b.y(0.06), W * 0.3, b.h(0.6), '15', { fontFamily: 'Abril Fatface', fill: '#F4B6C9', ...outline('#111111', 8) }),
         rect(W * 0.36, b.y(0.56), W * 0.58, b.h(0.09), '#F4B6C9'),
         L(W, b.y(0.1), b.h(0.27), 'At Home', { fontFamily: 'Montserrat', fontWeight: 900, fill: '#111111', x: W * 0.36, width: W * 0.6, align: 'left', wordCount: 2 }),
-        L(W, b.y(0.38), b.h(0.27), 'Spa Day Tips', { fontFamily: 'Montserrat', fontWeight: 900, fill: '#111111', x: W * 0.36, width: W * 0.6, align: 'left' }),
-        S(W * 0.06, b.y(0.76), W * 0.88, b.h(0.16), 'For a relaxing experience', { fontFamily: 'Montserrat', fontWeight: 500, textTransform: 'uppercase', letterSpacing: 3, fill: '#111111' }),
+        L(W, b.y(0.38), b.h(0.27), 'Spa Day Tips', { fontFamily: 'Montserrat', fontWeight: 900, fill: '#111111', x: W * 0.36, width: W * 0.6, align: 'left', wordCount: 3 }),
+        L(W, b.y(0.76), b.h(0.16), 'For a relaxing experience', { x: W * 0.06, width: W * 0.88, lineHeight: 1, fontSize: (b.h(0.16)) * 0.8, fontFamily: 'Montserrat', fontWeight: 500, textTransform: 'uppercase', letterSpacing: 3, fill: '#111111' }),
         ...bar(W, H, '#111111', '#FFFFFF'),
       ];
     },
@@ -368,9 +376,9 @@ const TWO_THIRDS = [
       L(W, H * 0.04, H * 0.07, 'Legit', { fontFamily: 'Poppins', fontWeight: 400, fill: '#111111', textTransform: 'none', x: W * 0.36, width: W * 0.58, align: 'left', wordCount: 1 }),
       L(W, H * 0.13, H * 0.11, 'Data', { fontFamily: 'Archivo Black', fill: '#111111', x: W * 0.06, width: W * 0.88, align: 'left', wordCount: 1 }),
       L(W, H * 0.24, H * 0.11, 'Entry', { fontFamily: 'Archivo Black', fill: '#111111', x: W * 0.06, width: W * 0.88, align: 'left', wordCount: 1 }),
-      L(W, H * 0.35, H * 0.11, 'Jobs', { fontFamily: 'Archivo Black', fill: '#111111', x: W * 0.06, width: W * 0.88, align: 'left' }),
-      S(W * 0.06, H * 0.47, W * 0.4, H * 0.045, 'from home', { fontFamily: 'Poppins', fill: '#111111', align: 'left' }),
-      S(W * 0.56, H * 0.45, W * 0.38, H * 0.06, '$3000/mo', { fontFamily: 'Montserrat', fontWeight: 800, fill: '#FFFFFF', textTransform: 'uppercase', rotation: -3, background: bgOn('#FF5A1F', { hug: true, paddingX: 18, paddingY: 6 }) }),
+      L(W, H * 0.35, H * 0.11, 'Jobs', { fontFamily: 'Archivo Black', fill: '#111111', x: W * 0.06, width: W * 0.88, align: 'left', wordCount: 1 }),
+      L(W, H * 0.47, H * 0.045, 'from home', { x: W * 0.06, width: W * 0.4, textTransform: 'none', lineHeight: 1, fontSize: (H * 0.045) * 0.8, wordCount: 2, fontFamily: 'Poppins', fill: '#111111', align: 'left' }),
+      L(W, H * 0.475, H * 0.06, '$3000/mo', { x: W * 0.56, width: W * 0.38, lineHeight: 1, fontSize: (H * 0.06) * 0.8, fontFamily: 'Montserrat', fontWeight: 800, fill: '#FFFFFF', textTransform: 'uppercase', rotation: -3, background: bgOn('#FF5A1F', { hug: true, paddingX: 18, paddingY: 6 }) }),
       ...bar(W, H, '#111111', '#FFFFFF'),
     ],
   }),
@@ -386,9 +394,9 @@ const TWO_THIRDS = [
       rect(0, 0, W, H * 0.38, '#7FA99B'),
       L(W, H * 0.03, H * 0.06, 'A Simple', { fontFamily: 'Oswald', fontWeight: 700, fill: '#FFFFFF', wordCount: 2 }),
       L(W, H * 0.09, H * 0.06, 'Guide to Using', { fontFamily: 'Oswald', fontWeight: 700, fill: '#FFFFFF', wordCount: 3 }),
-      L(W, H * 0.16, H * 0.11, 'Rosemary', { fontFamily: 'Oswald', fontWeight: 700, fill: '#F28C4B', ...outline('#111111', 6), shadow: hard('#111111', 5, 5) }),
+      L(W, H * 0.16, H * 0.11, 'Rosemary', { fontFamily: 'Oswald', fontWeight: 700, fill: '#F28C4B', ...outline('#111111', 6), shadow: hard('#111111', 5, 5), wordCount: 1 }),
       rect(0, H * 0.29, W, H * 0.07, '#F28C4B'),
-      S(W * 0.05, H * 0.295, W * 0.9, H * 0.06, 'for healthy hair', { fontFamily: 'Oswald', fontWeight: 700, fill: '#FFFFFF', textTransform: 'uppercase' }),
+      L(W, H * 0.295, H * 0.06, 'for healthy hair', { x: W * 0.05, width: W * 0.9, lineHeight: 1, fontSize: (H * 0.06) * 0.8, fontFamily: 'Oswald', fontWeight: 700, fill: '#FFFFFF', textTransform: 'uppercase' }),
       ...bar(W, H, '#111111', '#FFFFFF'),
     ],
   }),
@@ -404,11 +412,52 @@ const TWO_THIRDS = [
       ...[0, 1, 2, 3, 4, 5, 6].map((i) => oval(i * W * 0.17 - W * 0.1, H * 0.44, W * 0.27, H * 0.1, '#FFFFFF')),
       N(W * 0.04, H * 0.02, W * 0.3, H * 0.22, '8', { fontFamily: 'Pacifico', fill: '#F28C5E', ...outline('#111111', 12) }),
       L(W, H * 0.05, H * 0.07, 'Less Toxic', { fontFamily: 'Josefin Sans', fontWeight: 400, fill: '#111111', x: W * 0.36, width: W * 0.6, align: 'left', wordCount: 2 }),
-      L(W, H * 0.12, H * 0.07, 'Candles', { fontFamily: 'Josefin Sans', fontWeight: 400, fill: '#111111', x: W * 0.36, width: W * 0.6, align: 'left' }),
-      S(W * 0.08, H * 0.27, W * 0.84, H * 0.06, 'to Make Your Home', { fontFamily: 'Poppins', fontWeight: 600, fill: '#111111' }),
-      S(W * 0.08, H * 0.335, W * 0.84, H * 0.06, 'Smell Like Fall', { fontFamily: 'Poppins', fontWeight: 600, fill: '#111111' }),
+      L(W, H * 0.12, H * 0.07, 'Candles', { fontFamily: 'Josefin Sans', fontWeight: 400, fill: '#111111', x: W * 0.36, width: W * 0.6, align: 'left', wordCount: 1 }),
+      L(W, H * 0.27, H * 0.06, 'to Make Your Home', { x: W * 0.08, width: W * 0.84, textTransform: 'none', lineHeight: 1, fontSize: (H * 0.06) * 0.8, wordCount: 4, fontFamily: 'Poppins', fontWeight: 600, fill: '#111111' }),
+      L(W, H * 0.335, H * 0.06, 'Smell Like Fall', { x: W * 0.08, width: W * 0.84, textTransform: 'none', lineHeight: 1, fontSize: (H * 0.06) * 0.8, fontFamily: 'Poppins', fontWeight: 600, fill: '#111111' }),
       ...bar(W, H, '#111111', '#FFFFFF'),
     ],
+  }),
+  tpl({
+    id: 'cv-strips-beige-green-plain',
+    name: 'Colour Strips — Beige & Green, No Number',
+    description: '2 photos on top, one wide photo below; three strips between them: brown caps on beige, white caps on green, brown caps on beige.',
+    family: 1,
+    categories: ['Beauty', 'How-To', 'Lifestyle'],
+    designTypes: ['split'],
+    collage: { layoutId: 'band-2-1', gap: 8, band: 0.27 },
+    layers: ({ W, H, band }) => {
+      const b = inBand(band);
+      return [
+        bandShape('#F4D6B0'),
+        rect(0, b.y(0.35), W, b.h(0.3), '#5E8A2E'),
+        L(W, b.y(0.05), b.h(0.27), 'What Happens When', { fontFamily: 'Archivo Black', fill: '#4A2A1A', wordCount: 3 }),
+        L(W, b.y(0.37), b.h(0.26), 'When You Use Aloe Vera', { fontFamily: 'Archivo Black', fill: '#FFFFFF', wordCount: 5 }),
+        L(W, b.y(0.69), b.h(0.27), 'On Your Face', { fontFamily: 'Archivo Black', fill: '#4A2A1A' }),
+        ...bar(W, H, '#111111', '#FFFFFF'),
+      ];
+    },
+  }),
+  tpl({
+    id: 'cv-strips-cream-brown-number',
+    name: 'Colour Strips — Cream & Brown, Orange Number',
+    description: '2 photos on top, one wide photo below; cream strips with an orange number tile and orange keyword, a brown strip with white caps.',
+    family: 1,
+    categories: ['Hair', 'Beauty', 'Listicle'],
+    designTypes: ['split', 'number-badge'],
+    collage: { layoutId: 'band-2-1', gap: 8, band: 0.27 },
+    layers: ({ W, H, band }) => {
+      const b = inBand(band);
+      return [
+        bandShape('#FCF1D8'),
+        rect(0, b.y(0.36), W, b.h(0.29), '#5A2E1E'),
+        badge(W * 0.13, b.y(0.04), b.h(0.28), '52', 'rounded', '#E8913A', '#FFFFFF', { fontFamily: 'Archivo Black', x: W * 0.13, width: W * 0.17 }),
+        L(W, b.y(0.04), b.h(0.29), 'Short', { fontFamily: 'Archivo Black', fill: '#E8913A', x: W * 0.33, width: W * 0.55, align: 'left', wordCount: 1 }),
+        L(W, b.y(0.38), b.h(0.25), 'Celebrity Hairstyles For', { fontFamily: 'Montserrat', fontWeight: 800, fill: '#FFFFFF', wordCount: 3 }),
+        L(W, b.y(0.68), b.h(0.29), 'Style Inspiration', { fontFamily: 'Montserrat', fontWeight: 800, fill: '#E8913A' }),
+        ...bar(W, H, '#111111', '#FFFFFF'),
+      ];
+    },
   }),
 ];
 
@@ -430,10 +479,10 @@ const HALF = [
       const b = inBand(band);
       return [
         bandShape('#F7F7F5'),
-        badge(W * 0.06, b.y(-0.45), b.h(0.5), '20', 'circle', '#FFFFFF', '#111111', { fontFamily: 'Montserrat', fontWeight: 800 }),
-        accent(W * 0.42, b.y(-0.34), W * 0.52, b.h(0.32), 'Cute', { fontFamily: 'Pacifico', fill: '#111111', ...outline('#FFFFFF', 10) }),
-        L(W, b.y(0.1), b.h(0.38), 'Baby Boy', { fontFamily: 'Bebas Neue', fill: '#E8A23B', letterSpacing: 14, wordCount: 2 }),
-        L(W, b.y(0.54), b.h(0.38), 'Gift Ideas', { fontFamily: 'Oswald', fontWeight: 700, fill: '#111111' }),
+        badge(W * 0.09, b.y(-0.62), b.h(0.74), '20', 'circle', '#FFFFFF', '#111111', { fontFamily: 'Anton' }),
+        accent(W * 0.44, b.y(-0.5), W * 0.52, b.h(0.5), 'Cute', sticker()),
+        L(W, b.y(0.1), b.h(0.4), 'Baby Boy', { fontFamily: 'Bebas Neue', fill: '#F6B04B', letterSpacing: 28, ...outline('#111111', 6), wordCount: 2 }),
+        L(W, b.y(0.54), b.h(0.42), 'Gift Ideas', { fontFamily: 'Bebas Neue', fill: '#111111', letterSpacing: 2 }),
         web(W, H),
       ];
     },
@@ -451,10 +500,10 @@ const HALF = [
       const b = inBand(band);
       return [
         bandShape('#F6B04B'),
-        badge(W * 0.06, b.y(-0.45), b.h(0.5), '11', 'circle', '#111111', '#FFFFFF', { fontFamily: 'Montserrat', fontWeight: 800 }),
-        accent(W * 0.42, b.y(-0.34), W * 0.52, b.h(0.32), 'Creative', { fontFamily: 'Pacifico', fill: '#FFFFFF', ...outline('#111111', 8) }),
-        L(W, b.y(0.1), b.h(0.38), 'Changing Table', { fontFamily: 'Oswald', fontWeight: 700, fill: '#FFFFFF', wordCount: 2 }),
-        L(W, b.y(0.54), b.h(0.38), 'Storage Ideas', { fontFamily: 'Oswald', fontWeight: 700, fill: '#111111' }),
+        badge(W * 0.02, b.y(-0.6), b.h(0.8), '11', 'circle', '#111111', '#FFFFFF', { fontFamily: 'Abril Fatface' }),
+        accent(W * 0.36, b.y(-0.52), W * 0.62, b.h(0.5), 'Creative', { fontFamily: 'Pacifico', fill: '#111111', textTransform: 'none', ...outline('#FFFFFF', 12) }),
+        L(W, b.y(0.08), b.h(0.42), 'Changing Table', { fontFamily: 'Bebas Neue', fill: '#FFFFFF', wordCount: 2 }),
+        L(W, b.y(0.52), b.h(0.44), 'Storage Ideas', { fontFamily: 'Bebas Neue', fill: '#111111' }),
         web(W, H),
       ];
     },
@@ -472,10 +521,10 @@ const HALF = [
       const b = inBand(band);
       return [
         bandShape('#B4693E'),
-        N(W * 0.06, b.y(-0.42), W * 0.32, b.h(0.4), '12', { fontFamily: 'Montserrat', fontWeight: 900, fill: '#FFFFFF', ...outline('#111111', 10) }),
-        accent(W * 0.4, b.y(-0.36), W * 0.56, b.h(0.32), 'Creative', { fontFamily: 'Permanent Marker', fill: '#111111', textTransform: 'uppercase', ...outline('#FFFFFF', 10), rotation: -3 }),
-        L(W, b.y(0.1), b.h(0.38), 'Baby Shower', { fontFamily: 'Montserrat', fontWeight: 800, fill: '#FFFFFF', ...outline('#111111', 6), wordCount: 2 }),
-        L(W, b.y(0.54), b.h(0.36), 'Cake Ideas', { fontFamily: 'Poppins', fontWeight: 700, fill: '#FFFFFF', textTransform: 'none', ...outline('#111111', 6) }),
+        N(W * 0.12, b.y(-0.6), W * 0.34, b.h(0.58), '12', { fontFamily: 'Montserrat', fontWeight: 900, fill: '#FFFFFF', ...outline('#111111', 12) }),
+        accent(W * 0.44, b.y(-0.44), W * 0.54, b.h(0.4), 'Creative', { fontFamily: 'Permanent Marker', fill: '#FFFFFF', textTransform: 'uppercase', ...outline('#111111', 12), rotation: -4 }),
+        L(W, b.y(0.12), b.h(0.36), 'Baby Shower', { fontFamily: 'Archivo Black', fill: '#FFFFFF', ...outline('#111111', 8), wordCount: 2 }),
+        L(W, b.y(0.54), b.h(0.38), 'Cake Ideas', { fontFamily: 'Archivo Black', fill: '#111111', textTransform: 'none', ...outline('#FFFFFF', 8) }),
         web(W, H),
       ];
     },
@@ -493,7 +542,7 @@ const HALF = [
       const b = inBand(band);
       return [
         bandShape('#F4F4F2'),
-        L(W, b.y(0.04), b.h(0.24), 'Kitchen', { fontFamily: 'Bebas Neue', fill: '#E8913A', letterSpacing: 18, wordCount: 1 }),
+        L(W, b.y(0.02), b.h(0.27), 'Kitchen', { fontFamily: 'Bebas Neue', fill: '#F28C3F', letterSpacing: 30, ...outline('#111111', 5), wordCount: 1 }),
         L(W, b.y(0.3), b.h(0.22), 'Pots & Pans', { fontFamily: 'Oswald', fontWeight: 700, fill: '#111111' }),
         L(W, b.y(0.54), b.h(0.18), 'Organizing', { fontFamily: 'Pacifico', fill: '#111111', textTransform: 'none', wordCount: 1 }),
         L(W, b.y(0.75), b.h(0.21), 'Ideas', { fontFamily: 'Bebas Neue', fill: '#FFFFFF', x: W * 0.3, width: W * 0.4, background: bgOn('#111111', { hug: true, paddingX: 16, paddingY: 2 }), wordCount: 1 }),
@@ -1272,4 +1321,490 @@ const HALF = [
   }),
 ];
 
-export const PACK_STYLE_TEMPLATES = [...TWO_THIRDS, ...HALF];
+// ---------------------------------------------------------------- more band designs (736 × 1472)
+
+
+const BANDS = [
+  tpl({
+    id: 'cv-pp-huge-outlined-keyword',
+    name: 'Huge Outlined Keyword, Orange Circle',
+    description: '2 top + 2 bottom photos, an orange circle number and a sticker script word, one huge orange outlined keyword and black outlined caps.',
+    family: 5,
+    categories: ['Lifestyle', 'How-To', 'Listicle'],
+    designTypes: ['split', 'script-bold', 'number-badge'],
+    ...BLOG,
+    collage: { ...BAND_PP, band: 0.3 },
+    layers: ({ W, H, band }) => {
+      const b = inBand(band);
+      return [
+        bandShape('#F4F4F2'),
+        badge(W * 0.06, b.y(-0.58), b.h(0.76), '20', 'circle', '#F6B04B', '#111111', { fontFamily: 'Anton', ...outline('#FFFFFF', 8) }),
+        accent(W * 0.44, b.y(-0.48), W * 0.5, b.h(0.5), 'Fun', sticker()),
+        L(W, b.y(0.06), b.h(0.5), 'Crafts', { fontFamily: 'Anton', fill: '#F28C3F', ...outline('#111111', 10), wordCount: 1 }),
+        L(W, b.y(0.6), b.h(0.34), 'For Teenagers', { fontFamily: 'Anton', fill: '#111111', ...outline('#FFFFFF', 8) }),
+        web(W, H),
+      ];
+    },
+  }),
+  tpl({
+    id: 'cv-pp-white-circle-outlined-caps',
+    name: 'White Circle Number, Outlined Orange Caps',
+    description: '2 top + 2 bottom photos, a white circle number and a sticker script word, orange caps outlined in black and a big black last line.',
+    family: 5,
+    categories: ['Home Decor', 'Lifestyle', 'Listicle'],
+    designTypes: ['split', 'script-bold', 'number-badge'],
+    ...BLOG,
+    collage: { ...BAND_PP, band: 0.28 },
+    layers: ({ W, H, band }) => {
+      const b = inBand(band);
+      return [
+        bandShape('#F4F4F2'),
+        badge(W * 0.02, b.y(-0.58), b.h(0.76), '15', 'circle', '#FFFFFF', '#111111', { fontFamily: 'Oswald', fontWeight: 700 }),
+        accent(W * 0.4, b.y(-0.48), W * 0.56, b.h(0.5), 'Chic', sticker()),
+        L(W, b.y(0.06), b.h(0.44), 'Home Decor', { fontFamily: 'Bebas Neue', fill: '#F28C3F', letterSpacing: 6, ...outline('#111111', 6), wordCount: 2 }),
+        L(W, b.y(0.52), b.h(0.46), 'Hacks', { fontFamily: 'Bebas Neue', fill: '#111111', letterSpacing: 6 }),
+        web(W, H),
+      ];
+    },
+  }),
+  tpl({
+    id: 'cv-pp-amber-band-orange-outline',
+    name: 'Amber Band, Orange Outlined Caps',
+    description: '2 top + 2 bottom photos, an amber band with a matching circle number, a sticker script word, orange outlined caps and a black outlined last word.',
+    family: 5,
+    categories: ['Home Decor', 'Lifestyle', 'Listicle'],
+    designTypes: ['split', 'script-bold', 'number-badge'],
+    ...BLOG,
+    collage: { ...BAND_PP, band: 0.3 },
+    layers: ({ W, H, band }) => {
+      const b = inBand(band);
+      return [
+        bandShape('#F6B94F'),
+        badge(0, b.y(-0.58), b.h(0.76), '15', 'circle', '#F6B94F', '#111111', { fontFamily: 'Anton', ...outline('#FFFFFF', 8) }),
+        accent(W * 0.42, b.y(-0.48), W * 0.52, b.h(0.5), 'Stylish', sticker()),
+        L(W, b.y(0.12), b.h(0.36), 'Indoor Plant', { fontFamily: 'Anton', fill: '#F28C3F', ...outline('#111111', 8), wordCount: 2 }),
+        L(W, b.y(0.54), b.h(0.38), 'Tips', { fontFamily: 'Anton', fill: '#111111', ...outline('#FFFFFF', 8) }),
+        web(W, H),
+      ];
+    },
+  }),
+  tpl({
+    id: 'cv-pp-two-tone-line',
+    name: 'One Photo Top & Bottom, Two-Tone Line',
+    description: 'A photo above and one below an amber band; black circle number, sticker script word, one line in white then black, and a big black last line.',
+    family: 5,
+    categories: ['Lifestyle', 'Listicle'],
+    designTypes: ['split', 'script-bold', 'number-badge'],
+    ...BLOG,
+    collage: { layoutId: 'band-1-1', gap: 6, band: 0.28 },
+    layers: ({ W, H, band }) => {
+      const b = inBand(band);
+      return [
+        bandShape('#F6B94F'),
+        badge(W * 0.03, b.y(-0.58), b.h(0.76), '15', 'circle', '#111111', '#FFFFFF', { fontFamily: 'Oswald', fontWeight: 700 }),
+        accent(W * 0.4, b.y(-0.48), W * 0.56, b.h(0.5), 'Compact', sticker()),
+        L(W, b.y(0.14), b.h(0.36), 'Home', { fontFamily: 'Bebas Neue', fill: '#FFFFFF', x: W * 0.02, width: W * 0.4, align: 'right', wordCount: 1 }),
+        L(W, b.y(0.14), b.h(0.36), 'Fitness', { fontFamily: 'Bebas Neue', fill: '#111111', x: W * 0.44, width: W * 0.54, align: 'left', wordCount: 1 }),
+        L(W, b.y(0.55), b.h(0.4), 'Solutions', { fontFamily: 'Bebas Neue', fill: '#111111' }),
+        web(W, H),
+      ];
+    },
+  }),
+  tpl({
+    id: 'cv-pp-one-top-two-bottom',
+    name: 'Wide Photo Top, Amber Band, Two Below',
+    description: 'One wide photo on top and two below an amber band; black circle number, sticker script word, white caps over black caps.',
+    family: 5,
+    categories: ['Home Decor', 'Lifestyle', 'Listicle'],
+    designTypes: ['split', 'script-bold', 'number-badge'],
+    ...BLOG,
+    collage: { layoutId: 'band-1-2', gap: 6, band: 0.28 },
+    layers: ({ W, H, band }) => {
+      const b = inBand(band);
+      return [
+        bandShape('#F6B94F'),
+        badge(W * 0.02, b.y(-0.58), b.h(0.76), '30', 'circle', '#111111', '#FFFFFF', { fontFamily: 'Montserrat', fontWeight: 800 }),
+        accent(W * 0.44, b.y(-0.48), W * 0.54, b.h(0.5), 'Gorgeous', sticker()),
+        L(W, b.y(0.1), b.h(0.4), 'Baby Breath', { fontFamily: 'Bebas Neue', fill: '#FFFFFF', wordCount: 2 }),
+        L(W, b.y(0.56), b.h(0.34), 'Centerpiece Ideas', { fontFamily: 'Bebas Neue', fill: '#111111' }),
+        web(W, H),
+      ];
+    },
+  }),
+  tpl({
+    id: 'cv-pp-outlined-number-white-band',
+    name: 'Outlined Number, Clean White Band',
+    description: 'One photo on top and two below a white band; an outlined number in a white circle, sticker script word and two big black lines.',
+    family: 5,
+    categories: ['Lifestyle', 'Listicle', 'Custom Blog Pin'],
+    designTypes: ['split', 'script-bold', 'number-badge'],
+    ...BLOG,
+    collage: { layoutId: 'band-1-2', gap: 6, band: 0.28 },
+    layers: ({ W, H, band }) => {
+      const b = inBand(band);
+      return [
+        bandShape('#FFFFFF'),
+        badge(0, b.y(-0.58), b.h(0.76), '15', 'circle', '#FFFFFF', '#FFFFFF', { fontFamily: 'Oswald', fontWeight: 700, ...outline('#111111', 6) }),
+        accent(W * 0.4, b.y(-0.48), W * 0.52, b.h(0.5), 'Simple', sticker()),
+        L(W, b.y(0.1), b.h(0.4), 'Money Making', { fontFamily: 'Bebas Neue', fill: '#111111', wordCount: 2 }),
+        L(W, b.y(0.54), b.h(0.4), 'Side Hustles', { fontFamily: 'Bebas Neue', fill: '#111111' }),
+        web(W, H),
+      ];
+    },
+  }),
+  tpl({
+    id: 'cv-pp-olive-band-outlined',
+    name: 'Olive Band with Black Edges, Outlined Caps',
+    description: '2 top + 2 bottom photos, an olive band edged in black with three lines of white caps outlined in black.',
+    family: 1,
+    categories: ['Home Decor', 'Lifestyle', 'Listicle'],
+    designTypes: ['split'],
+    ...BLOG,
+    collage: { ...BAND_PP, band: 0.27 },
+    layers: ({ W, H, band }) => {
+      const b = inBand(band);
+      return [
+        bandShape('#5E6B2E'),
+        rect(0, b.y(0) - 4, W, 8, '#111111', { name: 'Band edge' }),
+        rect(0, b.y(1) - 4, W, 8, '#111111', { name: 'Band edge' }),
+        L(W, b.y(0.06), b.h(0.27), '15 Creative', { fontFamily: 'Archivo Black', fill: '#FFFFFF', ...outline('#111111', 6), wordCount: 2 }),
+        L(W, b.y(0.37), b.h(0.27), 'Vertical Garden', { fontFamily: 'Archivo Black', fill: '#FFFFFF', ...outline('#111111', 6), wordCount: 2 }),
+        L(W, b.y(0.68), b.h(0.27), 'Grocery List', { fontFamily: 'Archivo Black', fill: '#FFFFFF', ...outline('#111111', 6) }),
+        web(W, H),
+      ];
+    },
+  }),
+];
+
+// ---------------------------------------------------------------- photo-overlay & panel designs (736 × 1472)
+
+const BLUE = '#5B86A8';
+const RUST = '#C0563B';
+const BROWN_BAR = '#5A4A3A';
+/** Bold rounded caps outlined in a contrasting colour — the go-to look for text straight on a photo. */
+const bold = (fill: string, ring: string, p: TP = {}): TP => ({ fontFamily: 'Montserrat', fontWeight: 900, fill, ...outline(ring, 7), ...p });
+const FULL = { layoutId: 'single' } as const;
+
+const OVERLAYS = [
+  tpl({
+    id: 'cv-ov-big-number-money',
+    name: 'Huge Number, Amber Caps & Big Money Line',
+    description: 'One photo: a giant blue number, two huge amber lines, a thin lowercase connector, a giant blue money figure and an italic last word.',
+    family: 6,
+    categories: ['Lifestyle', 'Listicle', 'Custom Blog Pin'],
+    designTypes: ['single-image', 'image-text-overlay'],
+    ...BLOG,
+    collage: FULL,
+    layers: ({ W, H }) => [
+      N(W * 0.2, H * 0.01, W * 0.6, H * 0.15, '50', { fontFamily: 'Montserrat', fontWeight: 800, fill: '#5B7FA6' }),
+      L(W, H * 0.17, H * 0.11, 'Side', { fontFamily: 'Montserrat', fontWeight: 900, fill: '#F2AE55', wordCount: 1 }),
+      L(W, H * 0.27, H * 0.11, 'Hustle', { fontFamily: 'Montserrat', fontWeight: 900, fill: '#F2AE55', wordCount: 1 }),
+      L(W, H * 0.375, H * 0.05, 'ideas that can make', { fontFamily: 'Raleway', fontWeight: 300, fill: '#5B7FA6', textTransform: 'lowercase', wordCount: 4 }),
+      L(W, H * 0.43, H * 0.1, '$100,000', { fontFamily: 'Montserrat', fontWeight: 800, fill: '#5B7FA6', wordCount: 1 }),
+      L(W, H * 0.525, H * 0.05, 'monthly', { fontFamily: 'Raleway', fontWeight: 300, italic: true, fill: '#5B7FA6', textTransform: 'lowercase', x: W * 0.4, width: W * 0.56, align: 'right' }),
+      ...bar(W, H, BROWN_BAR, '#7DA3C7'),
+    ],
+  }),
+  tpl({
+    id: 'cv-ov-white-top-yellow',
+    name: 'White Top, Yellow Outlined Caps',
+    description: 'A white top with a yellow outlined line and one huge yellow outlined keyword, one big photo below and the website on the photo.',
+    family: 7,
+    categories: ['Lifestyle', 'How-To', 'Relationship'],
+    designTypes: ['image-text-panel'],
+    ...BLOG,
+    collage: { layoutId: 'single', region: { x: 0, y: 0.32, width: 1, height: 0.68 } },
+    layers: ({ W, H }) => [
+      L(W, H * 0.04, H * 0.06, 'How to Build', { fontFamily: 'Archivo Black', fill: '#F7D23E', ...outline('#111111', 5), wordCount: 3 }),
+      L(W, H * 0.11, H * 0.1, 'Confidence', { fontFamily: 'Archivo Black', fill: '#F7E23E', ...outline('#111111', 6) }),
+      web(W, H, { fontFamily: 'Archivo Black', fill: '#2F4F7A', ...outline('#FFFFFF', 5), fontSize: H * 0.03, letterSpacing: 1, textTransform: 'none' }),
+    ],
+  }),
+  tpl({
+    id: 'cv-ov-two-colour-outline-stack',
+    name: 'Two-Colour Outlined Stack on Photo',
+    description: 'One photo with a tall stack: rust caps outlined in black on top, big blue caps outlined in white below, a smaller serif pair and a huge last word.',
+    family: 6,
+    categories: ['Home Decor', 'How-To', 'Listicle'],
+    designTypes: ['single-image', 'image-text-overlay'],
+    ...BLOG,
+    collage: FULL,
+    layers: ({ W, H }) => [
+      N(W * 0.3, H * 0.02, W * 0.4, H * 0.12, '9', bold(RUST, '#111111', { strokeWidth: 9 })),
+      L(W, H * 0.15, H * 0.1, 'Ways', bold(RUST, '#111111', { wordCount: 1 })),
+      L(W, H * 0.33, H * 0.12, 'Your', bold(BLUE, '#FFFFFF', { strokeWidth: 9, wordCount: 1 })),
+      L(W, H * 0.48, H * 0.12, 'DIY', bold(BLUE, '#FFFFFF', { strokeWidth: 9, wordCount: 1 })),
+      L(W, H * 0.68, H * 0.06, 'Tiny Home', { fontFamily: 'DM Serif Display', fill: BLUE, ...outline('#FFFFFF', 5), wordCount: 2 }),
+      L(W, H * 0.76, H * 0.06, 'Could Fail', bold(BLUE, '#FFFFFF', { wordCount: 2 })),
+      L(W, H * 0.84, H * 0.09, 'Inspection', bold(BLUE, '#FFFFFF', { strokeWidth: 8 })),
+      ...bar(W, H, BROWN_BAR, '#FFFFFF'),
+    ],
+  }),
+  tpl({
+    id: 'cv-ov-black-caps-white-ring',
+    name: 'Black Caps with White Outline, Top & Bottom',
+    description: 'One photo with heavy black caps outlined in white: four lines at the top, two at the bottom, a dark footer.',
+    family: 6,
+    categories: ['Home Decor', 'Lifestyle'],
+    designTypes: ['single-image', 'image-text-overlay'],
+    ...BLOG,
+    collage: FULL,
+    layers: ({ W, H }) => [
+      L(W, H * 0.01, H * 0.1, 'This', bold('#111111', '#FFFFFF', { wordCount: 1 })),
+      L(W, H * 0.105, H * 0.1, 'Ultra', bold('#111111', '#FFFFFF', { wordCount: 1 })),
+      L(W, H * 0.2, H * 0.08, 'Modern', bold('#111111', '#FFFFFF', { wordCount: 1 })),
+      L(W, H * 0.28, H * 0.08, 'Tiny House', bold('#111111', '#FFFFFF', { wordCount: 2 })),
+      L(W, H * 0.8, H * 0.075, 'Will Blow', bold('#111111', '#FFFFFF', { wordCount: 2 })),
+      L(W, H * 0.875, H * 0.075, 'Your Minds', bold('#111111', '#FFFFFF')),
+      ...bar(W, H, '#2A2A2A', '#FFFFFF'),
+    ],
+  }),
+  tpl({
+    id: 'cv-ov-orange-caps-stack',
+    name: 'Orange Outlined Caps Stack',
+    description: 'One photo with six lines of orange caps outlined in black across the top half.',
+    family: 6,
+    categories: ['Home Decor', 'How-To', 'Lifestyle'],
+    designTypes: ['single-image', 'image-text-overlay'],
+    ...BLOG,
+    collage: FULL,
+    layers: ({ W, H }) => [
+      L(W, H * 0.01, H * 0.07, 'This Common', bold('#F7931E', '#111111', { wordCount: 2 })),
+      L(W, H * 0.085, H * 0.07, 'Watering', bold('#F7931E', '#111111', { wordCount: 1 })),
+      L(W, H * 0.16, H * 0.07, 'Habit', bold('#F7931E', '#111111', { wordCount: 1 })),
+      L(W, H * 0.24, H * 0.065, 'Is Why All', bold('#F7931E', '#111111', { wordCount: 3 })),
+      L(W, H * 0.31, H * 0.065, 'Your Plants', bold('#F7931E', '#111111', { wordCount: 2 })),
+      L(W, H * 0.38, H * 0.065, 'Keep Dying', bold('#F7931E', '#111111')),
+      ...bar(W, H, BROWN_BAR, '#7DA3C7'),
+    ],
+  }),
+  tpl({
+    id: 'cv-ov-rust-panel-six-grid',
+    name: 'Rust Panel Between a Wide Photo and Six Tiles',
+    description: 'A wide photo on top, a rust panel with five lines of blue caps outlined in black, then six small photos in a 3×2 grid.',
+    family: 1,
+    categories: ['Home Decor', 'How-To', 'Listicle'],
+    designTypes: ['image-text-panel'],
+    ...BLOG,
+    collage: { layoutId: 'hero-top-grid-6', gap: 6 },
+    layers: ({ W, H }) => [
+      rect(0, H * 0.265, W, H * 0.37, '#B5452F', { name: 'Panel' }),
+      L(W, H * 0.28, H * 0.065, 'The Devastating', bold(BLUE, '#111111', { strokeWidth: 5, wordCount: 2 })),
+      L(W, H * 0.35, H * 0.065, 'Truth About', bold(BLUE, '#111111', { strokeWidth: 5, wordCount: 2 })),
+      L(W, H * 0.42, H * 0.065, 'Tiny Home', bold(BLUE, '#111111', { strokeWidth: 5, wordCount: 2 })),
+      L(W, H * 0.49, H * 0.065, 'Plumbing Nobody', bold(BLUE, '#111111', { strokeWidth: 5, wordCount: 2 })),
+      L(W, H * 0.56, H * 0.065, 'Warns You About', bold(BLUE, '#111111', { strokeWidth: 5 })),
+      ...bar(W, H, BROWN_BAR, '#7DA3C7'),
+    ],
+  }),
+  tpl({
+    id: 'cv-ov-orange-card-grid',
+    name: 'Orange Card on a Grid, Marker Number',
+    description: '2×2 photos with a framed orange card: a white circle with a marker number, a spaced marker word, blue caps with a black highlight and outlined lines.',
+    family: 3,
+    categories: ['Fashion', 'Lifestyle', 'Listicle'],
+    designTypes: ['collage-4', 'number-badge'],
+    ...BLOG,
+    collage: { layoutId: 'grid-2x2', gap: 6 },
+    layers: ({ W, H }) => [
+      rect(W * 0.1, H * 0.33, W * 0.8, H * 0.33, '#F2B35A', { cornerRadius: 18, stroke: '#7A3B2A', strokeWidth: 5 }),
+      badge(W * 0.12, H * 0.27, W * 0.26, '15', 'circle', '#FFFFFF', BLUE, { fontFamily: 'Permanent Marker' }),
+      accent(W * 0.42, H * 0.37, W * 0.46, H * 0.05, 'Stunning', { fontFamily: 'Permanent Marker', fill: BLUE, textTransform: 'uppercase', letterSpacing: 4 }),
+      L(W, H * 0.44, H * 0.07, '80s Party', { fontFamily: 'Bebas Neue', fill: BLUE, x: W * 0.14, width: W * 0.72, background: bgOn('#111111', { hug: true, paddingX: 10, paddingY: 0 }), wordCount: 2 }),
+      L(W, H * 0.515, H * 0.065, 'Outfit Ideas For', { fontFamily: 'Bebas Neue', fill: BLUE, ...outline('#FFFFFF', 5), x: W * 0.14, width: W * 0.72, wordCount: 3 }),
+      L(W, H * 0.58, H * 0.065, 'Plus-Size', { fontFamily: 'Bebas Neue', fill: BLUE, ...outline('#FFFFFF', 5), x: W * 0.14, width: W * 0.72 }),
+      ...bar(W, H, BROWN_BAR, BLUE, { textTransform: 'none', fontFamily: 'Archivo Black' }),
+    ],
+  }),
+  tpl({
+    id: 'cv-ov-caption-card-script',
+    name: 'Outlined Caps + Tilted Script Card',
+    description: 'One photo with five lines of rounded blue caps outlined in white and a tilted white card holding a script subtitle.',
+    family: 6,
+    categories: ['Lifestyle', 'Custom Blog Pin'],
+    designTypes: ['single-image', 'image-text-overlay', 'script-bold'],
+    ...BLOG,
+    collage: FULL,
+    layers: ({ W, H }) => [
+      L(W, H * 0.02, H * 0.07, 'The Scariest', bold(BLUE, '#FFFFFF', { wordCount: 2 })),
+      L(W, H * 0.095, H * 0.07, 'Mountain', bold(BLUE, '#FFFFFF', { wordCount: 1 })),
+      L(W, H * 0.17, H * 0.07, 'Pass We', bold(BLUE, '#FFFFFF', { wordCount: 2 })),
+      L(W, H * 0.245, H * 0.07, 'Have Ever', bold(BLUE, '#FFFFFF', { wordCount: 2 })),
+      L(W, H * 0.32, H * 0.07, 'Driven', bold(BLUE, '#FFFFFF')),
+      turned(W * 0.5, H * 0.84, W * 0.84, H * 0.11, -8, '#FFFFFF', { name: 'Note card' }),
+      S(...turnedBox(W * 0.5, H * 0.84, W * 0.76, H * 0.09, -8), 'And Why You Should Too', { fontFamily: 'Allura', fill: BLUE, rotation: -8, fontSize: H * 0.045, lineHeight: 1.1 }),
+      ...bar(W, H, BROWN_BAR, '#7DA3C7'),
+    ],
+  }),
+  tpl({
+    id: 'cv-ov-taupe-band-purple',
+    name: 'Taupe Band, Purple & Red Outlined Caps',
+    description: 'A photo above and below a taupe band: a huge purple number on the photo edge, red and purple caps outlined in white.',
+    family: 5,
+    categories: ['Lifestyle', 'How-To', 'Listicle'],
+    designTypes: ['split', 'number-badge'],
+    ...BLOG,
+    collage: { layoutId: 'band-1-1', gap: 6, band: 0.27 },
+    layers: ({ W, H, band }) => {
+      const b = inBand(band);
+      return [
+        bandShape('#A89580'),
+        N(W * 0.02, b.y(-0.32), W * 0.36, b.h(0.5), '31', bold('#6B3F75', '#FFFFFF', { strokeWidth: 9 })),
+        L(W, b.y(0.03), b.h(0.24), 'Screen-Free', bold('#F0453A', '#FFFFFF', { x: W * 0.36, width: W * 0.6, wordCount: 1 })),
+        L(W, b.y(0.36), b.h(0.26), 'Toddler Fun', bold('#6B3F75', '#FFFFFF', { wordCount: 2 })),
+        L(W, b.y(0.66), b.h(0.26), 'Activities', bold('#6B3F75', '#FFFFFF')),
+        web(W, H, { fontFamily: 'Archivo Black', fill: '#FFFFFF', ...outline('#111111', 5), fontSize: H * 0.026 }),
+      ];
+    },
+  }),
+  tpl({
+    id: 'cv-ov-green-box-collage',
+    name: 'Framed Green Box over a Collage',
+    description: 'A photo collage with a green box in a white frame: a big blue number, a blue script word and blue caps with a dark drop shadow.',
+    family: 3,
+    categories: ['Home Decor', 'Fall Decor', 'Listicle'],
+    designTypes: ['collage-4', 'script-bold'],
+    ...BLOG,
+    collage: { layoutId: 'grid-2x2', gap: 6 },
+    layers: ({ W, H }) => [
+      rect(W * 0.08, H * 0.165, W * 0.84, H * 0.25, '#557D4E', { stroke: '#FFFFFF', strokeWidth: 10 }),
+      N(W * 0.12, H * 0.18, W * 0.28, H * 0.09, '41', { fontFamily: 'Montserrat', fontWeight: 900, fill: BLUE, shadow: hard('#2A3A2A', 3, 3) }),
+      L(W, H * 0.19, H * 0.07, 'Farmhouse', { fontFamily: 'Allura', fill: BLUE, textTransform: 'none', x: W * 0.42, width: W * 0.48, wordCount: 1 }),
+      L(W, H * 0.28, H * 0.065, 'Christmas', { fontFamily: 'Archivo Black', fill: BLUE, shadow: hard('#2A3A2A', 3, 3), x: W * 0.1, width: W * 0.8, wordCount: 1 }),
+      L(W, H * 0.345, H * 0.055, 'Decor Ideas', { fontFamily: 'Archivo Black', fill: BLUE, shadow: hard('#2A3A2A', 3, 3), x: W * 0.1, width: W * 0.8 }),
+      ...bar(W, H, BROWN_BAR, BLUE, { textTransform: 'none' }),
+    ],
+  }),
+  tpl({
+    id: 'cv-ov-two-tone-why',
+    name: 'Two-Tone Outlined Question, Top & Bottom',
+    description: 'One photo: a big brown word outlined in black, blue caps outlined in white at the top and brown outlined caps at the bottom.',
+    family: 6,
+    categories: ['Lifestyle', 'Custom Blog Pin'],
+    designTypes: ['single-image', 'image-text-overlay'],
+    ...BLOG,
+    collage: FULL,
+    layers: ({ W, H }) => [
+      L(W, H * 0.005, H * 0.09, 'Why', bold('#8A6A5A', '#111111', { x: W * 0.02, width: W * 0.42, align: 'left', strokeWidth: 8, wordCount: 1 })),
+      L(W, H * 0.02, H * 0.06, '58% of', bold(BLUE, '#FFFFFF', { x: W * 0.46, width: W * 0.52, align: 'left', wordCount: 2 })),
+      L(W, H * 0.1, H * 0.06, "Americans Can't", bold(BLUE, '#FFFFFF', { wordCount: 2 })),
+      L(W, H * 0.165, H * 0.06, 'Afford To', bold(BLUE, '#FFFFFF', { wordCount: 2 })),
+      L(W, H * 0.23, H * 0.06, 'Travel Anymore:', bold(BLUE, '#FFFFFF', { wordCount: 2 })),
+      L(W, H * 0.78, H * 0.055, 'The Shocking Math', bold('#8A6A5A', '#111111', { strokeWidth: 5, wordCount: 3 })),
+      L(W, H * 0.835, H * 0.055, "Behind 2025's", bold('#8A6A5A', '#111111', { strokeWidth: 5, wordCount: 2 })),
+      L(W, H * 0.89, H * 0.055, 'Travel Price Crisis', bold('#8A6A5A', '#111111', { strokeWidth: 5 })),
+      ...bar(W, H, '#2A2A2A', '#7DA3C7'),
+    ],
+  }),
+  tpl({
+    id: 'cv-ov-brown-panel-tab',
+    name: 'Brown Panel with Number Tab',
+    description: 'A photo above and below a brown panel with a raised tab holding a blue number, and four lines of blue caps outlined in black.',
+    family: 5,
+    categories: ['Home Decor', 'Listicle'],
+    designTypes: ['split', 'number-badge'],
+    ...BLOG,
+    collage: { layoutId: 'band-1-1', gap: 0, band: 0.36 },
+    layers: ({ W, H, band }) => {
+      const b = inBand(band);
+      return [
+        bandShape('#5E4B3C'),
+        rect(0, b.y(-0.12), W * 0.3, b.h(0.14), '#5E4B3C', { cornerRadius: 24, name: 'Tab' }),
+        N(W * 0.04, b.y(-0.1), W * 0.24, b.h(0.24), '15', bold(BLUE, '#111111', { strokeWidth: 6 })),
+        L(W, b.y(0.2), b.h(0.18), 'Tiny House', bold(BLUE, '#111111', { strokeWidth: 5, wordCount: 2 })),
+        L(W, b.y(0.39), b.h(0.18), 'Minimalist Decor', bold(BLUE, '#111111', { strokeWidth: 5, wordCount: 2 })),
+        L(W, b.y(0.58), b.h(0.18), 'Ideas Everyone', bold(BLUE, '#111111', { strokeWidth: 5, wordCount: 2 })),
+        L(W, b.y(0.77), b.h(0.18), 'Gets Wrong', bold(BLUE, '#111111', { strokeWidth: 5 })),
+        ...bar(W, H, BROWN_BAR, BLUE),
+      ];
+    },
+  }),
+  tpl({
+    id: 'cv-ov-script-red-mix',
+    name: 'Chunky Blue Caps + Red Script, Side Website',
+    description: 'One photo with chunky blue words outlined in black, a thin red script word and a red sans line, and the website running up the left edge.',
+    family: 6,
+    categories: ['Lifestyle', 'Relationship'],
+    designTypes: ['single-image', 'image-text-overlay', 'script-bold'],
+    ...BLOG,
+    collage: FULL,
+    layers: ({ W, H }) => [
+      L(W, H * 0.03, H * 0.08, 'How', { fontFamily: 'Archivo Black', fill: BLUE, ...outline('#111111', 7), textTransform: 'none', x: W * 0.04, width: W * 0.5, align: 'left', wordCount: 1 }),
+      L(W, H * 0.045, H * 0.09, 'To', { fontFamily: 'Great Vibes', fill: '#E3262E', textTransform: 'none', ...outline('#FFFFFF', 4), x: W * 0.52, width: W * 0.3, align: 'left', wordCount: 1 }),
+      L(W, H * 0.12, H * 0.08, 'Say', { fontFamily: 'Archivo Black', fill: BLUE, ...outline('#111111', 7), wordCount: 1 }),
+      L(W, H * 0.2, H * 0.08, 'Goodbye', { fontFamily: 'Archivo Black', fill: BLUE, ...outline('#111111', 7), wordCount: 1 }),
+      L(W, H * 0.29, H * 0.05, 'to Your Pet Without', { fontFamily: 'Poppins', fontWeight: 600, fill: '#E3262E', ...outline('#FFFFFF', 5), textTransform: 'none', wordCount: 4 }),
+      L(W, H * 0.35, H * 0.09, 'Falling', { fontFamily: 'Archivo Black', fill: BLUE, ...outline('#111111', 8), wordCount: 1 }),
+      L(W, H * 0.44, H * 0.09, 'Apart', { fontFamily: 'Archivo Black', fill: BLUE, ...outline('#111111', 8) }),
+      footer(W, H, 'over-image', {
+        rotation: -90, x: W * 0.015, y: H * 0.94, width: H * 0.24, height: W * 0.05,
+        fontFamily: 'Archivo Black', fill: '#2F4F7A', fontSize: W * 0.032, letterSpacing: 1, align: 'center',
+      }),
+    ],
+  }),
+  tpl({
+    id: 'cv-ov-olive-mixed-case',
+    name: 'Olive Mixed-Case Stack Outlined in White',
+    description: 'One photo: an olive number, two mixed-case words, olive caps outlined in white above and below the subject.',
+    family: 6,
+    categories: ['Home Decor', 'Lifestyle', 'Listicle'],
+    designTypes: ['single-image', 'image-text-overlay'],
+    ...BLOG,
+    collage: FULL,
+    layers: ({ W, H }) => [
+      N(W * 0.3, H * 0.01, W * 0.4, H * 0.1, '13', bold('#8A8A2E', '#FFFFFF', { strokeWidth: 8 })),
+      L(W, H * 0.11, H * 0.06, 'Brutal', { fontFamily: 'Poppins', fontWeight: 600, fill: '#8A8A2E', ...outline('#FFFFFF', 6), textTransform: 'none', wordCount: 1 }),
+      L(W, H * 0.17, H * 0.06, 'Reasons', { fontFamily: 'Poppins', fontWeight: 600, fill: '#8A8A2E', ...outline('#FFFFFF', 6), textTransform: 'none', wordCount: 1 }),
+      L(W, H * 0.23, H * 0.065, 'Why You', bold('#8A8A2E', '#FFFFFF', { wordCount: 2 })),
+      L(W, H * 0.3, H * 0.065, 'Should', bold('#8A8A2E', '#FFFFFF', { wordCount: 1 })),
+      L(W, H * 0.76, H * 0.06, 'Retire In A Tiny', bold('#8A8A2E', '#FFFFFF', { wordCount: 4 })),
+      L(W, H * 0.825, H * 0.06, 'House', bold('#8A8A2E', '#FFFFFF')),
+      web(W, H, { fontFamily: 'Archivo Black', fill: '#2F2F6A', ...outline('#FFFFFF', 5), fontSize: H * 0.026 }),
+    ],
+  }),
+  tpl({
+    id: 'cv-ov-mixed-sizes-blue',
+    name: 'Blue Mixed-Size Lines Outlined in Black',
+    description: 'One photo with blue lines outlined in black: a tall condensed first word, big mixed-case lines, smaller middle lines and a big closing line.',
+    family: 6,
+    categories: ['Lifestyle', 'How-To'],
+    designTypes: ['single-image', 'image-text-overlay'],
+    ...BLOG,
+    collage: FULL,
+    layers: ({ W, H }) => [
+      L(W, H * 0.01, H * 0.09, 'Your', { fontFamily: 'Anton', fill: BLUE, ...outline('#111111', 7), textTransform: 'none', wordCount: 1 }),
+      L(W, H * 0.11, H * 0.07, 'Dog Needs', bold(BLUE, '#111111', { textTransform: 'none', wordCount: 2 })),
+      L(W, H * 0.18, H * 0.07, 'More', bold(BLUE, '#111111', { textTransform: 'none', wordCount: 1 })),
+      L(W, H * 0.27, H * 0.05, 'Exercise Than', bold(BLUE, '#111111', { textTransform: 'none', strokeWidth: 5, wordCount: 2 })),
+      L(W, H * 0.325, H * 0.05, 'You Have Time', bold(BLUE, '#111111', { textTransform: 'none', strokeWidth: 5, wordCount: 3 })),
+      L(W, H * 0.38, H * 0.05, 'For', bold(BLUE, '#111111', { textTransform: 'none', strokeWidth: 5, wordCount: 1 })),
+      L(W, H * 0.86, H * 0.07, "Here's the Fix", bold(BLUE, '#111111', { textTransform: 'none' })),
+      ...bar(W, H, '#2A2A2A', '#7DA3C7'),
+    ],
+  }),
+  tpl({
+    id: 'cv-ov-slate-band-script',
+    name: 'Slate Band, Big Number + Script on Photos',
+    description: '2 top + 2 bottom photos: a big blue number and a white script word on the photos, a slate band with outlined blue caps and a big closing line.',
+    family: 5,
+    categories: ['Home Decor', 'Living Room', 'Listicle'],
+    designTypes: ['split', 'script-bold', 'number-badge'],
+    ...BLOG,
+    collage: { ...BAND_PP, band: 0.24 },
+    layers: ({ W, H, band }) => {
+      const b = inBand(band);
+      return [
+        bandShape('#3E4A5E'),
+        N(W * 0.06, b.y(-0.5), W * 0.4, b.h(0.46), '12', bold(BLUE, '#FFFFFF', { strokeWidth: 8 })),
+        L(W, b.y(-0.62), b.h(0.6), 'Paint', { fontFamily: 'Allura', fill: '#FFFFFF', textTransform: 'none', ...outline('#5A4A5A', 4), x: W * 0.48, width: W * 0.48, wordCount: 1 }),
+        L(W, b.y(0.04), b.h(0.18), 'Color Mistakes', bold(BLUE, '#111111', { strokeWidth: 4, wordCount: 2 })),
+        L(W, b.y(0.23), b.h(0.18), "That're Making Your", bold(BLUE, '#111111', { strokeWidth: 4, wordCount: 3 })),
+        L(W, b.y(0.42), b.h(0.18), 'Home Look', bold(BLUE, '#111111', { strokeWidth: 4, wordCount: 2 })),
+        L(W, b.y(0.64), b.h(0.32), '10 Years Older', { fontFamily: 'Archivo Black', fill: BLUE, ...outline('#FFFFFF', 6), textTransform: 'none' }),
+        web(W, H, { fontFamily: 'Archivo Black', fill: '#FFFFFF', ...outline('#111111', 5), fontSize: H * 0.026, textTransform: 'none' }),
+      ];
+    },
+  }),
+];
+
+export const PACK_STYLE_TEMPLATES = [...TWO_THIRDS, ...HALF, ...BANDS, ...OVERLAYS];
