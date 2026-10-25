@@ -19,6 +19,8 @@ interface AssetState {
   ensureLoaded: (ids: Id[]) => Promise<void>;
   importFiles: (files: (Blob & { name?: string })[]) => Promise<{ ids: Id[]; errors: string[] }>;
   getFull: (id: Id) => Promise<DrawableImage | null>;
+  /** Frees in-memory previews (big batches); ensureLoaded brings them back from storage when needed. */
+  dropPreviews: (ids: Id[]) => void;
 }
 
 async function decode(blob: Blob): Promise<ImageBitmap> {
@@ -120,6 +122,17 @@ export const useAssets = create<AssetState>((set, get) => ({
   },
 
   /** Full-resolution decode for export. Caller should close() ImageBitmaps when done. */
+  dropPreviews: (ids) =>
+    set((s) => {
+      const previews = { ...s.previews };
+      for (const id of ids) {
+        const p = previews[id];
+        if (p && 'close' in p) p.close();
+        delete previews[id];
+      }
+      return { previews };
+    }),
+
   getFull: async (id) => {
     const stored = await repos.assets.get(id);
     if (!stored) return null;

@@ -181,6 +181,8 @@ export interface PinDocument {
 
 export interface ProjectMeta {
   articleTitle: string;
+  /** The blog post this project was made from (Blog URL → Pins). */
+  articleUrl?: string;
   headline: string;
   keyword: string;
   templateId: string | null;

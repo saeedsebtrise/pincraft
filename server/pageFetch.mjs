@@ -184,6 +184,21 @@ function largestFromSrcset(srcset) {
 const SKIP_IMAGE = /(logo|icon|favicon|avatar|gravatar|emoji|sprite|spinner|loader|placeholder|pixel|badge|button|banner-ad|\/ads?\/|doubleclick|facebook\.com\/tr|pinit|share|widget|blank\.gif)/i;
 const IMAGE_EXT = /\.(jpe?g|png|webp|avif)(\?|#|$)/i;
 
+const squash = (s) => String(s).toLowerCase().replace(/[^a-z0-9]/g, '');
+
+/**
+ * "20 Cherry Red Hair Ideas - Luxe Hair Styles" → "20 Cherry Red Hair Ideas".
+ * A trailing " - / | / – Name" is dropped when Name is the site's name or matches
+ * its domain ("Luxe Hair Styles" ≈ luxehairstyles.com).
+ */
+export function stripSiteName(title, siteName, hostname) {
+  const m = String(title).match(/^(.*\S)\s+[-|–—:]\s+([^-|–—]+)$/);
+  if (!m) return title;
+  const tail = squash(m[2]);
+  const host = squash(String(hostname || '').replace(/^www\./, '').replace(/\.[a-z.]+$/, ''));
+  return tail && (tail === squash(siteName) || tail === host || (host && host.includes(tail)) || (host && tail.includes(host))) ? m[1] : title;
+}
+
 /** Key that treats WordPress size variants (photo-300x200.jpg) and query strings as the same image. */
 const imageKey = (u) => u.replace(/[?#].*$/, '').replace(/-\d{2,5}x\d{2,5}(?=\.[a-z]{3,4}$)/i, '').replace(/-scaled(?=\.[a-z]{3,4}$)/i, '').toLowerCase();
 
@@ -226,7 +241,7 @@ export function parsePage(html, pageUrl) {
   // "Post Title | Site Name" / "Post Title - Site Name"
   if (siteName && docTitle.toLowerCase().endsWith(siteName.toLowerCase())) docTitle = docTitle.slice(0, -siteName.length).replace(/[\s|–—:-]+$/, '');
   else docTitle = docTitle.replace(/\s+[|–—]\s+[^|–—]+$/, '');
-  const title = clean(metas['og:title'] || metas['twitter:title'] || '') || h1 || docTitle;
+  const title = stripSiteName(clean(metas['og:title'] || metas['twitter:title'] || '') || h1 || docTitle, siteName, base.hostname);
   const description = clean(metas['og:description'] || metas['twitter:description'] || metas.description || '');
 
   // Prefer the article body when the page marks one.

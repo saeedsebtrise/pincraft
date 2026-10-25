@@ -81,7 +81,9 @@ export function Dashboard({ tab, params }: { tab: DashTab; params: URLSearchPara
           </a>
         </header>
         {tab === 'home' && <HomeScreen />}
-        {tab === 'auto' && <AutoDesign key={params.get('q') ?? ''} initialTitle={params.get('q') ?? ''} />}
+        {tab === 'auto' && (
+          <AutoDesign key={`${params.get('mode')}:${params.get('q') ?? ''}`} initialTitle={params.get('q') ?? ''} initialMode={params.get('mode') === 'bulk' ? 'bulk' : 'one'} />
+        )}
         {tab === 'projects' && (
           <div className="dash-main">
             <h1 className="dash-h1">Projects</h1>
@@ -129,6 +131,9 @@ function HomeScreen() {
             </button>
           </div>
         </form>
+        <a className="link-pink" href="#/auto?mode=bulk">
+          Have many posts? Paste all their links at once <ArrowRight size={15} />
+        </a>
       </section>
       <section className="card home-hero">
         <div className="stack-sm">

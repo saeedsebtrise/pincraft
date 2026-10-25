@@ -1,75 +1,17 @@
-import { Check, Link2, Loader2, Pencil, Sparkles, Wand2 } from 'lucide-react';
+import { Check, Layers, Link2, Loader2, Pencil, Sparkles, Wand2 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { cssFontFamily } from '../config/fonts';
-import { konvaFontStyle, layoutText } from '../editor/canvas/textLayout';
-import { createProject } from '../model/factory';
 import type { ImageMap } from '../editor/canvas/nodes';
-import type { Id, PinDocument, Rect, TextLayer } from '../model/types';
-import { ensureCanCreateProject, handleLimitError } from '../saas/gates';
+import type { Id } from '../model/types';
 import { autoDesign, autoText, type AutoDesignResult, type AutoInput } from '../services/autoDesign';
 import { fetchPage, importPagePhotos, looksLikeUrl, siteHost } from '../services/blogImport';
 import { useAssets } from '../store/assetStore';
 import { thumbUrl } from '../ui/imageUrl';
-import { repos } from '../storage/repositories';
 import { useLibrary } from '../store/libraryStore';
 import { allTemplates } from '../store/projectActions';
 import { useUi } from '../store/uiStore';
 import { docThumbnail } from '../templates/thumbnails';
-
-const SIZES: { id: string; label: string; size?: AutoInput['size'] }[] = [
-  { id: 'native', label: 'Each design’s own size' },
-  { id: 'pin-standard', label: '2:3 · 1000 × 1500', size: { width: 1000, height: 1500, presetId: 'pin-standard' } },
-  { id: 'custom-blog-736', label: '1:2 · 736 × 1472', size: { width: 736, height: 1472, presetId: 'custom-blog-736' } },
-  { id: 'pin-full-vertical', label: '9:16 · 1080 × 1920', size: { width: 1080, height: 1920, presetId: 'pin-full-vertical' } },
-];
-
-/** How far auto-fit shrank a text layer, measured with the same layout the editor and export use. */
-const measureWithCanvas = (l: TextLayer) => Math.min(1, layoutText(l).fontSize / l.fontSize);
-
-/**
- * Where the letters sit on the Pin. Badges count their whole shape. Other text
- * is measured the way Konva draws it: each line on a "middle" baseline at the
- * line's centre, so the real glyph top/bottom come from the canvas text metrics.
- */
-let metricsCtx: CanvasRenderingContext2D | null = null;
-const inkWithCanvas = (l: TextLayer): Rect => {
-  const t = layoutText(l);
-  if (l.role === 'badge' && t.bg) return { x: l.x + t.bg.x, y: l.y + t.bg.y, width: t.bg.width, height: t.bg.height };
-  metricsCtx ??= document.createElement('canvas').getContext('2d');
-  const lh = t.fontSize * l.lineHeight;
-  const lines = Math.max(1, Math.round(t.textHeight / lh));
-  let above = t.fontSize * 0.5;
-  let below = t.fontSize * 0.5;
-  if (metricsCtx) {
-    metricsCtx.font = `${konvaFontStyle(l)} ${t.fontSize}px ${cssFontFamily(l.fontFamily)}`;
-    metricsCtx.textBaseline = 'middle';
-    const m = metricsCtx.measureText(t.text);
-    above = m.actualBoundingBoxAscent;
-    below = m.actualBoundingBoxDescent;
-  }
-  const ax = l.align === 'left' ? 0 : l.align === 'right' ? 1 : 0.5;
-  const sw = l.strokeWidth / 2; // outlines grow the letters on every side
-  const top = l.y + t.textY + lh / 2 - above - sw;
-  const bottom = l.y + t.textY + (lines - 0.5) * lh + below + sw;
-  return { x: l.x + t.innerX + (t.innerW - t.textWidth) * ax - sw, y: top, width: t.textWidth + 2 * sw, height: bottom - top };
-};
-
-/** Start a project from finished designs: one Pin per page, opened in the editor. */
-async function saveAsProject(docs: PinDocument[], name: string, articleTitle: string, headline: string, templateId: string, assetIds: Id[] = []) {
-  if (!(await ensureCanCreateProject())) return;
-  const p = createProject(docs[0], name);
-  p.pages = docs;
-  p.assetIds = assetIds;
-  p.meta = { ...p.meta, articleTitle, headline, templateId, brandKitId: useLibrary.getState().activeKit().id };
-  try {
-    await repos.projects.put(p);
-  } catch (e) {
-    if (handleLimitError(e)) return;
-    throw e;
-  }
-  location.hash = `#/editor/${p.id}`;
-  useUi.getState().toast(docs.length > 1 ? `${docs.length} Pins created — each one is a page in this project` : 'Pin created', 'success');
-}
+import { inkWithCanvas, measureWithCanvas, saveAsProject, SIZES } from './autoShared';
+import { BulkDesign } from './BulkDesign';
 
 function PhotoChip({ id, off, onToggle }: { id: Id; off: boolean; onToggle: () => void }) {
   const preview = useAssets((s) => s.previews[id]);
@@ -117,10 +59,12 @@ interface Source {
   photoIds: Id[];
 }
 
-export function AutoDesign({ initialTitle = '' }: { initialTitle?: string }) {
+export function AutoDesign({ initialTitle = '', initialMode = 'one' }: { initialTitle?: string; initialMode?: 'one' | 'bulk' }) {
+  const [mode, setMode] = useState(initialMode);
   const [title, setTitle] = useState(initialTitle);
   const [keyword, setKeyword] = useState('');
   const [sizeId, setSizeId] = useState('native');
+  const [cta, setCta] = useState(true);
   const [limit, setLimit] = useState(50);
   const [input, setInput] = useState<AutoInput | null>(null);
   const [keep, setKeep] = useState<Set<string>>(new Set());
@@ -144,7 +88,7 @@ export function AutoDesign({ initialTitle = '' }: { initialTitle?: string }) {
     // The post's own site goes in the footer unless the brand kit has a real website.
     const website = kitWebsite && !/yourwebsite/i.test(kitWebsite) ? kitWebsite : src?.host || kitWebsite;
     setLimit(50);
-    setInput({ title: t, keyword: k, website, size: SIZES.find((s) => s.id === sizeId)?.size, assetIds: ids, assetMetas: useAssets.getState().metas });
+    setInput({ title: t, keyword: k, website, size: SIZES.find((s) => s.id === sizeId)?.size, assetIds: ids, assetMetas: useAssets.getState().metas, cta });
   };
 
   const generate = async (t = title, k = keyword) => {
@@ -210,13 +154,51 @@ export function AutoDesign({ initialTitle = '' }: { initialTitle?: string }) {
     if (!list.length || !input || !text) return;
     setBusy(true);
     try {
-      await saveAsProject(list.map((r) => r.doc), text.headline, input.title, text.headline, list[0].template.id, photoIds);
+      const p = await saveAsProject(
+        list.map((r) => r.doc),
+        { name: text.headline, articleTitle: input.title, articleUrl: source?.url, headline: text.headline, templateId: list[0].template.id, assetIds: photoIds },
+      );
+      if (p) {
+        location.hash = `#/editor/${p.id}`;
+        useUi.getState().toast(list.length > 1 ? `${list.length} Pins created — each one is a page in this project` : 'Pin created', 'success');
+      }
     } catch (e) {
       useUi.getState().toast((e as Error).message, 'error');
     } finally {
       setBusy(false);
     }
   };
+
+  const modeSwitch = (
+    <div className="row" role="tablist" aria-label="Auto Design mode" style={{ gap: 8, flexWrap: 'wrap' }}>
+      <button type="button" role="tab" aria-selected={mode === 'one'} className={mode === 'one' ? 'btn btn-dark' : 'btn'} onClick={() => setMode('one')}>
+        <Link2 size={15} /> One post or title
+      </button>
+      <button type="button" role="tab" aria-selected={mode === 'bulk'} className={mode === 'bulk' ? 'btn btn-dark' : 'btn'} onClick={() => setMode('bulk')}>
+        <Layers size={15} /> Many blog posts
+      </button>
+    </div>
+  );
+
+  if (mode === 'bulk') {
+    return (
+      <div className="dash-main">
+        <section className="card home-hero">
+          <div className="stack-sm">
+            <h1 className="dash-h1">
+              <Wand2 size={26} style={{ verticalAlign: '-4px' }} /> Auto Design
+            </h1>
+            <p className="muted">
+              Paste as many blog post links as you like. For each post PinCraft reads the title, picks the post’s best photos (sharp, tall, well lit, no duplicates)
+              and designs the Pins — one project per post.
+            </p>
+          </div>
+          {modeSwitch}
+          <BulkDesign />
+        </section>
+      </div>
+    );
+  }
 
   return (
     <div className="dash-main">
@@ -230,6 +212,7 @@ export function AutoDesign({ initialTitle = '' }: { initialTitle?: string }) {
             text for you.
           </p>
         </div>
+        {modeSwitch}
         <form
           className="stack-sm"
           onSubmit={(e) => {
@@ -259,6 +242,17 @@ export function AutoDesign({ initialTitle = '' }: { initialTitle?: string }) {
                 </option>
               ))}
             </select>
+            <label className="row subtle" style={{ gap: 6 }}>
+              <input
+                type="checkbox"
+                checked={cta}
+                onChange={(e) => {
+                  setCta(e.target.checked);
+                  setInput((cur) => cur && { ...cur, cta: e.target.checked });
+                }}
+              />
+              Add a call to action (different on each Pin)
+            </label>
           </div>
         </form>
         {reading && (

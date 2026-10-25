@@ -19,6 +19,7 @@ export class FetchError extends Error {
 export function isPrivateAddress(ip: string): boolean;
 export function parsePublicUrl(raw: string): URL;
 export function decodeEntities(s: string): string;
+export function stripSiteName(title: string, siteName: string, hostname: string): string;
 export function parsePage(html: string, pageUrl: string): PageInfo;
 export function readPage(raw: string): Promise<PageInfo>;
 export function readImage(raw: string): Promise<{ type: string; body: Uint8Array }>;

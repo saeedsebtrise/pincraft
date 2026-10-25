@@ -8,6 +8,7 @@
 import { BLANK_TEMPLATE_ID } from '../templates/builtins';
 import { assignImages, instantiateTemplate, isText } from '../model/docOps';
 import type { AssetMeta, Id, PinDocument, Rect, Template, TextLayer } from '../model/types';
+import { applyCta, ctaOptions } from './autoCta';
 import { parseTitle, suggestSubtitles, titleCase } from './headlines';
 import { recommendTemplates } from './recommend';
 
@@ -21,6 +22,10 @@ export interface AutoInput {
   /** Real photos (e.g. from the blog post) to put in every design's frames. */
   assetIds?: Id[];
   assetMetas?: Record<Id, AssetMeta>;
+  /** Add a call to action to every Pin (default on), worded differently per Pin. */
+  cta?: boolean;
+  /** Shifts the CTA wording (Bulk Design: each post starts at a different one). */
+  ctaOffset?: number;
 }
 
 /**
@@ -175,5 +180,9 @@ export function autoDesign(
     if (out.length >= limit) break;
     if (!out.some((o) => o.template.id === r.template.id)) out.push({ template: r.template, doc: r.doc, fit: r.fit });
   }
-  return out;
+  if (input.cta === false) return out;
+  // A call to action on every Pin, worded differently from one Pin to the next.
+  const ctas = ctaOptions(topic);
+  const offset = input.ctaOffset ?? 0;
+  return out.map((r, k) => ({ ...r, doc: applyCta(r.doc, ctas[(k + offset) % ctas.length], opts.ink ?? undefined) }));
 }
