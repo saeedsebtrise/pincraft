@@ -34,6 +34,21 @@ npm run dev
 
 Then open **AI Text** in the top bar and turn on **Use AI**. Only the article title, keyword and website go to the proxy, never images. The API key lives only in the proxy's environment. The proxy uses `claude-opus-5-5` by default (override with `AI_MODEL`). It enables Anthropic's server-side refusal fallback (`fallbacks: "default"`), so a declined request is retried on a fallback model. Any AI error falls back to the on-device suggestions.
 
+### AI designs (Pro)
+
+With the AI proxy running (see above), Auto Design shows **Make 4 original AI designs**, and Bulk Design has **Include original AI designs**.
+
+Claude (`claude-opus-5-5`, with refusal fallback on) designs brand-new Pins for the post as structured data:
+- photo layout
+- colours and panels
+- fonts
+- the headline split into lines
+- number badge, subtitle, CTA and website
+
+The app turns each design into an ordinary editable Pin (`src/services/aiDesign.ts`). It checks and clamps every value: positions, sizes, colours, fonts and layouts. Then it runs the same checks as the templates: fills in your exact headline, fits the text, keeps the keyword from being cut off, adds your photos and the CTA.
+
+Only text goes to the AI: the headline, the photos' height-to-width ratios and their colour palette. The photos themselves are never sent. The server side is `server/aiDesign.mjs` (`POST /api/ai-design`).
+
 ### Blog URL → Pins
 
 In **Auto Design**, paste a blog post link and press Enter. PinCraft reads the post's title and photos, then designs 50 Pins with those photos already in the frames. You can click a photo to leave it out, and the footer uses the post's site unless your Brand Kit has a website.

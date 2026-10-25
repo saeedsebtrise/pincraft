@@ -2,7 +2,8 @@
  * Optional AI text-assistant proxy for PinCraft.
  *
  * The browser never sees an API key: it POSTs { articleTitle, keyword, audience, website }
- * to /api/ai (proxied here by Vite in dev), and this server calls Claude with
+ * to /api/ai (and POST /api/ai-design for AI-made Pin designs, see aiDesign.mjs;
+ * proxied here by Vite in dev), and this server calls Claude with
  * the key from the server environment. Only text is sent — never images.
  *
  *   ANTHROPIC_API_KEY=... npm run ai-proxy        (port 8787)
@@ -12,11 +13,12 @@ import http from 'node:http';
 import Anthropic from '@anthropic-ai/sdk';
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
 import { z } from 'zod';
+import { designPins } from './aiDesign.mjs';
 import { pageMiddleware } from './pageFetch.mjs';
 
 const PORT = Number(process.env.AI_PROXY_PORT || 8787);
 const MODEL = process.env.AI_MODEL || 'claude-opus-5-5';
-const MAX_BODY = 8 * 1024;
+const MAX_BODY = 32 * 1024; // AI designs send the layout and font lists
 
 const client = new Anthropic(); // reads ANTHROPIC_API_KEY (or an `ant auth login` profile) from the server env
 
@@ -74,7 +76,8 @@ const server = http.createServer((req, res) => {
   };
   // Blog URL → Pins (GET /api/page, /api/image) for production builds served behind this proxy.
   if (req.method === 'GET') return void readPages(req, res, () => send(404, { error: 'Not found' }));
-  if (req.method !== 'POST' || req.url !== '/api/ai') return send(404, { error: 'Not found' });
+  const route = req.url === '/api/ai' ? suggest : req.url === '/api/ai-design' ? (input) => designPins(client, input) : null;
+  if (req.method !== 'POST' || !route) return send(404, { error: 'Not found' });
 
   let raw = '';
   req.on('data', (chunk) => {
@@ -86,7 +89,7 @@ const server = http.createServer((req, res) => {
   });
   req.on('end', async () => {
     try {
-      send(200, await suggest(JSON.parse(raw || '{}')));
+      send(200, await route(JSON.parse(raw || '{}')));
     } catch (e) {
       const status = e instanceof Anthropic.APIError ? 502 : e.status || 500;
       if (status >= 500) console.error('[ai-proxy]', e.message);

@@ -6,7 +6,10 @@
 import { AlertCircle, Check, ExternalLink, Layers, Loader2 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ImageMap } from '../editor/canvas/nodes';
+import { requirePro } from '../saas/gates';
+import { requestAiDesigns, specToTemplate } from '../services/aiDesign';
 import { autoDesign, autoText, type AutoDesignResult } from '../services/autoDesign';
+import type { Template } from '../model/types';
 import { fetchPage, importPagePhotos, siteHost, type ImportedPhoto } from '../services/blogImport';
 import { parseLinks, pickForPost } from '../services/bulkDesign';
 import { useAssets } from '../store/assetStore';
@@ -32,6 +35,8 @@ interface Post {
   results?: AutoDesignResult[];
   keep?: Set<string>;
   projectId?: string;
+  /** e.g. why AI designs were skipped for this post. */
+  note?: string;
 }
 
 function PinThumb({ r, photos, checked, onToggle }: { r: AutoDesignResult; photos: ImageMap; checked: boolean; onToggle: () => void }) {
@@ -65,6 +70,7 @@ export function BulkDesign() {
   const [perPost, setPerPost] = useState(5);
   const [sizeId, setSizeId] = useState('native');
   const [cta, setCta] = useState(true);
+  const [ai, setAi] = useState(false);
   const [posts, setPosts] = useState<Post[]>([]);
   const [running, setRunning] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -76,7 +82,7 @@ export function BulkDesign() {
 
   const start = async () => {
     const list = links.slice(0, MAX_POSTS);
-    if (!list.length) return;
+    if (!list.length || (ai && !requirePro('aiDesign'))) return;
     const run = ++runId.current;
     setPosts(list.map((url) => ({ url, status: 'waiting' })));
     setRunning(true);
@@ -103,8 +109,36 @@ export function BulkDesign() {
           allTemplates(),
           { limit: Math.max(perPost * 2, perPost + 4), measure: measureWithCanvas, ink: inkWithCanvas },
         );
-        const results = pickForPost(ranked, perPost, i);
-        update(i, { status: 'done', results, keep: new Set(results.map((r) => r.template.id)) });
+        // Optional: brand-new AI designs first (up to 4 per post), then the best template designs.
+        let aiMade: AutoDesignResult[] = [];
+        let note: string | undefined;
+        if (ai) {
+          const W = size?.width ?? 1000;
+          const H = size?.height ?? 1500;
+          try {
+            const words = autoText(page.title);
+            const specs = await requestAiDesigns({
+              headline: words.headline,
+              subtitle: words.subtitle,
+              topic: page.title,
+              width: W,
+              height: H,
+              count: Math.min(4, perPost),
+              photos: photos.map((p) => p.preview),
+            });
+            const templates = specs.map((sp) => specToTemplate(sp, W, H)).filter((t): t is Template => !!t);
+            aiMade = autoDesign(
+              { title: page.title, website, size: { width: W, height: H, presetId: size?.presetId ?? 'pin-standard' }, assetIds: photos.map((p) => p.id), assetMetas: useAssets.getState().metas, cta, ctaOffset: i },
+              templates,
+              { limit: templates.length, measure: measureWithCanvas, ink: inkWithCanvas },
+            );
+          } catch (e) {
+            note = `AI designs skipped: ${(e as Error).message}`;
+          }
+          if (run !== runId.current) return;
+        }
+        const results = [...aiMade, ...pickForPost(ranked, Math.max(0, perPost - aiMade.length), i)];
+        update(i, { status: 'done', results, note, keep: new Set(results.map((r) => r.template.id)) });
       } catch (e) {
         if (run === runId.current) update(i, { status: 'error', message: (e as Error).message || 'Couldn’t read this post.' });
       }
@@ -202,6 +236,10 @@ export function BulkDesign() {
             <input type="checkbox" checked={cta} onChange={(e) => setCta(e.target.checked)} disabled={running} />
             Add a call to action (different on each Pin)
           </label>
+          <label className="row subtle" style={{ gap: 6 }}>
+            <input type="checkbox" checked={ai} onChange={(e) => setAi(e.target.checked && requirePro('aiDesign'))} disabled={running} />
+            Include original AI designs (up to 4 per post)
+          </label>
           <span className="subtle grow">
             {links.length
               ? `${Math.min(links.length, MAX_POSTS)} post${links.length === 1 ? '' : 's'} × ${perPost} = ${Math.min(links.length, MAX_POSTS) * perPost} Pins${links.length > MAX_POSTS ? ` (first ${MAX_POSTS} links)` : ''}`
@@ -257,6 +295,7 @@ export function BulkDesign() {
                     </button>
                   )}
                 </div>
+                {p.note && <span className="subtle">{p.note}</span>}
                 {!!p.photos?.length && (
                   <div className="bulk-photos" aria-label="Photos picked from the post">
                     {p.photos.map((x) => (

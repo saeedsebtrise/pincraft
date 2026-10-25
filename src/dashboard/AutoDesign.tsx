@@ -1,7 +1,9 @@
 import { Check, Layers, Link2, Loader2, Pencil, Sparkles, Wand2 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ImageMap } from '../editor/canvas/nodes';
-import type { Id } from '../model/types';
+import type { Id, Template } from '../model/types';
+import { requirePro } from '../saas/gates';
+import { requestAiDesigns, specToTemplate } from '../services/aiDesign';
 import { autoDesign, autoText, type AutoDesignResult, type AutoInput } from '../services/autoDesign';
 import { fetchPage, importPagePhotos, looksLikeUrl, siteHost } from '../services/blogImport';
 import { useAssets } from '../store/assetStore';
@@ -46,6 +48,7 @@ function ResultCard({ r, checked, onToggle, onEdit, photos }: { r: AutoDesignRes
       <label className="tpl-info row" style={{ cursor: 'pointer' }}>
         <input type="checkbox" checked={checked} onChange={onToggle} />
         <strong className="grow">{r.template.name}</strong>
+        {r.template.id.startsWith('ai-') && <span className="chip chip-ai">AI</span>}
       </label>
     </div>
   );
@@ -88,6 +91,7 @@ export function AutoDesign({ initialTitle = '', initialMode = 'one' }: { initial
     // The post's own site goes in the footer unless the brand kit has a real website.
     const website = kitWebsite && !/yourwebsite/i.test(kitWebsite) ? kitWebsite : src?.host || kitWebsite;
     setLimit(50);
+    setAiResults([]);
     setInput({ title: t, keyword: k, website, size: SIZES.find((s) => s.id === sizeId)?.size, assetIds: ids, assetMetas: useAssets.getState().metas, cta });
   };
 
@@ -145,8 +149,41 @@ export function AutoDesign({ initialTitle = '', initialMode = 'one' }: { initial
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const results = useMemo(() => (input ? autoDesign(input, allTemplates(), { limit, measure: measureWithCanvas, ink: inkWithCanvas }) : []), [input, limit]);
-  useEffect(() => setKeep(new Set(results.map((r) => r.template.id))), [results]);
+  const templateResults = useMemo(() => (input ? autoDesign(input, allTemplates(), { limit, measure: measureWithCanvas, ink: inkWithCanvas }) : []), [input, limit]);
+  // AI-made designs (newest first) sit above the template designs.
+  const [aiResults, setAiResults] = useState<AutoDesignResult[]>([]);
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiError, setAiError] = useState('');
+  const results = useMemo(() => [...aiResults, ...templateResults], [aiResults, templateResults]);
+  useEffect(() => setKeep(new Set(templateResults.map((r) => r.template.id))), [templateResults]);
+
+  const makeAiDesigns = async () => {
+    if (!input || !requirePro('aiDesign')) return;
+    const words = autoText(input.title, input.keyword);
+    const size = input.size ?? { width: 1000, height: 1500, presetId: 'pin-standard' };
+    setAiBusy(true);
+    setAiError('');
+    try {
+      const specs = await requestAiDesigns({
+        headline: words.headline,
+        subtitle: words.subtitle,
+        topic: input.title,
+        width: size.width,
+        height: size.height,
+        count: 4,
+        photos: Object.values(photoMap).filter((p): p is NonNullable<typeof p> => !!p),
+      });
+      const templates = specs.map((sp) => specToTemplate(sp, size.width, size.height)).filter((t): t is Template => !!t);
+      if (!templates.length) throw new Error('The AI returned no usable designs — try again.');
+      const made = autoDesign({ ...input, size }, templates, { limit: templates.length, measure: measureWithCanvas, ink: inkWithCanvas });
+      setAiResults((cur) => [...made, ...cur]);
+      setKeep((k) => new Set([...k, ...made.map((r) => r.template.id)]));
+    } catch (e) {
+      setAiError((e as Error).message);
+    } finally {
+      setAiBusy(false);
+    }
+  };
   const text = input ? autoText(input.title, input.keyword) : null;
   const chosen = results.filter((r) => keep.has(r.template.id));
 
@@ -291,6 +328,19 @@ export function AutoDesign({ initialTitle = '', initialMode = 'one' }: { initial
             <span className="chip">Headline: {text.headline}</span>
             {text.subtitle && <span className="chip">Subtitle: {text.subtitle}</span>}
             <span className="subtle">Click “Edit this Pin” to change anything — text keeps fitting as you type.</span>
+          </div>
+        )}
+        {input && (
+          <div className="row" style={{ gap: 10, flexWrap: 'wrap' }}>
+            <button type="button" className="btn btn-dark" onClick={() => void makeAiDesigns()} disabled={aiBusy}>
+              {aiBusy ? <Loader2 size={15} /> : <Sparkles size={15} />} {aiBusy ? 'AI is designing…' : aiResults.length ? 'Make 4 more AI designs' : 'Make 4 original AI designs'}
+            </button>
+            <span className="subtle">Brand-new layouts, colours and type made by AI for this post — not templates.</span>
+          </div>
+        )}
+        {aiError && (
+          <div className="issue" role="alert">
+            {aiError}
           </div>
         )}
       </section>

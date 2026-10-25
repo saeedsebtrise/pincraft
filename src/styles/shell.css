@@ -210,3 +210,5 @@ details > summary { cursor: pointer; }
 .bulk-pin-img { display: grid; place-items: center; aspect-ratio: 1 / 1.6; }
 .bulk-pin-img img { width: 100%; height: 100%; object-fit: contain; display: block; }
 .bulk-pin input { position: absolute; top: 6px; left: 6px; width: 18px; height: 18px; accent-color: var(--accent); }
+
+.chip-ai { background: #1a1a2e; color: #fff; font-weight: 700; }

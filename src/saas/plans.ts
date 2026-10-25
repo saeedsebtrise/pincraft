@@ -5,7 +5,7 @@
  */
 export type PlanTier = 'free' | 'pro';
 
-export type ProFeature = 'aiText' | 'batchVariations' | 'saveTemplate' | 'multipleBrandKits';
+export type ProFeature = 'aiText' | 'aiDesign' | 'batchVariations' | 'saveTemplate' | 'multipleBrandKits';
 
 export interface PlanDef {
   tier: PlanTier;
@@ -44,11 +44,12 @@ export const PLANS: Record<PlanTier, PlanDef> = {
     tagline: 'For bloggers publishing Pins every day.',
     exportsPerMonth: null,
     maxProjects: null,
-    features: ['aiText', 'batchVariations', 'saveTemplate', 'multipleBrandKits'],
+    features: ['aiText', 'aiDesign', 'batchVariations', 'saveTemplate', 'multipleBrandKits'],
     highlights: [
       'Unlimited Pin exports',
       'Unlimited projects',
       'AI Text Assistant (headlines, subtitles, CTAs)',
+      'AI designs: brand-new, original Pin layouts for every post',
       'Batch variations from one article',
       'Save your own templates',
       'Multiple brand kits',
@@ -58,6 +59,7 @@ export const PLANS: Record<PlanTier, PlanDef> = {
 
 export const FEATURE_LABEL: Record<ProFeature, string> = {
   aiText: 'AI Text Assistant',
+  aiDesign: 'AI designs',
   batchVariations: 'Batch variations',
   saveTemplate: 'Save as template',
   multipleBrandKits: 'Multiple brand kits',
