@@ -225,7 +225,8 @@ input[type='range'] { width: 100%; accent-color: var(--slider); }
 .tpl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: var(--s-4); }
 .tpl-card { overflow: hidden; display: flex; flex-direction: column; }
 .tpl-thumb { background: var(--surface-3); display: grid; place-items: center; aspect-ratio: 2 / 3; overflow: hidden; position: relative; }
-.tpl-thumb img { max-width: 100%; max-height: 100%; display: block; box-shadow: var(--shadow-sm); }
+/* Absolutely placed so max-height resolves against the box: tall 1:2 Pins shrink to fit instead of being cropped. */
+.tpl-thumb > img { position: absolute; inset: 0; margin: auto; max-width: 100%; max-height: 100%; display: block; box-shadow: var(--shadow-sm); }
 .tpl-thumb .tpl-actions { position: absolute; inset: auto 8px 8px 8px; display: flex; gap: 6px; opacity: 0; transition: opacity .15s; }
 .tpl-card:hover .tpl-actions, .tpl-card:focus-within .tpl-actions { opacity: 1; }
 .tpl-info { padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }

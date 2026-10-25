@@ -220,3 +220,16 @@ describe('resizing & variations', () => {
     expect(inv.background.color).toBe('#FFFFFF');
   });
 });
+
+describe('template accent words', () => {
+  it('never leak into the headline when switching templates', () => {
+    const withAccent = BUILTIN_TEMPLATES.filter((t) => t.doc.layers.some((l) => l.type === 'text' && (l as TextLayer).role === 'accent' && (l as TextLayer).text.trim()));
+    expect(withAccent.length).toBeGreaterThan(0);
+    const headline = '25 Stunning Auburn Hair Color Ideas';
+    for (const t of withAccent) {
+      const doc = instantiateTemplate(t, { width: t.doc.width, height: t.doc.height, presetId: t.doc.presetId, headline, brand: null });
+      const read = readHeadline(doc).toLowerCase().split(/\s+/);
+      for (const w of read) expect(headline.toLowerCase().split(/\s+/), `${t.id}: "${w}"`).toContain(w);
+    }
+  });
+});

@@ -114,7 +114,10 @@ export const useEditor = create<EditorState>((set, get) => {
       if (!p) return;
       commit(
         mapLayers(p.doc, new Set([id]), (l) =>
-          typeof patch === 'function' ? (patch as unknown as (x: Layer) => Layer)(l) : ({ ...l, ...patch } as Layer),
+          typeof patch === 'function'
+            ? (patch as unknown as (x: Layer) => Layer)(l)
+            : // Typing in an accent makes it the user's own word (part of the headline from now on).
+              ({ ...l, ...patch, ...(l.type === 'text' && l.role === 'accent' && 'text' in patch ? { designAccent: false } : {}) } as Layer),
         ),
         key,
       );

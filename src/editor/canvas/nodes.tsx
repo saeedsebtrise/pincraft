@@ -195,7 +195,7 @@ export function TextNode({ layer, mode, draggable, editing }: TextProps) {
           fontStyle={konvaFontStyle(layer)}
           textDecoration={layer.underline ? 'underline' : ''}
           align={layer.align}
-          lineHeight={layer.lineHeight}
+          lineHeight={lay.lineHeight}
           letterSpacing={layer.letterSpacing}
           fill={layer.fill}
           stroke={layer.stroke}

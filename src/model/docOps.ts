@@ -192,6 +192,7 @@ export function applyHeadline(doc: PinDocument, headline: string): PinDocument {
 
   let rest = text;
   const updates = new Map<Id, string>();
+  let designAccent = false;
   if (badge) {
     const m = text.match(NUMBER_PREFIX);
     if (m) {
@@ -210,7 +211,9 @@ export function applyHeadline(doc: PinDocument, headline: string): PinDocument {
       rest = words.slice(1).join(' ');
     } else {
       // Keep the design's own accent ("best!") when it is a descriptive word, ignoring punctuation.
-      updates.set(accent.id, ACCENT_WORDS.test(accent.text.trim().replace(/[^a-z]/gi, '')) ? accent.text.trim() : '');
+      const own = ACCENT_WORDS.test(accent.text.trim().replace(/[^a-z]/gi, '')) ? accent.text.trim() : '';
+      updates.set(accent.id, own);
+      designAccent = !!own;
     }
   }
   if (lines.length) {
@@ -221,7 +224,9 @@ export function applyHeadline(doc: PinDocument, headline: string): PinDocument {
   }
   return {
     ...doc,
-    layers: doc.layers.map((l) => (updates.has(l.id) ? { ...(l as TextLayer), text: updates.get(l.id)! } : l)),
+    layers: doc.layers.map((l) =>
+      updates.has(l.id) ? { ...(l as TextLayer), text: updates.get(l.id)!, ...(l.id === accent?.id ? { designAccent } : {}) } : l,
+    ),
   };
 }
 
@@ -231,7 +236,9 @@ export function readHeadline(doc: PinDocument): string {
   const badge = texts.find((t) => t.role === 'badge')?.text ?? '';
   const lines = texts.filter((t) => t.role === 'title-line').sort((a, b) => a.y - b.y);
   const title = texts.find((t) => t.role === 'title')?.text ?? '';
-  const accent = texts.find((t) => t.role === 'accent')?.text ?? '';
+  // The template's own decorative accent ("best!") isn't part of the user's headline.
+  const accentLayer = texts.find((t) => t.role === 'accent');
+  const accent = accentLayer && !accentLayer.designAccent ? accentLayer.text : '';
   const main = lines.length ? lines.map((l) => l.text).filter(Boolean).join(' ') : title;
   return [badge, accent, main].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
 }

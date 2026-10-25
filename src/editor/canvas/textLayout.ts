@@ -37,19 +37,21 @@ export interface TextLayout {
   /** Background box (layer-local) — hugging the text or filling the layer. */
   bg: { x: number; y: number; width: number; height: number } | null;
   textY: number;
+  /** Line height to draw with — opened up to at least 1 when the text wraps, so lines never overlap. */
+  lineHeight: number;
 }
 
 let measurer: Konva.Text | null = null;
 const cache = new Map<string, TextLayout>();
 
-function measure(l: TextLayer, text: string, fontSize: number, width: number) {
+function measure(l: TextLayer, text: string, fontSize: number, width: number, lineHeight = l.lineHeight) {
   measurer ??= new Konva.Text({ wrap: 'word' });
   measurer.setAttrs({
     text,
     fontFamily: l.fontFamily,
     fontStyle: konvaFontStyle(l),
     fontSize,
-    lineHeight: l.lineHeight,
+    lineHeight,
     letterSpacing: l.letterSpacing,
     width: Math.max(1, width),
     padding: 0,
@@ -66,12 +68,12 @@ function measure(l: TextLayer, text: string, fontSize: number, width: number) {
     measurer.text(w);
     widest = Math.max(widest, measurer.width());
   }
-  return { height: lines.length * fontSize * l.lineHeight, maxLine, widest };
+  return { height: lines.length * fontSize * lineHeight, maxLine, widest, lines: lines.length };
 }
 
 export function layoutText(l: TextLayer): TextLayout {
   const key = JSON.stringify([
-    l.text, l.textTransform, l.fontFamily, l.fontWeight, l.italic, l.fontSize, l.minFontSize, l.autoFit, l.lineHeight,
+    l.text, l.role, l.textTransform, l.fontFamily, l.fontWeight, l.italic, l.fontSize, l.minFontSize, l.autoFit, l.lineHeight,
     l.letterSpacing, l.width, l.height, l.background, l.align, l.verticalAlign, fontEpoch(),
   ]);
   const hit = cache.get(key);
@@ -82,29 +84,41 @@ export function layoutText(l: TextLayer): TextLayout {
   const innerW = Math.max(1, l.width - pad.paddingX * 2);
   const innerH = Math.max(1, l.height - pad.paddingY * 2);
 
+  // Tight line heights (0.8–0.9) are designed for one line per box; once the
+  // text wraps, those lines would sit on top of each other — open them up.
+  const wrapLH = Math.max(l.lineHeight, 1);
   const fits = (size: number) => {
-    const m = measure(l, text, size, innerW);
-    return { ok: m.height <= innerH + 0.5 && m.widest <= innerW + 0.5, m };
+    let m = measure(l, text, size, innerW);
+    let lh = l.lineHeight;
+    if (m.lines > 1 && lh < wrapLH) {
+      m = measure(l, text, size, innerW, wrapLH);
+      lh = wrapLH;
+    }
+    return { ok: m.height <= innerH + 0.5 && m.widest <= innerW + 0.5, m, lh };
+  };
+  /** Largest size from minFontSize up to the designed size that passes the test, or null. */
+  const search = (ok: (size: number) => boolean): number | null => {
+    let lo = Math.max(1, l.minFontSize);
+    let hi = l.fontSize;
+    if (ok(hi)) return hi;
+    if (!ok(lo)) return null;
+    while (hi - lo > 0.5) {
+      const mid = (lo + hi) / 2;
+      if (ok(mid)) lo = mid;
+      else hi = mid;
+    }
+    return Math.floor(lo * 2) / 2;
   };
 
   let fontSize = l.fontSize;
   let result = fits(fontSize);
-  if (l.autoFit && !result.ok && text.trim()) {
-    let lo = Math.max(1, l.minFontSize);
-    let hi = l.fontSize;
-    const low = fits(lo);
-    if (!low.ok) {
-      fontSize = lo;
-      result = low;
-    } else {
-      while (hi - lo > 0.5) {
-        const mid = (lo + hi) / 2;
-        if (fits(mid).ok) lo = mid;
-        else hi = mid;
-      }
-      fontSize = Math.floor(lo * 2) / 2;
-      result = fits(fontSize);
-    }
+  if (l.autoFit && text.trim() && (!result.ok || (l.role === 'title-line' && result.m.lines > 1))) {
+    // A headline line reads best on one line: keep it whole while that still leaves it big.
+    const one = l.role === 'title-line' ? search((sz) => { const r = fits(sz); return r.ok && r.m.lines === 1; }) : null;
+    const best = result.ok ? l.fontSize : search((sz) => fits(sz).ok);
+    if (one !== null && (best === null || one >= l.fontSize * 0.6 || one >= best * 0.85)) fontSize = one;
+    else fontSize = best ?? Math.max(1, l.minFontSize);
+    result = fits(fontSize);
   }
   const textHeight = text ? result.m.height : 0;
   const textWidth = Math.min(innerW, result.m.maxLine);
@@ -140,6 +154,7 @@ export function layoutText(l: TextLayer): TextLayout {
     overflow: !!text.trim() && !result.ok,
     bg,
     textY,
+    lineHeight: result.lh,
   };
   if (cache.size > 800) cache.clear();
   cache.set(key, out);

@@ -128,6 +128,12 @@ export interface TextLayer extends LayerBase {
    * Lines without it share the remaining words evenly.
    */
   wordCount?: number;
+  /**
+   * Accent layers only: true when the text is the template's own decorative word
+   * (e.g. "best!"), not a word of the user's headline — readHeadline leaves it out
+   * so it never leaks into the title when switching templates.
+   */
+  designAccent?: boolean;
   background: TextBackground;
   shadow: TextShadow;
   strokeWidth: number;

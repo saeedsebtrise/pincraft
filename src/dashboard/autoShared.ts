@@ -31,7 +31,7 @@ export const inkWithCanvas = (l: TextLayer): Rect => {
   const t = layoutText(l);
   if (l.role === 'badge' && t.bg) return { x: l.x + t.bg.x, y: l.y + t.bg.y, width: t.bg.width, height: t.bg.height };
   metricsCtx ??= document.createElement('canvas').getContext('2d');
-  const lh = t.fontSize * l.lineHeight;
+  const lh = t.fontSize * t.lineHeight;
   const lines = Math.max(1, Math.round(t.textHeight / lh));
   let above = t.fontSize * 0.5;
   let below = t.fontSize * 0.5;
