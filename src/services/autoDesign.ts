@@ -7,7 +7,7 @@
  */
 import { BLANK_TEMPLATE_ID } from '../templates/builtins';
 import { instantiateTemplate, isText } from '../model/docOps';
-import type { PinDocument, Template, TextLayer } from '../model/types';
+import type { PinDocument, Rect, Template, TextLayer } from '../model/types';
 import { parseTitle, suggestSubtitles, titleCase } from './headlines';
 import { recommendTemplates } from './recommend';
 
@@ -78,6 +78,42 @@ export function keepOwnWords(doc: PinDocument, headline: string): PinDocument {
   };
 }
 
+/** Where a text layer's letters actually sit on the Pin (canvas units), or null when unknown. */
+export type InkMeasure = (l: TextLayer) => Rect | null;
+
+const area = (r: Rect) => Math.max(0, r.width) * Math.max(0, r.height);
+const overlap = (a: Rect, b: Rect) =>
+  area({ x: Math.max(a.x, b.x), y: Math.max(a.y, b.y), width: Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x), height: Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y) });
+
+const HEAD_TEXT = new Set(['title', 'title-line', 'accent', 'subtitle']);
+
+/**
+ * A short title grows to fill a text box built for a longer one and can slide
+ * under the number badge or past the Pin's edge — the keyword gets cut off.
+ * Shrink each such headline layer step by step (it stays centred, so its edges
+ * pull back) until it is clear. Returns the fixed document and how many layers
+ * could not be cleared.
+ */
+export function clearCutText(doc: PinDocument, ink: InkMeasure): { doc: PinDocument; blocked: number } {
+  const badges = doc.layers.filter((l): l is TextLayer => isText(l) && l.visible && l.role === 'badge' && !!l.text.trim());
+  const badgeInk = badges.map((b) => ink(b)).filter((r): r is Rect => !!r);
+  const isCut = (l: TextLayer) => {
+    const r = ink(l);
+    if (!r || !area(r)) return false;
+    const off = r.x < -1 || r.y < -1 || r.x + r.width > doc.width + 1 || r.y + r.height > doc.height + 1;
+    return off || badgeInk.some((b) => overlap(r, b) > area(r) * 0.001);
+  };
+  let blocked = 0;
+  const layers = doc.layers.map((l) => {
+    if (!isText(l) || !l.visible || !HEAD_TEXT.has(l.role) || !l.text.trim() || !isCut(l)) return l;
+    let cur = l;
+    for (let i = 0; i < 8 && isCut(cur); i++) cur = { ...cur, fontSize: cur.fontSize * 0.9, minFontSize: Math.min(cur.minFontSize, cur.fontSize * 0.9) };
+    if (isCut(cur)) blocked++;
+    return cur;
+  });
+  return { doc: { ...doc, layers }, blocked };
+}
+
 /** Templates to try for this title: best topic matches first, then everything else. */
 function candidates(title: string, templates: Template[]): { template: Template; rank: number }[] {
   const usable = templates.filter((t) => t.id !== BLANK_TEMPLATE_ID && t.imageCount > 0);
@@ -87,21 +123,27 @@ function candidates(title: string, templates: Template[]): { template: Template;
   return usable.map((template) => ({ template, rank: rank.get(template.id) ?? 0 }));
 }
 
-export function autoDesign(input: AutoInput, templates: Template[], opts: { limit?: number; measure?: FitMeasure } = {}): AutoDesignResult[] {
+export function autoDesign(
+  input: AutoInput,
+  templates: Template[],
+  opts: { limit?: number; measure?: FitMeasure; ink?: InkMeasure } = {},
+): AutoDesignResult[] {
   const { headline, subtitle } = autoText(input.title, input.keyword);
   if (!headline) return [];
   const topic = `${input.title} ${input.keyword ?? ''}`.trim();
   const scored = candidates(topic, templates).map(({ template, rank }) => {
     const size = input.size ?? { width: template.doc.width, height: template.doc.height, presetId: template.doc.presetId };
-    const doc = keepOwnWords(instantiateTemplate(template, { ...size, headline, subtitle: subtitle || undefined, website: input.website || undefined, brand: null }), headline);
-    const fit = fitScore(doc, opts.measure);
+    let doc = keepOwnWords(instantiateTemplate(template, { ...size, headline, subtitle: subtitle || undefined, website: input.website || undefined, brand: null }), headline);
+    let blocked = 0;
+    if (opts.ink) ({ doc, blocked } = clearCutText(doc, opts.ink));
+    // A design that still cuts the keyword goes to the very end.
+    const fit = blocked ? 0 : fitScore(doc, opts.measure);
     // Fit matters most; the topic match breaks ties and keeps the results on-theme.
     return { template, doc, fit, score: fit * 2 + rank };
   });
-  const good = scored.filter((r) => r.fit >= 0.5);
-  const pool = (good.length >= 6 ? good : scored).sort((a, b) => b.score - a.score);
+  const pool = scored.sort((a, b) => b.score - a.score);
   // Variety: no more than three designs from one family in a row of results.
-  const limit = opts.limit ?? 12;
+  const limit = opts.limit ?? 50;
   const perFamily = new Map<number, number>();
   const out: AutoDesignResult[] = [];
   for (const r of pool) {

@@ -1,8 +1,9 @@
 import { Check, Loader2, Pencil, Sparkles, Wand2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import { layoutText } from '../editor/canvas/textLayout';
+import { cssFontFamily } from '../config/fonts';
+import { konvaFontStyle, layoutText } from '../editor/canvas/textLayout';
 import { createProject } from '../model/factory';
-import type { PinDocument, TextLayer } from '../model/types';
+import type { PinDocument, Rect, TextLayer } from '../model/types';
 import { ensureCanCreateProject, handleLimitError } from '../saas/gates';
 import { autoDesign, autoText, type AutoDesignResult, type AutoInput } from '../services/autoDesign';
 import { repos } from '../storage/repositories';
@@ -20,6 +21,34 @@ const SIZES: { id: string; label: string; size?: AutoInput['size'] }[] = [
 
 /** How far auto-fit shrank a text layer, measured with the same layout the editor and export use. */
 const measureWithCanvas = (l: TextLayer) => Math.min(1, layoutText(l).fontSize / l.fontSize);
+
+/**
+ * Where the letters sit on the Pin. Badges count their whole shape. Other text
+ * is measured the way Konva draws it: each line on a "middle" baseline at the
+ * line's centre, so the real glyph top/bottom come from the canvas text metrics.
+ */
+let metricsCtx: CanvasRenderingContext2D | null = null;
+const inkWithCanvas = (l: TextLayer): Rect => {
+  const t = layoutText(l);
+  if (l.role === 'badge' && t.bg) return { x: l.x + t.bg.x, y: l.y + t.bg.y, width: t.bg.width, height: t.bg.height };
+  metricsCtx ??= document.createElement('canvas').getContext('2d');
+  const lh = t.fontSize * l.lineHeight;
+  const lines = Math.max(1, Math.round(t.textHeight / lh));
+  let above = t.fontSize * 0.5;
+  let below = t.fontSize * 0.5;
+  if (metricsCtx) {
+    metricsCtx.font = `${konvaFontStyle(l)} ${t.fontSize}px ${cssFontFamily(l.fontFamily)}`;
+    metricsCtx.textBaseline = 'middle';
+    const m = metricsCtx.measureText(t.text);
+    above = m.actualBoundingBoxAscent;
+    below = m.actualBoundingBoxDescent;
+  }
+  const ax = l.align === 'left' ? 0 : l.align === 'right' ? 1 : 0.5;
+  const sw = l.strokeWidth / 2; // outlines grow the letters on every side
+  const top = l.y + t.textY + lh / 2 - above - sw;
+  const bottom = l.y + t.textY + (lines - 0.5) * lh + below + sw;
+  return { x: l.x + t.innerX + (t.innerW - t.textWidth) * ax - sw, y: top, width: t.textWidth + 2 * sw, height: bottom - top };
+};
 
 /** Start a project from finished designs: one Pin per page, opened in the editor. */
 async function saveAsProject(docs: PinDocument[], name: string, articleTitle: string, headline: string, templateId: string) {
@@ -69,7 +98,7 @@ export function AutoDesign({ initialTitle = '' }: { initialTitle?: string }) {
   const [title, setTitle] = useState(initialTitle);
   const [keyword, setKeyword] = useState('');
   const [sizeId, setSizeId] = useState('native');
-  const [limit, setLimit] = useState(12);
+  const [limit, setLimit] = useState(50);
   const [input, setInput] = useState<AutoInput | null>(null);
   const [keep, setKeep] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
@@ -77,7 +106,7 @@ export function AutoDesign({ initialTitle = '' }: { initialTitle?: string }) {
 
   const generate = (t = title, k = keyword) => {
     if (!t.trim() && !k.trim()) return;
-    setLimit(12);
+    setLimit(50);
     setInput({ title: t.trim() || k.trim(), keyword: k.trim(), website, size: SIZES.find((s) => s.id === sizeId)?.size });
   };
   // Arriving with ?q=… (from the home screen) designs straight away.
@@ -86,7 +115,7 @@ export function AutoDesign({ initialTitle = '' }: { initialTitle?: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const results = useMemo(() => (input ? autoDesign(input, allTemplates(), { limit, measure: measureWithCanvas }) : []), [input, limit]);
+  const results = useMemo(() => (input ? autoDesign(input, allTemplates(), { limit, measure: measureWithCanvas, ink: inkWithCanvas }) : []), [input, limit]);
   useEffect(() => setKeep(new Set(results.map((r) => r.template.id))), [results]);
   const text = input ? autoText(input.title, input.keyword) : null;
   const chosen = results.filter((r) => keep.has(r.template.id));
@@ -187,7 +216,7 @@ export function AutoDesign({ initialTitle = '' }: { initialTitle?: string }) {
             ))}
           </div>
           <div className="row" style={{ justifyContent: 'center' }}>
-            <button className="btn" onClick={() => setLimit((l) => l + 12)} disabled={results.length < limit}>
+            <button className="btn" onClick={() => setLimit((l) => l + 25)} disabled={results.length < limit}>
               Show more designs
             </button>
           </div>

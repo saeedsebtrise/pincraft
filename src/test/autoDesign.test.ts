@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readHeadline } from '../model/docOps';
 import type { TextLayer } from '../model/types';
-import { autoDesign, autoText, fitScore } from '../services/autoDesign';
+import { autoDesign, autoText, clearCutText, fitScore } from '../services/autoDesign';
 import { BUILTIN_TEMPLATES } from '../templates/builtins';
 
 const fits = () => 1;
@@ -27,7 +27,7 @@ describe('auto design text', () => {
 
 describe('auto design results', () => {
   it('designs a dozen distinct on-topic Pins carrying the headline', () => {
-    const out = autoDesign({ title: '50 Lob Haircut Ideas to Take to Your Next Salon Appointment' }, BUILTIN_TEMPLATES, { measure: fits });
+    const out = autoDesign({ title: '50 Lob Haircut Ideas to Take to Your Next Salon Appointment' }, BUILTIN_TEMPLATES, { measure: fits, limit: 12 });
     expect(out).toHaveLength(12);
     expect(new Set(out.map((r) => r.template.id)).size).toBe(12);
     expect(out.filter((r) => r.template.categories.includes('Hair')).length).toBeGreaterThanOrEqual(6);
@@ -52,6 +52,24 @@ describe('auto design results', () => {
     expect(readHeadline(r.doc)).toBe('50 Lob Haircut Ideas');
     const [s] = autoDesign({ title: '21 Stunning Balcony Ideas' }, BUILTIN_TEMPLATES.filter((t) => t.id === 'f5-script-bold-white-band'), { measure: fits });
     expect(readHeadline(s.doc)).toBe('21 Stunning Balcony Ideas');
+  });
+  it('shrinks headline text that would slide under the number badge', () => {
+    const t = BUILTIN_TEMPLATES.find((x) => x.id === 'hb-bronde-blocks')!;
+    const badge = { ...t.doc.layers.find((l) => l.type === 'text')!, role: 'badge' as const, text: '50', x: 0, y: 0, width: 200, height: 200 };
+    const line = t.doc.layers.find((l): l is TextLayer => l.type === 'text' && l.role === 'title-line')!;
+    const doc = { ...t.doc, layers: [badge, { ...line, x: 0, y: 150, width: 600, height: 200 }] };
+    // Fake ink: text sits in the top part of its box, more of it as the font grows.
+    const ink = (l: TextLayer) => (l.role === 'badge' ? { x: 0, y: 0, width: 200, height: 200 } : { x: l.x, y: l.y + 200 - l.fontSize * 1.5, width: 400, height: 40 });
+    const { doc: fixed, blocked } = clearCutText(doc, ink);
+    expect(blocked).toBe(0);
+    const out = fixed.layers[1] as TextLayer;
+    expect(out.fontSize).toBeLessThan(line.fontSize);
+    expect(ink(out).y).toBeGreaterThan(199); // a hairline touch is allowed
+    // Text that can never clear is reported, so the design is ranked last.
+    expect(clearCutText(doc, () => ({ x: 0, y: 0, width: 300, height: 300 })).blocked).toBe(1);
+  });
+  it('shows up to 50 designs by default', () => {
+    expect(autoDesign({ title: '50 Short Hairstyles' }, BUILTIN_TEMPLATES, { measure: fits })).toHaveLength(50);
   });
   it('returns nothing for an empty title', () => {
     expect(autoDesign({ title: '  ' }, BUILTIN_TEMPLATES, { measure: fits })).toEqual([]);
