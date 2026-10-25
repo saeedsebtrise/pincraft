@@ -1,12 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { instantiateTemplate, readHeadline, switchTemplate } from '../model/docOps';
+import { frames, instantiateTemplate, readHeadline, switchTemplate } from '../model/docOps';
 import { createDocument, createProject, createText, normalizeProject } from '../model/factory';
-import type { TextLayer } from '../model/types';
+import type { AssetMeta, TextLayer } from '../model/types';
+import { fillPhotos } from '../editor/importImages';
+import { useAssets } from '../store/assetStore';
+import { useUi } from '../store/uiStore';
 import { parseTitle, suggestSubtitles, suggestVariations } from '../services/headlines';
 import { useEditor } from '../store/editorStore';
 import { BUILTIN_TEMPLATES } from '../templates/builtins';
 import { matchesQuery } from '../templates/search';
 
+const meta = (id: string): AssetMeta => ({ id, name: id, mime: 'image/jpeg', width: 800, height: 1200, size: 1, createdAt: 0 });
 const tpl = (id: string) => BUILTIN_TEMPLATES.find((t) => t.id === id)!;
 const text = (d: { layers: unknown[] }, role: string) => (d.layers as TextLayer[]).find((l) => l.type === 'text' && l.role === role)?.text;
 
@@ -99,5 +103,35 @@ describe('template search', () => {
     expect(matchesQuery(tpl('m3-balcony-stunning'), 'script listicle')).toBe(true);
     expect(matchesQuery(tpl('m1-lob-pink-blocks'), 'balcony')).toBe(false);
     expect(BUILTIN_TEMPLATES.filter((t) => matchesQuery(t, 'hair')).length).toBeGreaterThan(4);
+  });
+});
+
+describe('photos on every page', () => {
+  const tplDoc = (id: string) => instantiateTemplate(tpl(id), { width: tpl(id).doc.width, height: tpl(id).doc.height, presetId: tpl(id).doc.presetId, brand: null });
+  const setup = () => {
+    const pages = [tplDoc('hb-bronde-blocks'), tplDoc('hb-sticker-serif-spring'), tplDoc('hb-bronde-blocks')];
+    useEditor.getState().load({ ...createProject(pages[0]), pages, assetIds: ['a1', 'a2'] });
+    useAssets.setState({ metas: { a1: meta('a1'), a2: meta('a2') } });
+  };
+  const filled = () => useEditor.getState().project!.pages.map((d) => frames(d).filter((f) => f.assetId).length);
+
+  it('fills the frames of all pages when Apply to all is on', () => {
+    setup();
+    useUi.getState().set({ fillAllPages: true });
+    expect(fillPhotos(['a1', 'a2'], { allowDuplicates: true })).toBe(3);
+    const p = useEditor.getState().project!;
+    p.pages.forEach((d, i) => expect(filled()[i]).toBe(frames(d).length));
+    // Each page starts the photos at a different one.
+    expect(frames(p.pages[0])[0].assetId).not.toBe(frames(p.pages[1])[0].assetId);
+  });
+
+  it('fills only the open page when it is off', () => {
+    setup();
+    useUi.getState().set({ fillAllPages: false });
+    expect(fillPhotos(['a1', 'a2'], { allowDuplicates: true })).toBe(1);
+    const p = useEditor.getState().project!;
+    expect(frames(p.doc).every((f) => f.assetId)).toBe(true);
+    expect(filled()[1]).toBe(0);
+    useUi.getState().set({ fillAllPages: true });
   });
 });

@@ -50,6 +50,8 @@ interface EditorState {
   duplicatePage: (index: number) => void;
   deletePage: (index: number) => void;
   movePage: (from: number, to: number) => void;
+  /** Applies the same change to every page (e.g. filling all designs with the uploaded photos). */
+  updatePages: (fn: (doc: PinDocument, index: number) => PinDocument) => void;
 }
 
 export const useEditor = create<EditorState>((set, get) => {
@@ -262,6 +264,11 @@ export const useEditor = create<EditorState>((set, get) => {
       pages.splice(to, 0, moved);
       const active = p.activePage === from ? to : pages.indexOf(p.pages[p.activePage]);
       setPages(pages, active);
+    },
+    updatePages: (fn) => {
+      if (!get().project) return;
+      const p = synced();
+      setPages(p.pages.map(fn), p.activePage);
     },
     updateMeta: (patch) => {
       const p = get().project;

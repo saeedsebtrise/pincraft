@@ -19,11 +19,13 @@ interface Prefs {
   recentColors: string[];
   onboardingDone: boolean;
   aiEnabled: boolean;
+  /** Uploads and Fill/Refill put the photos on every page of the project, not just the open one. */
+  fillAllPages: boolean;
 }
-const PREF_KEYS: (keyof Prefs)[] = ['showSafeArea', 'showGrid', 'snapEnabled', 'recentColors', 'onboardingDone', 'aiEnabled'];
+const PREF_KEYS: (keyof Prefs)[] = ['showSafeArea', 'showGrid', 'snapEnabled', 'recentColors', 'onboardingDone', 'aiEnabled', 'fillAllPages'];
 
 function loadPrefs(): Prefs {
-  const fallback: Prefs = { showSafeArea: true, showGrid: false, snapEnabled: true, recentColors: [], onboardingDone: false, aiEnabled: false };
+  const fallback: Prefs = { showSafeArea: true, showGrid: false, snapEnabled: true, recentColors: [], onboardingDone: false, aiEnabled: false, fillAllPages: true };
   try {
     const raw = localStorage.getItem(LS_KEY);
     return raw ? { ...fallback, ...JSON.parse(raw) } : fallback;

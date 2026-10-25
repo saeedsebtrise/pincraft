@@ -2,14 +2,14 @@ import { ImagePlus, Plus, Trash2, Wand2 } from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
 import { thumbUrl } from '../../ui/imageUrl';
 import { UPLOAD_LIMITS } from '../../config/colors';
-import { assignImages, frames } from '../../model/docOps';
+import { frames } from '../../model/docOps';
 import { useAssets } from '../../store/assetStore';
 import { useEditor } from '../../store/editorStore';
 import { useUi } from '../../store/uiStore';
 import { IconButton, Toggle } from '../../ui/controls';
 import { newFrame } from '../blocks';
 import { ASSET_MIME } from '../canvas/EditorCanvas';
-import { importAndPlace } from '../importImages';
+import { fillPhotos, importAndPlace } from '../importImages';
 
 function Thumb({ id }: { id: string }) {
   const img = useAssets((s) => s.previews[id]);
@@ -29,11 +29,13 @@ export function UploadsPanel() {
   const used = new Set(frames(project.doc).map((f) => f.assetId));
   const empty = frames(project.doc).filter((f) => !f.assetId).length;
   const ed = useEditor.getState();
+  const allPages = useUi((s) => s.fillAllPages);
+  const pageCount = project.pages.length;
+  const emptyAnywhere = allPages && pageCount > 1 ? project.pages.some((d, i) => frames(i === project.activePage ? project.doc : d).some((f) => !f.assetId)) : empty > 0;
 
   const autoFill = (refill: boolean) => {
-    let doc = project.doc;
-    if (refill) doc = { ...doc, layers: doc.layers.map((l) => (l.type === 'frame' && l.role !== 'logo' ? { ...l, assetId: null } : l)) };
-    ed.setDoc(assignImages(doc, project.assetIds.filter((id) => !missing[id]), metas, { onlyEmpty: true, allowDuplicates: allowDup, smart }));
+    const n = fillPhotos(project.assetIds.filter((id) => !missing[id]), { refill, allowDuplicates: allowDup, smart });
+    if (n > 1) useUi.getState().toast(`Photos ${refill ? 'refilled' : 'added'} on all ${n} pages`, 'success');
   };
 
   return (
@@ -91,10 +93,13 @@ export function UploadsPanel() {
             {empty} image slot{empty > 1 ? 's' : ''} still need{empty > 1 ? '' : 's'} an image.
           </span>
         )}
+        {pageCount > 1 && (
+          <Toggle label={`Apply to all ${pageCount} pages`} checked={allPages} onChange={(v) => useUi.getState().set({ fillAllPages: v })} />
+        )}
         <Toggle label="Smart match (best fit for each frame)" checked={smart} onChange={setSmart} />
         <Toggle label="Allow the same image twice" checked={allowDup} onChange={setAllowDup} />
         <div className="grid-2">
-          <button className="btn btn-sm" disabled={!project.assetIds.length || !empty} onClick={() => autoFill(false)}>
+          <button className="btn btn-sm" disabled={!project.assetIds.length || !emptyAnywhere} onClick={() => autoFill(false)}>
             <Wand2 size={14} /> Fill empty
           </button>
           <button className="btn btn-sm" disabled={!project.assetIds.length} onClick={() => autoFill(true)}>

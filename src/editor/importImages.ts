@@ -1,11 +1,36 @@
 import { UPLOAD_LIMITS } from '../config/colors';
 import { assignImages, frames } from '../model/docOps';
 import { pointInRect } from '../model/geometry';
-import type { FrameLayer, Id } from '../model/types';
+import type { FrameLayer, Id, PinDocument } from '../model/types';
 import { useAssets } from '../store/assetStore';
 import { useEditor } from '../store/editorStore';
 import { useUi } from '../store/uiStore';
 import { newFrame } from './blocks';
+
+/**
+ * Puts photos into the frames of the open page — or of every page when
+ * "Apply to all pages" is on. Each page starts the list at a different photo,
+ * so a project of many designs doesn't show the same image first everywhere.
+ * `refill` replaces the photos already there; otherwise only empty frames fill.
+ */
+export function fillPhotos(ids: Id[], opts: { refill?: boolean; allowDuplicates?: boolean; smart?: boolean } = {}): number {
+  const ed = useEditor.getState();
+  const project = ed.project;
+  if (!project || !ids.length) return 0;
+  const metas = useAssets.getState().metas;
+  const fill = (doc: PinDocument, offset: number): PinDocument => {
+    if (opts.refill) doc = { ...doc, layers: doc.layers.map((l) => (l.type === 'frame' && l.role !== 'logo' ? { ...l, assetId: null } : l)) };
+    if (!frames(doc).some((f) => !f.assetId)) return doc;
+    const k = offset % ids.length;
+    return assignImages(doc, [...ids.slice(k), ...ids.slice(0, k)], metas, { onlyEmpty: true, allowDuplicates: opts.allowDuplicates, smart: opts.smart ?? true });
+  };
+  if (useUi.getState().fillAllPages && project.pages.length > 1) {
+    ed.updatePages((doc, i) => fill(doc, i));
+    return project.pages.length;
+  }
+  ed.setDoc(fill(project.doc, 0));
+  return 1;
+}
 
 /**
  * Upload pipeline used by the file picker, drag-and-drop and paste:
@@ -42,9 +67,8 @@ export async function importAndPlace(files: File[], at?: { x: number; y: number 
       const m = useAssets.getState().metas[ids[0]];
       ed.addLayers([{ ...newFrame(doc, m?.width, m?.height, at), assetId: ids[0] }]);
     }
-  } else if (autoFill && frames(doc).some((f) => !f.assetId)) {
-    ed.setDoc(assignImages(doc, ids, useAssets.getState().metas, { onlyEmpty: true }));
   }
-  ui.toast(`${ids.length} image${ids.length > 1 ? 's' : ''} added`, 'success');
+  const pages = !at && autoFill ? fillPhotos(ids) : 0;
+  ui.toast(`${ids.length} image${ids.length > 1 ? 's' : ''} added${pages > 1 ? ` to all ${pages} pages` : ''}`, 'success');
   return ids;
 }
