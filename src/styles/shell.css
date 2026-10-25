@@ -3,6 +3,38 @@
    dashboard. Loaded after app.css, so these rules refine the base system.
    ===================================================================== */
 
+/* ---- Accounts, plans, auth ---- */
+.avatar { display: inline-grid; place-items: center; border-radius: 50%; background: linear-gradient(135deg, #f7a9c1, var(--accent)); color: #fff; font-weight: 700; flex: none; }
+.user-card { display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 12px; text-decoration: none; color: var(--text); }
+.user-card:hover { background: var(--surface-3); }
+.user-card-text { display: flex; flex-direction: column; min-width: 0; }
+.user-card-text strong { font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.user-card-text span { font-size: 11.5px; color: var(--text-2); }
+.tb-avatar { display: inline-flex; border-radius: 50%; }
+.tb-avatar:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.account-card { padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+.usage-bar { height: 8px; border-radius: 999px; background: var(--surface-3); overflow: hidden; }
+.usage-bar span { display: block; height: 100%; background: var(--accent); border-radius: 999px; }
+.pricing-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 360px)); gap: 20px; justify-content: center; }
+.price-card { padding: 28px; display: flex; flex-direction: column; gap: 12px; position: relative; }
+.price-card h2 { font-size: 20px; }
+.price-card-pro { border: 2px solid var(--accent); box-shadow: var(--shadow-md); }
+.price { font-size: 34px; font-weight: 800; letter-spacing: -.02em; }
+.price-list { list-style: none; padding: 0; margin: 4px 0 8px; display: flex; flex-direction: column; gap: 10px; }
+.price-list li { display: flex; gap: 8px; align-items: flex-start; font-size: 14px; }
+.price-list svg { color: var(--accent); flex: none; margin-top: 2px; }
+.chip-pro { position: absolute; top: 16px; right: 16px; background: var(--accent-soft); color: var(--accent); }
+.auth { min-height: 100vh; display: grid; grid-template-columns: 1fr 1fr; background: var(--bg); }
+.auth-art { background: linear-gradient(150deg, #fff2f6 0%, #fde3ec 45%, #f7c6d6 100%); display: grid; place-items: center; padding: 48px; }
+.auth-art-inner { max-width: 420px; display: flex; flex-direction: column; gap: 16px; }
+.auth-art-inner h2 { font-size: 32px; line-height: 1.15; letter-spacing: -.02em; }
+.auth-art-inner p { color: var(--text-2); font-size: 16px; line-height: 1.5; }
+.auth-form-wrap { display: grid; place-items: center; padding: 32px 16px; }
+.auth-form { width: min(420px, 100%); padding: 32px; display: flex; flex-direction: column; gap: 16px; }
+.auth-links { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; font-size: 13.5px; color: var(--text-2); }
+.auth-links a { color: var(--accent); font-weight: 600; text-decoration: none; }
+@media (max-width: 860px) { .auth { grid-template-columns: 1fr; } .auth-art { display: none; } }
+
 /* ---- Dashboard ---- */
 .dash2 { min-height: 100%; display: grid; grid-template-columns: 240px 1fr; background: var(--bg); }
 .dash-side { background: var(--surface); border-right: 1px solid var(--border); padding: 18px 14px; display: flex; flex-direction: column; gap: 22px; position: sticky; top: 0; height: 100vh; }

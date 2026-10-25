@@ -5,6 +5,7 @@ import { useEditor } from '../../store/editorStore';
 import { useLibrary } from '../../store/libraryStore';
 import { useUi } from '../../store/uiStore';
 import { Field, Modal, Toggle } from '../../ui/controls';
+import { requirePro } from '../../saas/gates';
 import { applySuggestion, runAssistant, type SuggestionKind } from '../textAssist';
 
 const TABS: { id: SuggestionKind; label: string; key: keyof Omit<TextAssistResult, 'source'> }[] = [
@@ -69,7 +70,7 @@ export function AiAssistantModal() {
           <input className="input" value={keyword} placeholder="e.g. balcony decor" onChange={(e) => setKeyword(e.target.value)} />
         </Field>
         {aiProvider ? (
-          <Toggle label="Use AI (sends the title and keyword only — never images)" checked={aiEnabled} onChange={(v) => useUi.getState().set({ aiEnabled: v })} />
+          <Toggle label="Use AI (sends the title and keyword only — never images)" checked={aiEnabled} onChange={(v) => (!v || requirePro('aiText')) && useUi.getState().set({ aiEnabled: v })} />
         ) : (
           <span className="subtle">Suggestions are generated on your device. Connect an AI proxy (see README) for AI-written options.</span>
         )}

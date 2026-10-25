@@ -8,6 +8,8 @@ import { saveProject } from '../../store/projectActions';
 import { useUi } from '../../store/uiStore';
 import { IconButton } from '../../ui/controls';
 import { BrandMark } from '../../ui/BrandMark';
+import { requirePro } from '../../saas/gates';
+import { Avatar } from '../../saas/ui/PlanViews';
 
 const ZOOMS = [0.25, 0.5, 0.72, 1, 1.5, 2];
 
@@ -114,6 +116,9 @@ export function TopBar() {
       <button className="btn btn-export" onClick={() => ui.set({ modal: 'export' })}>
         <Download size={17} /> Export
       </button>
+      <a href="#/account" className="tb-avatar" aria-label="Account" data-tip="Account">
+        <Avatar size={38} />
+      </a>
       <div className="tb-menu" ref={menuRef}>
         <IconButton label="More actions" onClick={() => setMenu((m) => !m)}>
           <MoreHorizontal size={20} />
@@ -123,7 +128,7 @@ export function TopBar() {
             <button role="menuitem" className="menu-item" onClick={() => (setMenu(false), ui.set({ modal: 'variations' }))}>
               <Layers size={15} /> Fresh variations…
             </button>
-            <button role="menuitem" className="menu-item" onClick={() => (setMenu(false), ui.set({ modal: 'saveTemplate' }))}>
+            <button role="menuitem" className="menu-item" onClick={() => (setMenu(false), requirePro('saveTemplate') && ui.set({ modal: 'saveTemplate' }))}>
               <Copy size={15} /> Save as template…
             </button>
           </div>

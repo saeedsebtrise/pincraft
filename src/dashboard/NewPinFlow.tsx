@@ -10,6 +10,7 @@ import { allTemplates, createPin, findTemplate } from '../store/projectActions';
 import { useUi } from '../store/uiStore';
 import { BLANK_TEMPLATE_ID } from '../templates/builtins';
 import { Field } from '../ui/controls';
+import { ensureCanCreateProject } from '../saas/gates';
 import { TemplateCard, TemplateGallery } from './TemplateGallery';
 import { TypeCard } from './TypeCard';
 
@@ -90,6 +91,7 @@ export function NewPinFlow({ initialTemplateId, initialType }: { initialTemplate
   const recs = useMemo(() => recommendTemplates(title, allTemplates(), { presetId: preset.id, limit: 4 }), [title, preset.id]);
 
   const create = async (t: Template | undefined) => {
+    if (!(await ensureCanCreateProject())) return;
     setBusy(true);
     try {
       const headline = title.trim() ? suggestHeadlines({ articleTitle: title })[0] : undefined;

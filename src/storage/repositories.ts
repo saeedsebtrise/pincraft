@@ -72,12 +72,29 @@ function createIdbCollection<T extends { id: Id }>(make: () => ReturnType<typeof
   };
 }
 
-export const repos = {
-  projects: createIdbProjectRepository(),
-  assets: createIdbAssetRepository(),
-  templates: createIdbCollection<Template>(stores.templates),
-  brandKits: createIdbCollection<BrandKit>(stores.brandKits),
-};
+export interface RepositorySet {
+  projects: ProjectRepository;
+  assets: AssetRepository;
+  templates: CollectionRepository<Template>;
+  brandKits: CollectionRepository<BrandKit>;
+}
+
+export function createLocalRepositories(): RepositorySet {
+  return {
+    projects: createIdbProjectRepository(),
+    assets: createIdbAssetRepository(),
+    templates: createIdbCollection<Template>(stores.templates),
+    brandKits: createIdbCollection<BrandKit>(stores.brandKits),
+  };
+}
+
+/** The active storage backend. Everything goes through this object, so swapping backends needs no other code changes. */
+export const repos: RepositorySet = createLocalRepositories();
+
+/** Switch storage backend (local IndexedDB ↔ cloud) — e.g. on sign-in / sign-out. */
+export function setRepositories(next: RepositorySet) {
+  Object.assign(repos, next);
+}
 
 /** Deletes a project and any of its assets no other project references. */
 export async function deleteProjectAndOrphans(id: Id): Promise<void> {

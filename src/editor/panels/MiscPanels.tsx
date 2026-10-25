@@ -1,6 +1,7 @@
 import { Circle, Image as ImageIcon, Minus, Plus, Square, SquareDashed, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { thumbUrl } from '../../ui/imageUrl';
+import { requirePro } from '../../saas/gates';
 import { FONT_CATEGORIES, FONT_LIBRARY } from '../../config/fonts';
 import { applyBrand, documentColors } from '../../model/docOps';
 import { createFrame, newId } from '../../model/factory';
@@ -79,6 +80,7 @@ export function BrandPanel() {
           <button
             className="btn btn-sm"
             onClick={async () => {
+              if (!requirePro('multipleBrandKits')) return;
               const k = { ...DEFAULT_BRAND_KIT, id: newId('kit_'), name: 'New brand' };
               await lib.saveBrandKit(k);
               lib.setActiveKit(k.id);

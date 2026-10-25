@@ -1,4 +1,6 @@
-import { ArrowRight, Copy, FolderOpen, Home, Image as ImageIcon, LayoutTemplate, MoreHorizontal, Palette, Pencil, Plus, PlusCircle, Search, Trash2, X } from 'lucide-react';
+import { ArrowRight, Copy, CreditCard, FolderOpen, Home, Image as ImageIcon, LayoutTemplate, MoreHorizontal, Palette, Pencil, Plus, PlusCircle, Search, Settings, Trash2, X } from 'lucide-react';
+import { ensureCanCreateProject, handleLimitError } from '../saas/gates';
+import { AccountPage, PricingPage, UpgradeButton, UserCard } from '../saas/ui/PlanViews';
 import { useEffect, useMemo, useState } from 'react';
 import { DESIGN_TYPES, type DesignType } from '../config/designTypes';
 import type { BrandKit, Project } from '../model/types';
@@ -13,7 +15,7 @@ import { TemplateCard, TemplateGallery } from './TemplateGallery';
 import { NewPinFlow } from './NewPinFlow';
 import { TypeCard } from './TypeCard';
 
-export type DashTab = 'home' | 'projects' | 'templates' | 'brand' | 'new';
+export type DashTab = 'home' | 'projects' | 'templates' | 'brand' | 'new' | 'account' | 'pricing';
 
 const NAV: { id: DashTab; label: string; href: string; icon: React.ReactNode }[] = [
   { id: 'home', label: 'Home', href: '#/', icon: <Home size={18} /> },
@@ -21,6 +23,7 @@ const NAV: { id: DashTab; label: string; href: string; icon: React.ReactNode }[]
   { id: 'templates', label: 'Templates', href: '#/templates', icon: <LayoutTemplate size={18} /> },
   { id: 'brand', label: 'Brand Kit', href: '#/brand', icon: <Palette size={18} /> },
   { id: 'projects', label: 'Projects', href: '#/projects', icon: <FolderOpen size={18} /> },
+  { id: 'pricing', label: 'Plans & Pricing', href: '#/pricing', icon: <CreditCard size={18} /> },
 ];
 
 /** Design types shown on the home screen (the full list of 16 is in Create New). */
@@ -48,6 +51,8 @@ export function Dashboard({ tab, params }: { tab: DashTab; params: URLSearchPara
             </a>
           ))}
         </nav>
+        <div className="grow" />
+        <UserCard />
       </aside>
       <div className="dash-content">
         <header className="dash-top2">
@@ -63,6 +68,10 @@ export function Dashboard({ tab, params }: { tab: DashTab; params: URLSearchPara
             <input placeholder="Search templates (e.g. balcony, hair, decor, listicle…)" value={query} onChange={(e) => setQuery(e.target.value)} aria-label="Search templates" />
           </form>
           <div className="grow" />
+          <a className="icon-btn" href="#/account" aria-label="Account settings" data-tip="Account settings">
+            <Settings size={20} />
+          </a>
+          <UpgradeButton className="btn btn-outline btn-lg" />
           <a className="btn btn-pink btn-lg" href="#/new">
             <Plus size={18} /> Create New Pin
           </a>
@@ -81,6 +90,8 @@ export function Dashboard({ tab, params }: { tab: DashTab; params: URLSearchPara
           </div>
         )}
         {tab === 'brand' && <BrandHome />}
+        {tab === 'account' && <AccountPage />}
+        {tab === 'pricing' && <PricingPage />}
         {tab === 'new' && <NewPinFlow key={params.toString()} initialTemplateId={params.get('template') ?? undefined} initialType={(params.get('type') as DesignType) ?? undefined} />}
       </div>
     </div>
@@ -215,8 +226,13 @@ function ProjectGrid({ limit }: { limit?: number }) {
                       className="menu-item"
                       role="menuitem"
                       onClick={async () => {
-                        await duplicateProject(p);
                         setMenu(null);
+                        if (!(await ensureCanCreateProject())) return;
+                        try {
+                          await duplicateProject(p);
+                        } catch (e) {
+                          if (!handleLimitError(e)) throw e;
+                        }
                         refresh();
                       }}
                     >

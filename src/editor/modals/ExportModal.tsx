@@ -10,6 +10,9 @@ import { useUi } from '../../store/uiStore';
 import { Field, Modal, Seg, Toggle } from '../../ui/controls';
 import { BrandMark } from '../../ui/BrandMark';
 import { IssueList, useDesignIssues } from '../properties/PropertiesPanel';
+import { useAccount } from '../../saas/accountStore';
+import { ensureCanExport } from '../../saas/gates';
+import { PLANS } from '../../saas/plans';
 
 const countKey = (id: string) => `pinforge.exportCount.${id}`;
 const readCount = (id: string) => {
@@ -112,12 +115,13 @@ export function ExportModal() {
     };
   }, [canvas, format, quality]);
 
-  const downloadPage = () => {
+  const downloadPage = async () => {
     if (!estimate) return;
     if (estimate.width !== doc.width || estimate.height !== doc.height) {
       setError('Size verification failed — export cancelled.');
       return;
     }
+    if (!(await ensureCanExport(1))) return;
     const name = sanitizeFilename(filename, format);
     downloadBlob(estimate.blob, name);
     bumpCount(project.id, 1);
@@ -126,10 +130,11 @@ export function ExportModal() {
   };
 
   const downloadAll = async () => {
+    const pages = normalizeProject(useEditor.getState().project!).pages;
+    if (!(await ensureCanExport(pages.length))) return;
     setBusy(true);
     setError(null);
     try {
-      const pages = normalizeProject(useEditor.getState().project!).pages;
       const stem = sanitizeFilename(filename, format).replace(/-pin-\d+\.\w+$/, '').replace(/\.\w+$/, '');
       let n = 0;
       for (const [i, page] of pages.entries()) {
@@ -247,6 +252,7 @@ export function ExportModal() {
           {busy || (scope === 'page' && !estimate) ? <Loader2 size={18} /> : <Download size={18} />}
           {scope === 'all' && pageCount > 1 ? `Download ${pageCount} Pins` : 'Download Pin'}
         </button>
+        <QuotaNote />
 
         <details className="stack-sm">
           <summary className="field-label-strong">Before you export ({issues.length} {issues.length === 1 ? 'note' : 'notes'})</summary>
@@ -262,5 +268,19 @@ export function ExportModal() {
         </details>
       </div>
     </Modal>
+  );
+}
+
+/** Remaining Free exports this month (hidden for Pro and local mode). */
+function QuotaNote() {
+  const tier = useAccount((s) => s.subscription.tier);
+  const mode = useAccount((s) => s.mode);
+  const used = useAccount((s) => s.usage.exportsThisMonth);
+  const limit = PLANS[tier].exportsPerMonth;
+  if (mode === 'local' || limit === null) return null;
+  return (
+    <span className="subtle" style={{ textAlign: 'center' }}>
+      {Math.max(0, limit - used)} of {limit} free exports left this month · <a href="#/pricing">Go unlimited with Pro</a>
+    </span>
   );
 }

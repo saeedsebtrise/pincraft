@@ -9,6 +9,7 @@ import { allTemplates, generateBatch, makeVariation, type VariationKind } from '
 import { useUi } from '../../store/uiStore';
 import { repos } from '../../storage/repositories';
 import { Modal } from '../../ui/controls';
+import { ensureCanCreateProject, handleLimitError, requirePro } from '../../saas/gates';
 
 const KINDS: { id: VariationKind; label: string; hint: string; icon: React.ReactNode }[] = [
   { id: 'duplicate', label: 'Exact copy', hint: 'Start a fresh Pin from this one', icon: <Copy size={18} /> },
@@ -56,8 +57,14 @@ export function VariationsModal() {
   }, [project]);
 
   const createOne = async (kind: VariationKind) => {
+    if (!(await ensureCanCreateProject())) return;
     const v = makeVariation(project, kind, useLibrary.getState().activeKit());
-    await repos.projects.put(v);
+    try {
+      await repos.projects.put(v);
+    } catch (e) {
+      if (handleLimitError(e)) return;
+      throw e;
+    }
     close();
     location.hash = `#/editor/${v.id}`;
     useUi.getState().toast('Variation created — you are now editing it', 'success');
@@ -93,9 +100,14 @@ export function VariationsModal() {
               onClick={async () => {
                 setBusy(true);
                 const chosen = batch.filter((p) => keep.has(p.id));
-                await Promise.all(chosen.map((p) => repos.projects.put(p)));
-                useUi.getState().toast(`Saved ${chosen.length} new Pin${chosen.length > 1 ? 's' : ''} to your projects`, 'success');
-                close();
+                try {
+                  for (const p of chosen) await repos.projects.put(p);
+                  useUi.getState().toast(`Saved ${chosen.length} new Pin${chosen.length > 1 ? 's' : ''} to your projects`, 'success');
+                  close();
+                } catch (e) {
+                  setBusy(false);
+                  if (!handleLimitError(e)) useUi.getState().toast((e as Error).message, 'error');
+                }
               }}
             >
               <Check size={15} /> Save as new projects
@@ -131,6 +143,7 @@ export function VariationsModal() {
               className="btn btn-dark"
               disabled={!candidates.length}
               onClick={() => {
+                if (!requirePro('batchVariations')) return;
                 const list = generateBatch(project, candidates);
                 setBatch(list);
                 setKeep(new Set(list.map((p) => p.id)));
