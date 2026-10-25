@@ -13,6 +13,7 @@ import { createShape, createText } from '../model/factory';
 import type { Layer, Template, TextLayer } from '../model/types';
 import { badge, bgOff, bgOn, tpl } from '../templates/kit';
 import type { ResearchReport } from './pinResearch';
+import { aiAuthHeaders } from './ai/auth';
 
 // ---------------------------------------------------------------- spec (mirrors server/aiDesign.mjs)
 
@@ -98,7 +99,7 @@ export async function requestAiDesigns(req: AiDesignRequest): Promise<AiDesignSp
   try {
     res = await fetch('/api/ai-design', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(await aiAuthHeaders()) },
       body: JSON.stringify({
         headline: req.headline,
         subtitle: req.subtitle,

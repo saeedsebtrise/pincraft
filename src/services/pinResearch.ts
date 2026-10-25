@@ -10,6 +10,7 @@ import { getLayout } from '../collage/layouts';
 import { getFont } from '../config/fonts';
 import { isText } from '../model/docOps';
 import type { PinDocument, Template, TextLayer } from '../model/types';
+import { aiAuthHeaders } from './ai/auth';
 
 export type LayoutStyle = 'single-photo' | 'two-photos' | 'collage-3-4' | 'collage-5-plus' | 'band-between-photos' | 'text-panel' | 'text-only';
 export type TextStyle = 'white-blocks' | 'solid-band' | 'overlay-no-box' | 'outlined-sticker' | 'script-accent' | 'serif-editorial' | 'distressed' | 'pill-labels';
@@ -78,13 +79,52 @@ export async function prepareScreenshot(file: Blob): Promise<{ mediaType: 'image
   return { mediaType: 'image/jpeg', data: url.slice(url.indexOf(',') + 1), preview: url };
 }
 
+/** Hosting caps a request at 4.5 MB: all screenshots together are kept under this many base64 characters. */
+export const RESEARCH_BUDGET = 4_000_000;
+
+/** Re-encodes one JPEG (base64) smaller: scaled by k, at the given quality. */
+async function shrinkJpeg(data: string, k: number, quality: number): Promise<string> {
+  const bytes = Uint8Array.from(atob(data), (ch) => ch.charCodeAt(0));
+  const bmp = await createImageBitmap(new Blob([bytes], { type: 'image/jpeg' }));
+  const c = document.createElement('canvas');
+  c.width = Math.max(1, Math.round(bmp.width * k));
+  c.height = Math.max(1, Math.round(bmp.height * k));
+  c.getContext('2d')!.drawImage(bmp, 0, 0, c.width, c.height);
+  bmp.close();
+  const url = c.toDataURL('image/jpeg', quality);
+  return url.slice(url.indexOf(',') + 1);
+}
+
+/**
+ * Shrinks the screenshots until they fit in one request together. Each one too
+ * big for its share is scaled down (text on Pins stays readable well below the
+ * 1568px we start from); ones already small enough are sent as they are.
+ */
+export async function fitScreenshots(
+  images: { mediaType: string; data: string }[],
+  budget = RESEARCH_BUDGET,
+  shrink: (data: string, k: number, quality: number) => Promise<string> = shrinkJpeg,
+): Promise<{ mediaType: string; data: string }[]> {
+  const share = budget / Math.max(1, images.length);
+  const out = [];
+  for (const im of images) {
+    let data = im.data;
+    for (let i = 0; i < 4 && data.length > share; i++) {
+      data = await shrink(data, Math.min(0.9, Math.sqrt(share / data.length) * 0.95), 0.8);
+    }
+    out.push({ mediaType: 'image/jpeg', data });
+  }
+  return out;
+}
+
 export async function requestResearch(keyword: string, images: { mediaType: string; data: string }[]): Promise<ResearchReport> {
   let res: Response;
   try {
+    const fitted = await fitScreenshots(images);
     res = await fetch('/api/pin-research', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ keyword, images: images.map(({ mediaType, data }) => ({ mediaType, data })) }),
+      headers: { 'Content-Type': 'application/json', ...(await aiAuthHeaders()) },
+      body: JSON.stringify({ keyword, images: fitted }),
     });
   } catch {
     throw new Error(RESEARCH_OFFLINE);

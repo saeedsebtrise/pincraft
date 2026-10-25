@@ -1,0 +1,13 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "vite",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "functions": {
+    "api/ai.mjs": { "maxDuration": 60 },
+    "api/ai-design.mjs": { "maxDuration": 300 },
+    "api/pin-research.mjs": { "maxDuration": 300 },
+    "api/page.mjs": { "maxDuration": 30 },
+    "api/image.mjs": { "maxDuration": 30 }
+  }
+}

@@ -9,6 +9,7 @@
  * proxy (server/ai-proxy.mjs), which holds the key in a server env variable.
  */
 import { suggestCtas, suggestHeadlines, suggestSubtitles, suggestVariations } from '../headlines';
+import { aiAuthHeaders } from './auth';
 
 export interface TextAssistInput {
   articleTitle: string;
@@ -52,10 +53,13 @@ export function createProxyProvider(url: string): TextAssistProvider {
     async suggest(input) {
       const res = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(await aiAuthHeaders()) },
         body: JSON.stringify({ task: 'pin-text', ...input }),
       });
-      if (!res.ok) throw new Error(`AI service responded ${res.status}`);
+      if (!res.ok) {
+        const msg = await res.json().then((d: { error?: string }) => d.error ?? '', () => '');
+        throw new Error(msg || `AI service responded ${res.status}`);
+      }
       const data = (await res.json()) as Partial<TextAssistResult>;
       const clean = (a: unknown) => (Array.isArray(a) ? a.filter((s): s is string => typeof s === 'string').map((s) => s.trim()).filter(Boolean).slice(0, 10) : []);
       return { headlines: clean(data.headlines), subtitles: clean(data.subtitles), ctas: clean(data.ctas), variations: clean(data.variations), source: 'ai' };

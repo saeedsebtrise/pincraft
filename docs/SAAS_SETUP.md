@@ -20,8 +20,26 @@ Without these settings the app runs in **local mode**: no accounts, projects sav
 4. Set its secret: `supabase secrets set LEMONSQUEEZY_WEBHOOK_SECRET=<signing secret>`
 5. In Lemon Squeezy → Settings → Webhooks, add `https://xxxx.supabase.co/functions/v1/lemon-webhook` with the same signing secret. Select the subscription_created, subscription_updated, subscription_cancelled, subscription_resumed and subscription_expired events.
 
-## 3. Deploy the app
-Run `npm run build`, then upload `dist/` to any static host (Vercel, Netlify, Cloudflare Pages), with the same `VITE_*` variables set in the host's settings.
+## 3. Deploy on Vercel (app + API + your domain)
+The repo is ready for Vercel: `vercel.json` builds the app, and the `api/` folder becomes serverless functions for Blog URL → Pins (`/api/page`, `/api/image`) and the AI features (`/api/ai`, `/api/ai-design`, `/api/pin-research`).
+
+1. In Supabase's SQL editor also run `supabase/migrations/0002_ai_usage.sql` — the daily AI allowance (Free 10, Pro 150 requests a day).
+2. Push the project to a GitHub repository, then in Vercel: **Add New → Project → Import** that repository. Vercel detects Vite; keep the defaults.
+3. In the project's **Settings → Environment Variables** add:
+
+   | Name | Value |
+   |---|---|
+   | `ANTHROPIC_API_KEY` | your Claude API key (server only — never prefix with `VITE_`) |
+   | `VITE_AI_PROXY_URL` | `/api/ai` |
+   | `VITE_SUPABASE_URL` | your Supabase Project URL |
+   | `VITE_SUPABASE_ANON_KEY` | your Supabase anon key |
+   | `VITE_LEMON_CHECKOUT_URL` | your Pro checkout link (optional) |
+
+   Then **Deployments → Redeploy** so the build picks them up.
+4. **Settings → Domains → Add** your domain and copy the DNS records Vercel shows into your domain registrar. HTTPS is automatic.
+5. In Supabase → Authentication → URL configuration, set the Site URL to your domain.
+
+Online, the AI routes answer only signed-in users and count every call against their daily allowance, so nobody can spend your Claude credits anonymously. Research screenshots are shrunk in the browser to stay under Vercel's 4.5 MB request limit.
 
 ## What is enforced where
 - **Server (Postgres):** project limit, export quota (`record_export`), Pro-only template saving, billing columns writable only by the webhook, and each user sees only their own rows and files.

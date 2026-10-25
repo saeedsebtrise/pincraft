@@ -64,7 +64,8 @@ In **Auto Design**, paste a blog post link and press Enter. PinCraft reads the p
 
 Browsers can't read other websites directly, so the app's own server does it (`server/pageFetch.mjs`, routes `GET /api/page` and `GET /api/image`):
 - **Development:** `npm run dev` and `npm run preview` include it, with nothing to set up.
-- **Production:** run `npm run ai-proxy` behind your static host and route `/api/*` to it. It serves these routes too, and they don't need an API key.
+- **Production on Vercel:** the `api/` folder deploys these routes (and the AI routes) as functions — see [docs/SAAS_SETUP.md](docs/SAAS_SETUP.md#3-deploy-on-vercel-app--api--your-domain).
+- **Other hosts:** run `npm run ai-proxy` behind your static host and route `/api/*` to it. It serves these routes too, and they don't need an API key.
 
 The reader only fetches public `http(s)` addresses. Every hostname, including each redirect, is checked when it connects, so it can't reach `localhost` or private networks. Pages are capped at 3 MB and photos at 15 MB. Some sites block automatic readers; for those, type the title and upload the photos instead.
 
