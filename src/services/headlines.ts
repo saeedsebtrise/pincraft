@@ -11,7 +11,7 @@ export interface HeadlineInput {
   audience?: string;
 }
 
-const TRAILING_CLAUSE = /\s+((?:to|for|that|which|you|when|if|in\s+\d{4}|this|from|with)\s+.*)$/i;
+const TRAILING_CLAUSE = /\s+((?:to|for|that|which|you|when|if|in\s+\d{4}|this|from|with|without|using)\s+.*)$/i;
 const UNCOUNTABLE = /^(decor|makeup|hair|furniture|clothing|inspiration|inspo|skincare|art|lighting|storage)$/i;
 const SEPARATORS = /\s*(?:[:|–—]|\s-\s|\().*$/;
 const LIST_NOUNS = ['ideas', 'ways', 'tips', 'looks', 'styles', 'designs', 'recipes', 'outfits', 'hacks', 'examples', 'inspo'];
@@ -55,10 +55,13 @@ export function parseTitle(title: string): ParsedTitle {
   const numberMatch = t.match(/^(\d+\+?)\s+/);
   const number = numberMatch ? numberMatch[1] : null;
   let rest = number ? t.slice(numberMatch![0].length) : t;
-  const clause = rest.match(TRAILING_CLAUSE);
-  if (clause && rest.replace(TRAILING_CLAUSE, '').trim()) {
+  // "How to …" titles: the "to" belongs to the headline, so look for the clause after it.
+  const howTo = rest.match(/^how\s+to\s+/i)?.[0] ?? '';
+  const body = rest.slice(howTo.length);
+  const clause = body.match(TRAILING_CLAUSE);
+  if (clause && body.replace(TRAILING_CLAUSE, '').trim()) {
     tail = tail || clause[1];
-    rest = rest.replace(TRAILING_CLAUSE, '').trim();
+    rest = howTo + body.replace(TRAILING_CLAUSE, '').trim();
   }
   const words = rest.split(' ');
   const last = words[words.length - 1]?.toLowerCase() ?? '';

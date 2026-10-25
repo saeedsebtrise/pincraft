@@ -9,7 +9,7 @@
  */
 import { createShape } from '../model/factory';
 import type { Layer, TextLayer } from '../model/types';
-import { badge, bgOff, bgOn, footer, titleLine, tpl } from './kit';
+import { badge, bgOff, bgOn, footer, label, titleLine, tpl } from './kit';
 
 type TP = Partial<TextLayer>;
 
@@ -382,6 +382,57 @@ export const HAIR_TEMPLATES = [
         line(W, 626, 70, 'Hair Styles', p(ABRIL, 80, 2)),
         line(W, 696, 70, 'For Women', p(ABRIL, 80, 2)),
         line(W, 766, 70, 'Over 50', p(ABRIL, 80)),
+      ];
+    },
+  }),
+
+  // ---------------------------------------------------------------- 2×2 grid, white label panel (how-to)
+  tpl({
+    id: 'hb-howto-label-panel',
+    name: 'How-To — Label Panel, Black Circle & Terracotta',
+    description: '2×2 photos with a big white label panel: black “HOW TO” circle, black and terracotta caps, black pill line, italic subtitle, CTA button and a two-part footer bar.',
+    family: 8,
+    categories: ['Hair', 'Beauty', 'How-To'],
+    designTypes: ['collage-4', 'image-text-panel', 'hair-beauty'],
+    w: 736,
+    h: 1472,
+    collage: { layoutId: 'grid-2x2', gap: 6, region: { x: 0, y: 0, width: 1, height: 0.958 } },
+    layers: ({ W, H }) => {
+      // Reference is 736 × 1368: x is 1:1, y is stretched to the 1:2 canvas.
+      const y = (v: number) => (v * H) / 1368;
+      const TERRA = '#C57A5C';
+      const caps = (fill: string, wordCount?: number): TP => ({
+        fontFamily: 'Montserrat', fontWeight: 900, fill, fontSize: 118, lineHeight: 0.8, x: 44, width: W - 88, wordCount,
+      });
+      const dots = (x0: number) =>
+        [y(766), y(782)].flatMap((dy) => [0, 1, 2, 3].map((i) => createShape({ name: 'Dot', role: 'decor', shape: 'ellipse', x: x0 + i * 15, y: dy, width: 5, height: 5, fill: TERRA })));
+      return [
+        createShape({ name: 'Label panel', role: 'decor', x: 30, y: y(405), width: W - 60, height: y(985) - y(405), fill: '#FFFFFF', stroke: '#111111', strokeWidth: 3, cornerRadius: 48 }),
+        // Little rays beside the circle.
+        bar(236, y(470), 44, 4, TERRA, 25), bar(244, y(492), 38, 4, '#111111', 12),
+        bar(456, y(470), 44, 4, TERRA, -25), bar(454, y(492), 38, 4, '#111111', -12),
+        line(W, y(370), 150, 'How to', {
+          fontFamily: 'Montserrat', fontWeight: 900, fill: '#FFFFFF', fontSize: 52, lineHeight: 0.95, x: W / 2 - 75, width: 150, wordCount: 2,
+          background: bgOn('#111111', { shape: 'circle', hug: false, paddingX: 18, paddingY: 18, borderWidth: 6, borderColor: '#FFFFFF' }),
+        }),
+        line(W, y(520), 106, 'Style a', caps('#111111', 2)),
+        line(W, y(632), 106, 'Bob Cut', caps(TERRA, 2)),
+        ...dots(116),
+        ...dots(562),
+        line(W, y(752), y(50), 'At Home', {
+          fontFamily: 'Montserrat', fontWeight: 800, fill: '#FFFFFF', fontSize: 40, x: 200, width: 336,
+          background: bgOn('#111111', { shape: 'pill', hug: false, paddingX: 40, paddingY: 4 }),
+        }),
+        subtitleLine(140, y(812), W - 280, 46, 'Without a', { fontFamily: PLAYFAIR, fontWeight: 700, italic: true, textTransform: 'none', fontSize: 42, fill: '#111111' }),
+        subtitleLine(90, y(853), W - 180, 56, 'Blow Dryer', { fontFamily: 'Montserrat', fontWeight: 800, textTransform: 'uppercase', fontSize: 50, fill: '#111111' }),
+        bar(262, y(908), 212, 3, '#111111'),
+        label(258, y(928), 220, 52, 'Click for more', {
+          role: 'cta', name: 'Call to action', fontFamily: 'Montserrat', fontWeight: 800, fontSize: 22, letterSpacing: 0, fill: '#1A1A1A',
+          background: bgOn(TERRA, { hug: false, radius: 12, paddingX: 14, paddingY: 6, borderWidth: 3, borderColor: '#5E3423' }),
+        }),
+        createShape({ name: 'Footer bar', role: 'decor', x: 0, y: H * 0.958, width: W, height: H * 0.042, fill: '#F4EFEA' }),
+        footer(W, H, 'plain-dark', { x: 60, width: 330, y: H * 0.962, height: H * 0.034, fill: TERRA, fontWeight: 800, fontSize: 25, letterSpacing: 1 }),
+        label(392, H * 0.962, 280, H * 0.034, 'Beauty made simple', { fontFamily: 'Montserrat', fontWeight: 800, fontSize: 22, letterSpacing: 0, fill: '#111111' }),
       ];
     },
   }),

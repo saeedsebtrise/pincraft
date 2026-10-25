@@ -17,6 +17,9 @@ describe('auto design text', () => {
     expect(autoText('bronde hair color').headline).toBe('Bronde Hair Color Ideas');
     expect(autoText('', 'lob haircut').headline).toBe('Lob Haircut Ideas');
   });
+  it('keeps “How to …” in the headline and moves the rest to the subtitle', () => {
+    expect(autoText('How to Style a Bob Cut at Home Without a Blow Dryer')).toEqual({ headline: 'How to Style a Bob Cut at Home', subtitle: 'Without a Blow Dryer' });
+  });
   it('gives a topic subtitle when the title has none', () => {
     expect(autoText('20 Bronde Hair Color Ideas').subtitle).toBe('For Your Next Salon Appointment');
   });

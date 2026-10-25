@@ -76,6 +76,11 @@ describe('hair templates reproduce the reference headlines', () => {
     ['hb-sticker-serif-pixie', '50 Pixie Cut Ideas For Women', ['Pixie Cut', 'Ideas', 'For Women'], '50'],
     ['hb-sticker-serif-over-50', '50 Short Hair Styles For Women Over 50', ['Short', 'Hair Styles', 'For Women', 'Over 50'], '50'],
   ];
+  it('how-to label panel: circle, caps, pill and split subtitle', () => {
+    const { byRole } = make('hb-howto-label-panel', 'How to Style a Bob Cut at Home', 'Without a Blow Dryer');
+    expect(byRole('title-line')).toEqual(['How to', 'Style a', 'Bob Cut', 'at Home']);
+    expect(byRole('subtitle')).toEqual(['Without a', 'Blow Dryer']);
+  });
   it.each(cases)('%s', (id, headline, lines, num) => {
     const { byRole, doc } = make(id, headline);
     expect(byRole('title-line')).toEqual(lines);
@@ -83,7 +88,7 @@ describe('hair templates reproduce the reference headlines', () => {
     expect(readHeadline(doc)).toBe(headline);
   });
   it('every hair template is listed once in the library', () => {
-    expect(HAIR_TEMPLATES).toHaveLength(13);
+    expect(HAIR_TEMPLATES).toHaveLength(14);
     for (const t of HAIR_TEMPLATES) expect(BUILTIN_TEMPLATES.filter((b) => b.id === t.id)).toHaveLength(1);
   });
 });
