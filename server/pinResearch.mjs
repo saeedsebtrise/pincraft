@@ -52,8 +52,8 @@ const SYSTEM = `You are a Pinterest marketing analyst who studies Pin design. Yo
 const clean = (v, max) => (typeof v === 'string' ? v.replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, max) : '');
 
 export async function researchPins(client, raw) {
+  // The keyword is optional: without one, the AI reads it off the search bar and Pin headlines in the screenshots.
   const keyword = clean(raw.keyword, 120);
-  if (!keyword) throw Object.assign(new Error('keyword is required'), { status: 400 });
   const images = (Array.isArray(raw.images) ? raw.images : []).slice(0, MAX_IMAGES).filter(
     (im) => im && MEDIA_TYPES.has(im.mediaType) && typeof im.data === 'string' && im.data.length > 100 && im.data.length <= MAX_IMAGE_B64 && /^[A-Za-z0-9+/=]+$/.test(im.data.slice(0, 200)),
   );
@@ -72,7 +72,12 @@ export async function researchPins(client, raw) {
         role: 'user',
         content: [
           ...images.map((im) => ({ type: 'image', source: { type: 'base64', media_type: im.mediaType, data: im.data } })),
-          { type: 'text', text: `Keyword: ${keyword}\nThese are ${images.length} screenshot(s) of the top Pinterest results for this keyword. Analyse the Pin designs.` },
+          {
+            type: 'text',
+            text: keyword
+              ? `Keyword: ${keyword}\nThese are ${images.length} screenshot(s) of the top Pinterest results for this keyword. Analyse the Pin designs.`
+              : `These are ${images.length} screenshot(s) of the top Pinterest results for one keyword (work out the keyword from the search bar or the Pin headlines). Analyse the Pin designs.`,
+          },
         ],
       },
     ],

@@ -53,7 +53,9 @@ export function PinResearch({ keyword, report, onReport }: { keyword: string; re
   const [error, setError] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
   const zoneRef = useRef<HTMLDivElement>(null);
-  const kw = keyword.trim();
+  // The keyword typed above, or one typed here; with neither, the AI reads it off the screenshots.
+  const [ownKw, setOwnKw] = useState('');
+  const kw = keyword.trim() || ownKw.trim();
 
   const add = async (files: File[]) => {
     setError('');
@@ -83,7 +85,7 @@ export function PinResearch({ keyword, report, onReport }: { keyword: string; re
   });
 
   const analyze = async () => {
-    if (!kw || !shots.length || !requirePro('pinResearch')) return;
+    if (!shots.length || !requirePro('pinResearch')) return;
     setBusy(true);
     setError('');
     try {
@@ -115,6 +117,16 @@ export function PinResearch({ keyword, report, onReport }: { keyword: string; re
             the results (about 50 Pins) and drop or paste them here.
           </p>
           <div className="row" style={{ gap: 10, flexWrap: 'wrap' }}>
+            {!keyword.trim() && (
+              <input
+                className="input"
+                style={{ flex: '1 1 240px', maxWidth: 360 }}
+                value={ownKw}
+                onChange={(e) => setOwnKw(e.target.value)}
+                placeholder="Keyword you searched (optional)"
+                aria-label="Keyword you searched on Pinterest"
+              />
+            )}
             <a
               className={`btn ${kw ? 'btn-dark' : ''}`}
               href={kw ? pinterestSearchUrl(kw) : undefined}
@@ -123,7 +135,7 @@ export function PinResearch({ keyword, report, onReport }: { keyword: string; re
               aria-disabled={!kw}
               onClick={(e) => !kw && e.preventDefault()}
             >
-              <Search size={15} /> {kw ? `Open Pinterest search for “${kw}”` : 'Type a keyword or title above first'} <ExternalLink size={13} />
+              <Search size={15} /> {kw ? `Open Pinterest search for “${kw}”` : 'Type a keyword to open Pinterest'} <ExternalLink size={13} />
             </a>
           </div>
           <div
@@ -169,7 +181,7 @@ export function PinResearch({ keyword, report, onReport }: { keyword: string; re
             </div>
           )}
           <div className="row" style={{ gap: 10 }}>
-            <button className="btn btn-pink" disabled={!kw || !shots.length || busy} onClick={() => void analyze()}>
+            <button className="btn btn-pink" disabled={!shots.length || busy} onClick={() => void analyze()}>
               {busy ? <Loader2 size={15} /> : <BarChart3 size={15} />} {busy ? 'AI is studying the Pins…' : `Analyze ${shots.length || ''} screenshot${shots.length === 1 ? '' : 's'}`}
             </button>
           </div>

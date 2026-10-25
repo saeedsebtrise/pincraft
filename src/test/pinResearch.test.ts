@@ -78,9 +78,16 @@ describe('Pinterest research (server)', () => {
     expect(content[content.length - 1]).toMatchObject({ type: 'text' });
   });
 
-  it('rejects missing keywords, missing or bad screenshots, refusals and malformed answers', async () => {
+  it('works without a keyword: the AI reads it off the screenshots', async () => {
+    const { client, create } = fake(REPORT);
+    const out = await researchPins(client, { keyword: '', images: [shot] });
+    expect(out.report.pinsAnalyzed).toBe(48);
+    const content = (create.mock.calls[0][0] as { messages: { content: { type: string; text?: string }[] }[] }).messages[0].content;
+    expect(content[content.length - 1].text).toContain('work out the keyword');
+  });
+
+  it('rejects missing or bad screenshots, refusals and malformed answers', async () => {
     const { client } = fake(REPORT);
-    await expect(researchPins(client, { keyword: '', images: [shot] })).rejects.toMatchObject({ status: 400 });
     await expect(researchPins(client, { keyword: 'x', images: [] })).rejects.toMatchObject({ status: 400 });
     await expect(researchPins(client, { keyword: 'x', images: [{ mediaType: 'image/svg+xml', data: 'A'.repeat(400) }] })).rejects.toMatchObject({ status: 400 });
     await expect(researchPins(fake({}, 'refusal').client, { keyword: 'x', images: [shot] })).rejects.toMatchObject({ status: 422 });
