@@ -9,22 +9,64 @@ import { isText } from '../model/docOps';
 import { createText } from '../model/factory';
 import type { PinDocument, Rect, TextLayer } from '../model/types';
 
+/**
+ * Wordings that get clicked on Pinterest: a clear action verb, a concrete
+ * payoff ("the full list", "every look") and a reason to act now or save.
+ * Each topic has enough of its own that a 50-Pin batch rarely repeats one.
+ */
 const TOPIC_CTAS: [RegExp, string[]][] = [
-  [/hair|haircut|bob\b|lob\b|braid|bangs|balayage|blonde|bronde|brunette|pixie|curl|shag/i, ['See All the Looks', 'Find Your Next Cut', 'Show Your Stylist', 'Save These Looks', 'Get the Full List', 'Try This Look']],
-  [/decor|room|balcon|patio|porch|home|kitchen|bedroom|living|garden|apartment/i, ['See All the Ideas', 'Get the Look', 'Save for Your Next Project', 'Steal These Ideas', 'Shop the Look', 'See the Full Room Tour']],
-  [/outfit|fashion|wear|wardrobe|dress|style\b/i, ['Shop the Look', 'See All Outfits', 'Get the Outfit Ideas', 'Save for Later']],
-  [/recipe|dinner|meal|food|bake|chicken|pasta|salad|dessert|breakfast/i, ['Get the Recipe', 'Save This Recipe', 'Cook It Tonight', 'See All Recipes']],
-  [/makeup|nail|skin|beauty|lip|lashes/i, ['See All the Looks', 'Get the Look', 'Save for Later', 'Try It Today']],
-  [/how to|guide|tips|tutorial|diy|step/i, ['Read the Guide', 'Learn How', 'Get the Steps', 'See the Tutorial']],
+  [/hair|haircut|bob\b|lob\b|braid|bangs|balayage|blonde|bronde|brunette|pixie|curl|shag|auburn|copper|burgundy|highlights/i, [
+    'See All the Looks', 'Find Your Next Cut', 'Show Your Stylist', 'Save These Looks', 'Get the Full List', 'Try This Look',
+    'Screenshot for Your Stylist', 'Find Your Perfect Look', 'See Which Suits You', 'Steal These Looks', 'Tap to See Every Look',
+    'Pick Your Favorite', 'Save for Your Salon Visit', 'Get Salon-Ready', 'Your Next Look Is Here', 'See Them All',
+    'Book-Worthy Looks Inside', 'Find Your Shade', 'Get the Hair Inspo', 'See Every Style', 'Get Your Dream Hair', 'Save Your Favorites',
+  ]],
+  [/decor|room|balcon|patio|porch|home|kitchen|bedroom|living|garden|apartment/i, [
+    'See All the Ideas', 'Get the Look', 'Save for Your Next Project', 'Steal These Ideas', 'Shop the Look', 'See the Full Room Tour',
+    'Get the Decor Ideas', 'Copy This Look', 'Transform Your Space', 'See Every Room', 'Save for Your Makeover', 'Find Your Style',
+    'Get Inspired Now', 'See the Before & After', 'Shop Every Piece',
+  ]],
+  [/outfit|fashion|wear|wardrobe|dress|style\b/i, [
+    'Shop the Look', 'See All Outfits', 'Get the Outfit Ideas', 'Save for Later', 'Copy These Outfits', 'Find Your Style',
+    'Shop Every Piece', 'See What to Wear', 'Steal the Look', 'Save for Your Next Trip',
+  ]],
+  [/recipe|dinner|meal|food|bake|chicken|pasta|salad|dessert|breakfast/i, [
+    'Get the Recipe', 'Save This Recipe', 'Cook It Tonight', 'See All Recipes', 'Make It Tonight', 'Get the Easy Recipe',
+    'Save for Dinner', 'See the Steps', 'Try It This Week', 'Get All the Recipes',
+  ]],
+  [/makeup|nail|skin|beauty|lip|lashes/i, [
+    'See All the Looks', 'Get the Look', 'Save for Later', 'Try It Today', 'Steal These Looks', 'Show Your Nail Tech',
+    'See Every Look', 'Get the Tutorial', 'Pick Your Favorite', 'Save for Your Next Appointment',
+  ]],
+  [/how to|guide|tips|tutorial|diy|step/i, [
+    'Read the Guide', 'Learn How', 'Get the Steps', 'See the Tutorial', 'Start Today', 'Get the Free Guide', 'Learn the Trick',
+    "See How It's Done", 'Save the Steps',
+  ]],
 ];
-const GENERAL_CTAS = ['Read More', 'Get the Full List', 'Save for Later', 'See All Ideas', 'Tap for More', 'Click for More', 'Get Inspired', 'Read the Post'];
+const GENERAL_CTAS = [
+  'Read More', 'Get the Full List', 'Save for Later', 'See All Ideas', 'Tap for More', 'Click for More', 'Get Inspired', 'Read the Post',
+  'Tap to Read', 'See the Full Post', 'Keep Reading', 'Save This Pin', 'See the List', 'Get the Details', 'Discover More', "Don't Miss These",
+  'Find Out Now', 'Start Here', 'Learn More', 'See Why', 'Get the Ideas', 'Open the Full List', 'See More Ideas', 'Save It for Later',
+];
+/** List-post CTAs with the title's own number: "See All 25 Looks" tells the reader exactly what they get. */
+const numberCtas = (n: string, noun: string): string[] => [
+  `See All ${n} ${noun}`, `Tap for All ${n} Ideas`, `Get All ${n} ${noun}`, `See the Full ${n}`, `Save All ${n} Ideas`, `View All ${n} ${noun}`,
+];
 
-/** CTA wordings for a topic: topic-specific first, then general ones, no repeats. */
+/**
+ * CTA wordings for a topic, mixed so neighbouring Pins don't sound alike:
+ * topic-specific, numbered (for list posts) and general ones taken in turn, no repeats.
+ */
 export function ctaOptions(topic: string): string[] {
+  const topical: string[] = [];
+  for (const [re, list] of TOPIC_CTAS) if (re.test(topic)) topical.push(...list);
+  const n = topic.match(/(?:^|\s)(\d{1,3})\+?\s+[a-z]/i)?.[1];
+  const noun = TOPIC_CTAS[0][0].test(topic) || /makeup|nail|outfit/i.test(topic) ? 'Looks' : 'Ideas';
+  const numbered = n && Number(n) > 1 ? numberCtas(n, noun) : [];
   const out: string[] = [];
-  const add = (s: string) => !out.some((o) => o.toLowerCase() === s.toLowerCase()) && out.push(s);
-  for (const [re, list] of TOPIC_CTAS) if (re.test(topic)) list.forEach(add);
-  GENERAL_CTAS.forEach(add);
+  const add = (s: string | undefined) => s && !out.some((o) => o.toLowerCase() === s.toLowerCase()) && out.push(s);
+  const lists = [topical, numbered, GENERAL_CTAS];
+  for (let i = 0; lists.some((l) => i < l.length); i++) lists.forEach((l) => add(l[i]));
   return out;
 }
 

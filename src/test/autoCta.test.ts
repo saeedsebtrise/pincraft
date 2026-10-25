@@ -52,3 +52,20 @@ describe('auto call to action', () => {
     expect(autoDesign({ title: '50 Lob Haircut Ideas', cta: false }, BUILTIN_TEMPLATES, { measure: () => 1, limit: 12 }).every((r) => !ctaOf(r.doc.layers) || r.template.doc.layers.some((l) => l.role === 'cta'))).toBe(true);
   });
 });
+
+describe('CTA variety', () => {
+  it('has enough high-click wordings that 50 Pins never repeat one', () => {
+    const opts = ctaOptions('25 Stunning Auburn Hair Color Ideas');
+    expect(opts.length).toBeGreaterThanOrEqual(50);
+    expect(opts).toContain('See All 25 Looks');
+    const out = autoDesign({ title: '25 Stunning Auburn Hair Color Ideas' }, BUILTIN_TEMPLATES, { measure: () => 1, limit: 50 });
+    const words = out.map((r) => ctaOf(r.doc.layers)?.text).filter(Boolean) as string[];
+    expect(words.length).toBeGreaterThan(30);
+    expect(new Set(words.map((w) => w.toLowerCase())).size).toBe(words.length);
+  });
+
+  it('only numbers list posts', () => {
+    expect(ctaOptions('Easy Chicken Pasta Recipe').some((c) => /\d/.test(c))).toBe(false);
+    expect(ctaOptions('15 Patio Decor Ideas')).toContain('See All 15 Ideas');
+  });
+});
