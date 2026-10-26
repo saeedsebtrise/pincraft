@@ -20,7 +20,11 @@ export default defineConfig({
   },
   server: {
     port: 5173,
-    proxy: { '/api': 'http://localhost:8787' },
+    proxy: {
+      '/api/ai': 'http://localhost:8787',
+      '/api/ai-design': 'http://localhost:8787',
+      '/api/pin-research': 'http://localhost:8787',
+    },
   },
   test: {
     environment: 'jsdom',

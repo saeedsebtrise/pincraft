@@ -3,7 +3,7 @@
  * and reused by the editor, templates, variations and batch generation.
  */
 import { bandRect, computeCells, getLayout } from '../collage/layouts';
-import { clone, createFrame, newId } from './factory';
+import { clone, createFrame, createText, newId } from './factory';
 import type {
   AssetMeta,
   BrandKit,
@@ -221,6 +221,60 @@ export function applyHeadline(doc: PinDocument, headline: string): PinDocument {
     if (title) updates.set(title.id, rest);
   } else if (title) {
     updates.set(title.id, rest);
+  } else {
+    // There are NO title layers on the canvas! Automatically create and auto-adjust one!
+    const W = doc.width;
+    const H = doc.height;
+    const k = W / 1000;
+    const hasImage = doc.layers.some((l) => l.type === 'frame');
+    const newTitle = createText({
+      name: 'Headline',
+      role: 'title',
+      x: W * 0.08,
+      y: hasImage ? H * 0.58 : H * 0.38,
+      width: W * 0.84,
+      height: 240 * k,
+      text: rest,
+      fontFamily: 'Playfair Display',
+      fontWeight: 800,
+      fontSize: Math.min(84 * k, Math.max(36 * k, (W * 0.84) / Math.max(1, rest.length * 0.35))),
+      lineHeight: 1.2,
+      fill: hasImage ? '#FFFFFF' : '#111111',
+      align: 'center',
+      minFontSize: 24 * k,
+      shadow: hasImage
+        ? { enabled: true, color: '#000000', blur: 16, offsetX: 0, offsetY: 4, opacity: 0.7 }
+        : { enabled: false, color: '#000000', blur: 0, offsetX: 0, offsetY: 0, opacity: 0 },
+      background: hasImage
+        ? {
+            enabled: true,
+            color: '#000000',
+            opacity: 0.45,
+            paddingX: 24 * k,
+            paddingY: 14 * k,
+            radius: 12 * k,
+            hug: true,
+            shape: 'rect',
+            borderColor: '#FFFFFF',
+            borderWidth: 0,
+          }
+        : {
+            enabled: false,
+            color: '#FFFFFF',
+            opacity: 1,
+            paddingX: 0,
+            paddingY: 0,
+            radius: 0,
+            hug: true,
+            shape: 'rect',
+            borderColor: '#000000',
+            borderWidth: 0,
+          },
+    });
+    return {
+      ...doc,
+      layers: [...doc.layers, newTitle],
+    };
   }
   return {
     ...doc,

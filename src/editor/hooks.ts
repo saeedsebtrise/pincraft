@@ -43,8 +43,16 @@ export function useShortcuts() {
         ed.redo();
         return;
       }
-      if (mod && key === 'c') return ed.copy();
-      if (mod && key === 'v') return ed.paste();
+      if (mod && key === 'c' && ed.selection.length) {
+        e.preventDefault();
+        ed.copy();
+        return;
+      }
+      if (mod && key === 'v' && ed.clipboard.length) {
+        e.preventDefault();
+        ed.paste();
+        return;
+      }
       if (mod && key === 'd') {
         e.preventDefault();
         ed.duplicate(ed.selection);

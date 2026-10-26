@@ -8,7 +8,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Layer as KLayer, Line, Rect, Stage, Transformer } from 'react-konva';
 import { SAFE_AREA } from '../../config/colors';
 import { cssFontFamily } from '../../config/fonts';
-import { swapFrameImages } from '../../model/docOps';
+import { frames, swapFrameImages } from '../../model/docOps';
 import { pointInRect, rectsIntersect } from '../../model/geometry';
 import type { FrameLayer, Id, Layer, TextLayer } from '../../model/types';
 import { useAssets } from '../../store/assetStore';
@@ -290,9 +290,15 @@ export function EditorCanvas() {
         updateLayer<FrameLayer>(target.id, { assetId, crop: { zoom: 1, fx: 0.5, fy: 0.5 } });
         select([target.id]);
       } else {
-        const m = useAssets.getState().metas[assetId];
-        const f = { ...newFrame(doc, m?.width, m?.height, p ?? undefined), assetId };
-        useEditor.getState().addLayers([f]);
+        const empty = frames(doc).find((f) => !f.assetId);
+        if (empty) {
+          updateLayer<FrameLayer>(empty.id, { assetId, crop: { zoom: 1, fx: 0.5, fy: 0.5 } });
+          select([empty.id]);
+        } else {
+          const m = useAssets.getState().metas[assetId];
+          const f = { ...newFrame(doc, m?.width, m?.height, p ?? undefined), assetId };
+          useEditor.getState().addLayers([f]);
+        }
       }
       return;
     }

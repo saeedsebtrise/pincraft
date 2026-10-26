@@ -1,6 +1,6 @@
-import { Bot, Loader2, Wand2 } from 'lucide-react';
-import { useState } from 'react';
-import { readHeadline } from '../../model/docOps';
+import { Bot, Loader2, Sparkles, Wand2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { applyHeadline, readHeadline } from '../../model/docOps';
 import type { TextLayer } from '../../model/types';
 import { aiProvider, type TextAssistResult } from '../../services/ai/provider';
 import { useEditor } from '../../store/editorStore';
@@ -20,6 +20,23 @@ export function HeadlineAssistant() {
   const [busy, setBusy] = useState(false);
   const ed = useEditor.getState();
   const current = readHeadline(project.doc);
+  const [pinHeadline, setPinHeadline] = useState(current);
+
+  useEffect(() => {
+    setPinHeadline(current);
+  }, [current]);
+
+  const applyTopicToCanvas = (textToApply: string) => {
+    const val = textToApply.trim();
+    if (!val) {
+      useUi.getState().toast('Enter an article title or topic first.', 'info');
+      return;
+    }
+    ed.setDoc(applyHeadline(ed.project!.doc, val));
+    ed.updateMeta({ headline: val, articleTitle: title.trim() || val });
+    setPinHeadline(val);
+    useUi.getState().toast('Topic auto-adjusted on canvas!', 'success');
+  };
 
   const run = async (useAi: boolean) => {
     if (!title.trim()) {
@@ -35,14 +52,41 @@ export function HeadlineAssistant() {
     }
   };
 
-  const use = (h: string) => applySuggestion('headline', h);
+  const use = (h: string) => {
+    setPinHeadline(h);
+    applySuggestion('headline', h);
+  };
 
   return (
     <div className="panel-section">
       <span className="section-title">Pin headline</span>
-      <Field label="Article title">
-        <textarea className="textarea" rows={2} value={title} placeholder="e.g. 50 Lob Haircut Ideas to Take to Your Next Salon Appointment" onChange={(e) => setTitle(e.target.value)} />
+      <Field label="Article title / Topic">
+        <textarea
+          className="textarea"
+          rows={2}
+          value={title}
+          placeholder="e.g. 50 Lob Haircut Ideas to Take to Your Next Salon Appointment"
+          onChange={(e) => setTitle(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              applyTopicToCanvas(title);
+            }
+          }}
+        />
       </Field>
+      <div className="row" style={{ marginBottom: 6 }}>
+        <button
+          type="button"
+          className="btn btn-pink btn-sm grow"
+          style={{ justifyContent: 'center' }}
+          onClick={() => applyTopicToCanvas(title)}
+          disabled={!title.trim()}
+          title="Auto-adjusts your topic onto the canvas with optimal typography and contrast"
+        >
+          <Sparkles size={14} /> Auto-Adjust Topic to Canvas
+        </button>
+      </div>
       <Field label="Primary keyword (optional)">
         <input className="input" value={keyword} placeholder="e.g. lob haircut" onChange={(e) => setKeyword(e.target.value)} />
       </Field>
@@ -91,7 +135,20 @@ export function HeadlineAssistant() {
         </div>
       )}
       <Field label="Headline on the Pin">
-        <input className="input" defaultValue={current} key={current} onBlur={(e) => e.target.value.trim() && e.target.value !== current && use(e.target.value.trim())} onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()} />
+        <input
+          className="input"
+          value={pinHeadline}
+          placeholder="Type headline directly on canvas..."
+          onChange={(e) => {
+            const val = e.target.value;
+            setPinHeadline(val);
+            if (val.trim()) {
+              ed.setDoc(applyHeadline(ed.project!.doc, val.trim()));
+              ed.updateMeta({ headline: val.trim() });
+            }
+          }}
+          onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+        />
       </Field>
     </div>
   );

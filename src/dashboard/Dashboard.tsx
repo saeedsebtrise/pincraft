@@ -68,8 +68,9 @@ export function Dashboard({ tab, params }: { tab: DashTab; params: URLSearchPara
               location.hash = `#/templates?q=${encodeURIComponent(query.trim())}`;
             }}
           >
-            <Search size={17} />
+            <Search size={18} />
             <input placeholder="Search templates (e.g. balcony, hair, decor, listicle…)" value={query} onChange={(e) => setQuery(e.target.value)} aria-label="Search templates" />
+            <span style={{ fontSize: '11px', fontWeight: 700, padding: '2px 7px', background: 'var(--surface-3)', borderRadius: '6px', color: 'var(--text-3)' }}>/</span>
           </form>
           <div className="grow" />
           <a className="icon-btn" href="#/account" aria-label="Account settings" data-tip="Account settings">
@@ -124,13 +125,33 @@ function HomeScreen() {
           }}
         >
           <div className="search-box auto-input">
-            <Sparkles size={20} />
+            <Sparkles size={22} style={{ color: 'var(--accent)', flexShrink: 0 }} />
             <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Paste a blog post link, or type a title — e.g. 20 Bronde Hair Color Ideas" aria-label="Blog post link, article title or primary keyword" />
             <button className="btn btn-pink" type="submit" disabled={!title.trim()}>
               Design Pins
             </button>
           </div>
         </form>
+        <div className="row" style={{ gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+          <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Trending Ideas:</span>
+          {[
+            '10 Cozy Fall Outfits',
+            'Easy 15-Minute Dinners',
+            '25 Minimalist Living Rooms',
+            'Glazed Donut Nails Ideas',
+            'Healthy Morning Routine'
+          ].map((tag) => (
+            <button
+              key={tag}
+              type="button"
+              className="chip"
+              style={{ cursor: 'pointer', border: '1px solid var(--border)', background: 'var(--surface)', transition: 'all 0.14s ease' }}
+              onClick={() => setTitle(tag)}
+            >
+              {tag}
+            </button>
+          ))}
+        </div>
         <a className="link-pink" href="#/auto?mode=bulk">
           Have many posts? Paste all their links at once <ArrowRight size={15} />
         </a>

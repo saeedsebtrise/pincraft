@@ -86,7 +86,7 @@ export function FrameNode({ layer, src, mode, draggable, cropping, swapHover, on
   const sw = layer.strokeWidth;
 
   return (
-    <Group id={layer.id} name="layer-node" x={layer.x} y={layer.y} rotation={layer.rotation} opacity={layer.opacity} draggable={draggable && !cropping}>
+    <Group id={layer.id} name="layer-node" x={layer.x} y={layer.y} rotation={layer.rotation} opacity={layer.opacity} draggable={draggable && !cropping} onDragEnd={() => {}}>
       {cropping && imgProps && (
         <KImage
           {...imgProps}
@@ -156,7 +156,7 @@ export function TextNode({ layer, mode, draggable, editing }: TextProps) {
   const bg = layer.background;
   const empty = !layer.text.trim();
   return (
-    <Group id={layer.id} name="layer-node" x={layer.x} y={layer.y} rotation={layer.rotation} opacity={layer.opacity} draggable={draggable}>
+    <Group id={layer.id} name="layer-node" x={layer.x} y={layer.y} rotation={layer.rotation} opacity={layer.opacity} draggable={draggable} onDragEnd={() => {}}>
       <Rect width={layer.width} height={layer.height} fill="rgba(0,0,0,0)" />
       {lay.bg && bg.shape === 'circle' && (
         <Ellipse
@@ -231,7 +231,7 @@ export function ShapeNode({ layer, draggable }: { layer: ShapeLayer; draggable?:
     strokeEnabled: layer.strokeWidth > 0,
   };
   return (
-    <Group id={layer.id} name="layer-node" x={layer.x} y={layer.y} rotation={layer.rotation} opacity={layer.opacity} draggable={draggable}>
+    <Group id={layer.id} name="layer-node" x={layer.x} y={layer.y} rotation={layer.rotation} opacity={layer.opacity} draggable={draggable} onDragEnd={() => {}}>
       {layer.shape === 'ellipse' ? (
         <Ellipse x={layer.width / 2} y={layer.height / 2} radiusX={layer.width / 2} radiusY={layer.height / 2} {...common} />
       ) : (

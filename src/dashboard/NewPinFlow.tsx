@@ -1,7 +1,8 @@
-import { ArrowLeft, ArrowRight, Loader2, Save, Sparkles } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Columns, FileText, Grid, Image as ImageIcon, Layout, Loader2, Save, Sparkles, Square, Type } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { CANVAS_LIMITS, CANVAS_PRESET_CONFIG, DEFAULT_PRESET_ID, PRESET_VERIFIED_ON, STATUS_LABEL, type CanvasPreset } from '../config/canvasPresets';
 import { DESIGN_TYPES, type DesignType } from '../config/designTypes';
+import { CUSTOM_PIN_LAYOUTS, type CustomPinLayoutId } from '../model/customPinLayouts';
 import type { Template } from '../model/types';
 import { suggestHeadlines } from '../services/headlines';
 import { recommendTemplates } from '../services/recommend';
@@ -80,6 +81,15 @@ export function NewPinFlow({ initialTemplateId, initialType }: { initialTemplate
   const preTemplate = findTemplate(initialTemplateId);
   const [step, setStep] = useState(preTemplate ? 2 : initialType ? 2 : 1);
   const [type, setType] = useState<DesignType | null>(initialType ?? null);
+  const [selectedLayout, setSelectedLayout] = useState<CustomPinLayoutId>(() => {
+    if (initialType === 'single-image') return 'single-image';
+    if (initialType === 'image-text-overlay') return 'image-text-overlay';
+    if (initialType === 'image-text-panel') return 'image-text-panel';
+    if (initialType === 'split' || initialType === 'two-image') return 'two-image';
+    if (initialType === 'collage-4' || initialType === 'collage-5') return 'collage-4';
+    if (initialType === 'quote-advice') return 'quote-advice';
+    return 'single-image';
+  });
   const [preset, setPreset] = useState<CanvasPreset>(() => {
     const native = preTemplate && CANVAS_PRESET_CONFIG.find((p) => p.width === preTemplate.doc.width && p.height === preTemplate.doc.height);
     return native ?? CANVAS_PRESET_CONFIG.find((p) => p.id === DEFAULT_PRESET_ID)!;
@@ -90,13 +100,22 @@ export function NewPinFlow({ initialTemplateId, initialType }: { initialTemplate
 
   const recs = useMemo(() => recommendTemplates(title, allTemplates(), { presetId: preset.id, limit: 4 }), [title, preset.id]);
 
-  const create = async (t: Template | undefined) => {
+  const create = async (t: Template | undefined, layout?: CustomPinLayoutId) => {
     if (!(await ensureCanCreateProject())) return;
     setBusy(true);
     try {
       const headline = title.trim() ? suggestHeadlines({ articleTitle: title })[0] : undefined;
-      const p = await createPin({ width: preset.width, height: preset.height, presetId: preset.id, templateId: t?.id ?? BLANK_TEMPLATE_ID, articleTitle: title.trim(), headline });
-      useUi.getState().set({ leftTab: t && t.imageCount > 0 ? 'uploads' : 'text' });
+      const customLayout = (type === 'blank' || layout) ? (layout ?? selectedLayout) : undefined;
+      const p = await createPin({
+        width: preset.width,
+        height: preset.height,
+        presetId: preset.id,
+        templateId: customLayout ? null : (t?.id ?? BLANK_TEMPLATE_ID),
+        customLayout,
+        articleTitle: title.trim(),
+        headline: title.trim() || headline,
+      });
+      useUi.getState().set({ leftTab: (customLayout && customLayout !== 'blank' && customLayout !== 'quote-advice') || (t && t.imageCount > 0) ? 'uploads' : 'text' });
       location.hash = `#/editor/${p.id}`;
     } catch (e) {
       useUi.getState().toast(`Couldn't create the Pin: ${(e as Error).message}`, 'error');
@@ -105,7 +124,7 @@ export function NewPinFlow({ initialTemplateId, initialType }: { initialTemplate
   };
 
   const next = () => {
-    if (step === 2 && (type === 'blank' || preTemplate)) return create(preTemplate ?? undefined);
+    if (step === 2 && (type === 'blank' || preTemplate)) return create(preTemplate ?? undefined, selectedLayout);
     setStep((s) => s + 1);
   };
 
@@ -114,7 +133,7 @@ export function NewPinFlow({ initialTemplateId, initialType }: { initialTemplate
       <div className="row-between" style={{ flexWrap: 'wrap' }}>
         <div className="stack-sm">
           <span className="subtle">Step {step} of {type === 'blank' || preTemplate ? 2 : 3}</span>
-          <h1 style={{ fontSize: 24 }}>{step === 1 ? 'Choose a design type' : step === 2 ? 'Choose your Pin size' : 'Pick a template'}</h1>
+          <h1 style={{ fontSize: 24 }}>{step === 1 ? 'Choose a design type' : step === 2 ? (type === 'blank' ? 'Custom Pin — Choose Layout & Size' : 'Choose your Pin size') : 'Pick a template'}</h1>
         </div>
         <div className="row">
           {step > 1 && (
@@ -131,10 +150,21 @@ export function NewPinFlow({ initialTemplateId, initialType }: { initialTemplate
         </div>
       </div>
 
-      <div className="card" style={{ padding: 16 }}>
-        <Field label="Article title (optional) — used for headline suggestions and design recommendations">
-          <input className="input" value={title} placeholder="e.g. 32 Minimalist Balcony Decor Ideas" onChange={(e) => setTitle(e.target.value)} />
+      <div className="card" style={{ padding: 18 }}>
+        <Field label="Your Topic / Article title — auto-adjusts onto your Pin">
+          <input
+            className="input"
+            value={title}
+            placeholder="e.g. 50 Lob Haircut Ideas to Take to Your Next Salon Appointment"
+            onChange={(e) => setTitle(e.target.value)}
+          />
         </Field>
+        {title.trim() && (
+          <div className="row" style={{ marginTop: 8, fontSize: 12, color: 'var(--text-2)' }}>
+            <Sparkles size={14} style={{ color: 'var(--accent)' }} />
+            <span>Topic headline will be auto-fitted and styled on your Pin.</span>
+          </div>
+        )}
       </div>
 
       {step === 1 && (
@@ -146,9 +176,25 @@ export function NewPinFlow({ initialTemplateId, initialType }: { initialTemplate
                 key={d.id}
                 def={d}
                 selected={type === d.id}
-                onPick={() => setType(d.id)}
+                onPick={() => {
+                  setType(d.id);
+                  if (d.id === 'single-image') setSelectedLayout('single-image');
+                  else if (d.id === 'image-text-overlay') setSelectedLayout('image-text-overlay');
+                  else if (d.id === 'image-text-panel') setSelectedLayout('image-text-panel');
+                  else if (d.id === 'split' || d.id === 'two-image') setSelectedLayout('two-image');
+                  else if (d.id === 'collage-4' || d.id === 'collage-5') setSelectedLayout('collage-4');
+                  else if (d.id === 'quote-advice') setSelectedLayout('quote-advice');
+                  else if (d.id === 'blank') setSelectedLayout('single-image');
+                }}
                 onOpen={() => {
                   setType(d.id);
+                  if (d.id === 'single-image') setSelectedLayout('single-image');
+                  else if (d.id === 'image-text-overlay') setSelectedLayout('image-text-overlay');
+                  else if (d.id === 'image-text-panel') setSelectedLayout('image-text-panel');
+                  else if (d.id === 'split' || d.id === 'two-image') setSelectedLayout('two-image');
+                  else if (d.id === 'collage-4' || d.id === 'collage-5') setSelectedLayout('collage-4');
+                  else if (d.id === 'quote-advice') setSelectedLayout('quote-advice');
+                  else if (d.id === 'blank') setSelectedLayout('single-image');
                   setStep(2);
                 }}
               />
@@ -158,7 +204,51 @@ export function NewPinFlow({ initialTemplateId, initialType }: { initialTemplate
       )}
 
       {step === 2 && (
-        <>
+        <div className="stack" style={{ gap: 24 }}>
+          {type === 'blank' && (
+            <div className="card" style={{ padding: 20 }}>
+              <div className="stack-sm" style={{ marginBottom: 16 }}>
+                <div className="row" style={{ gap: 8 }}>
+                  <Sparkles size={18} style={{ color: 'var(--accent)' }} />
+                  <strong style={{ fontSize: 16 }}>Choose Pin Layout Style (Kon si Pin bnani hai?)</strong>
+                </div>
+                <span className="subtle">Select the layout structure. Images and headlines will auto-adjust to your canvas size automatically.</span>
+              </div>
+              <div className="custom-layout-grid" role="radiogroup" aria-label="Pin layout style">
+                {CUSTOM_PIN_LAYOUTS.map((layout) => {
+                  const isSel = selectedLayout === layout.id;
+                  return (
+                    <button
+                      key={layout.id}
+                      type="button"
+                      role="radio"
+                      aria-checked={isSel}
+                      className={`custom-layout-card ${isSel ? 'is-selected' : ''}`}
+                      onClick={() => setSelectedLayout(layout.id)}
+                    >
+                      <div className="custom-layout-header">
+                        <div className="custom-layout-badge">
+                          {layout.id === 'single-image' ? <ImageIcon size={18} /> :
+                           layout.id === 'image-text-overlay' ? <Layout size={18} /> :
+                           layout.id === 'image-text-panel' ? <FileText size={18} /> :
+                           layout.id === 'two-image' ? <Columns size={18} /> :
+                           layout.id === 'collage-4' ? <Grid size={18} /> :
+                           layout.id === 'quote-advice' ? <Type size={18} /> :
+                           <Square size={18} />}
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <strong style={{ fontSize: 14, display: 'block' }}>{layout.label}</strong>
+                          <span style={{ fontSize: 11, color: 'var(--accent)', fontWeight: 600 }}>{layout.tagline}</span>
+                        </div>
+                      </div>
+                      <p className="subtle" style={{ fontSize: 12, lineHeight: 1.4, margin: 0 }}>{layout.description}</p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {template && !preTemplate && (
             <div className="ok-box">
               Template selected: {template.name}.{' '}
@@ -167,8 +257,9 @@ export function NewPinFlow({ initialTemplateId, initialType }: { initialTemplate
               </button>
             </div>
           )}
+
           <PresetPicker value={preset} onChange={setPreset} />
-        </>
+        </div>
       )}
 
       {step === 3 && (

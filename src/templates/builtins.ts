@@ -13,10 +13,13 @@ import { accent, badge, bandShape, bgOn, divider, footer, inBand, label, SHADOW,
 import { HAIR_TEMPLATES } from './hairStyles';
 import { PACK_STYLE_TEMPLATES } from './packStyles';
 import { PIN_STYLE_TEMPLATES } from './pinStyles';
+import { TRENDING_TEMPLATES } from './trendingTemplates';
 
 export { bgOn, footer, type FooterStyle } from './kit';
 
 export const BUILTIN_TEMPLATES: Template[] = [
+  // Newly crafted trending high-converting Pinterest templates
+  ...TRENDING_TEMPLATES,
   // Recreated from real high-performing Pins (Auto Design ranks these first).
   ...[...PIN_STYLE_TEMPLATES, ...HAIR_TEMPLATES].map((t) => ({ ...t, reference: true })),
   // Layouts inspired by popular blog-Pin template packs (original PinCraft designs).

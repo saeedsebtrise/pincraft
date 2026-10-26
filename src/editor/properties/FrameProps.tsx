@@ -1,4 +1,4 @@
-import { Crop, FlipHorizontal, FlipVertical, Repeat, RotateCcw, Unlink, Upload } from 'lucide-react';
+import { Crop, FlipHorizontal, FlipVertical, Repeat, RotateCcw, Sparkles, Unlink, Upload } from 'lucide-react';
 import { useMemo } from 'react';
 import { LOW_RES_UPSCALE } from '../../config/colors';
 import { DEFAULT_ADJUST } from '../../model/factory';
@@ -92,7 +92,22 @@ export function FrameProps({ layer }: { layer: FrameLayer }) {
 
       {layer.assetId && (
         <div className="panel-section">
-          <span className="section-title">Crop & position</span>
+          <div className="row-between" style={{ marginBottom: 6 }}>
+            <span className="section-title">Crop & position</span>
+            <button
+              type="button"
+              className="btn btn-sm btn-pink"
+              style={{ fontSize: 11, height: 26, padding: '0 8px' }}
+              onClick={() => {
+                const doc = useEditor.getState().project!.doc;
+                set({ x: 0, y: 0, width: doc.width, height: doc.height, rotation: 0, slot: 0, fit: 'cover' });
+                useUi.getState().toast('Image auto-fitted to cover full canvas!', 'success');
+              }}
+              title="Expand image to cover the entire Pin canvas"
+            >
+              <Sparkles size={12} /> Auto-Fit Canvas
+            </button>
+          </div>
           <Seg
             label="Fit"
             value={layer.fit}

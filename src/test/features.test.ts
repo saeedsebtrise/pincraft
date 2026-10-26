@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { frames, instantiateTemplate, readHeadline, switchTemplate } from '../model/docOps';
+import { applyHeadline, frames, instantiateTemplate, readHeadline, switchTemplate } from '../model/docOps';
 import { createDocument, createProject, createText, normalizeProject } from '../model/factory';
+import { buildCustomPinDocument } from '../model/customPinLayouts';
+import { newFrame } from '../editor/blocks';
 import type { AssetMeta, TextLayer } from '../model/types';
 import { fillPhotos } from '../editor/importImages';
 import { useAssets } from '../store/assetStore';
@@ -133,5 +135,59 @@ describe('photos on every page', () => {
     expect(frames(p.doc).every((f) => f.assetId)).toBe(true);
     expect(filled()[1]).toBe(0);
     useUi.getState().set({ fillAllPages: true });
+  });
+});
+
+describe('custom pin layouts & auto-adjusting topic and image', () => {
+  it('creates single-image layout with full-bleed canvas cover frame', () => {
+    const doc = buildCustomPinDocument({
+      width: 1000,
+      height: 1500,
+      presetId: 'pin-standard',
+      layoutId: 'single-image',
+      headline: '50 Summer Capsule Outfits',
+    });
+    const f = frames(doc);
+    expect(f).toHaveLength(1);
+    expect(f[0].width).toBe(1000);
+    expect(f[0].height).toBe(1500);
+    expect(f[0].x).toBe(0);
+    expect(f[0].y).toBe(0);
+    expect(readHeadline(doc)).toBe('50 Summer Capsule Outfits');
+  });
+
+  it('creates image-text-overlay layout with protection shade, title and footer', () => {
+    const doc = buildCustomPinDocument({
+      width: 1000,
+      height: 1500,
+      presetId: 'pin-standard',
+      layoutId: 'image-text-overlay',
+      headline: 'Effortless Living Room Decor',
+    });
+    expect(frames(doc)).toHaveLength(1);
+    expect(doc.layers.some((l) => l.role === 'decor')).toBe(true);
+    expect(doc.layers.some((l) => l.role === 'title')).toBe(true);
+    expect(doc.layers.some((l) => l.role === 'website')).toBe(true);
+    expect(readHeadline(doc)).toBe('Effortless Living Room Decor');
+  });
+
+  it('auto-creates and auto-adjusts headline on canvas when no title layer exists', () => {
+    const emptyDoc = createDocument(1000, 1500, 'pin-standard');
+    expect(readHeadline(emptyDoc)).toBe('');
+
+    const withHeadline = applyHeadline(emptyDoc, '32 Minimalist Balcony Decor Ideas');
+    expect(readHeadline(withHeadline)).toBe('32 Minimalist Balcony Decor Ideas');
+    const titleLayer = withHeadline.layers.find((l): l is TextLayer => l.type === 'text' && l.role === 'title');
+    expect(titleLayer).toBeDefined();
+    expect(titleLayer?.text).toBe('32 Minimalist Balcony Decor Ideas');
+  });
+
+  it('auto-adjusts newFrame to full canvas cover when canvas has no frames', () => {
+    const emptyDoc = createDocument(1000, 1500, 'pin-standard');
+    const heroFrame = newFrame(emptyDoc);
+    expect(heroFrame.width).toBe(1000);
+    expect(heroFrame.height).toBe(1500);
+    expect(heroFrame.x).toBe(0);
+    expect(heroFrame.y).toBe(0);
   });
 });

@@ -132,11 +132,20 @@ export function UploadsPanel() {
                 {used.has(id) && <span className="chip asset-badge">In use</span>}
                 <div className="asset-actions">
                   <IconButton
-                    label="Add to canvas"
+                    label="Add to canvas / Auto-fill frame"
                     onClick={() => {
                       const sel = useEditor.getState().selection.map((sid) => project.doc.layers.find((l) => l.id === sid)).find((l) => l?.type === 'frame');
-                      if (sel) ed.updateLayer(sel.id, { assetId: id, crop: { zoom: 1, fx: 0.5, fy: 0.5 } } as never);
-                      else ed.addLayers([{ ...newFrame(project.doc, m?.width, m?.height), assetId: id }]);
+                      if (sel) {
+                        ed.updateLayer(sel.id, { assetId: id, crop: { zoom: 1, fx: 0.5, fy: 0.5 } } as never);
+                        return;
+                      }
+                      const empty = frames(project.doc).find((f) => !f.assetId);
+                      if (empty) {
+                        ed.updateLayer(empty.id, { assetId: id, crop: { zoom: 1, fx: 0.5, fy: 0.5 } } as never);
+                        ed.select([empty.id]);
+                        return;
+                      }
+                      ed.addLayers([{ ...newFrame(project.doc, m?.width, m?.height), assetId: id }]);
                     }}
                   >
                     <Plus size={14} />

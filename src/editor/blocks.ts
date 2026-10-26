@@ -248,6 +248,11 @@ export function newComposition(doc: PinDocument, id: CompositionId): Layer[] {
 
 // ---------- image frames & shapes ----------
 export function newFrame(doc: PinDocument, assetW?: number, assetH?: number, at?: { x: number; y: number }) {
+  // If no frame exists on the canvas and no specific drop position was provided, auto-adjust to full bleed cover!
+  const hasFrames = frames(doc).length > 0;
+  if (!hasFrames && !at) {
+    return createFrame({ name: 'Hero image', x: 0, y: 0, width: doc.width, height: doc.height, slot: 0 });
+  }
   const w = doc.width * 0.45;
   const h = assetW && assetH ? (w * assetH) / assetW : w * 1.25;
   return createFrame({ name: 'Image', x: at ? at.x - w / 2 : (doc.width - w) / 2, y: at ? at.y - h / 2 : (doc.height - h) / 2, width: w, height: h });

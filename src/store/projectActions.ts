@@ -20,6 +20,8 @@ export function findTemplate(id: string | null | undefined): Template | undefine
   return id ? allTemplates().find((t) => t.id === id) : undefined;
 }
 
+import { buildCustomPinDocument, type CustomPinLayoutId } from '../model/customPinLayouts';
+
 export interface NewPinOptions {
   width: number;
   height: number;
@@ -27,13 +29,23 @@ export interface NewPinOptions {
   templateId: string | null;
   articleTitle?: string;
   headline?: string;
+  customLayout?: CustomPinLayoutId;
 }
 
 export async function createPin(o: NewPinOptions): Promise<Project> {
   const brand = useLibrary.getState().activeKit();
   const template = findTemplate(o.templateId);
   let doc: PinDocument;
-  if (template && template.id !== BLANK_TEMPLATE_ID) {
+  if (o.customLayout) {
+    doc = buildCustomPinDocument({
+      width: o.width,
+      height: o.height,
+      presetId: o.presetId,
+      layoutId: o.customLayout,
+      headline: o.headline || o.articleTitle,
+      brand,
+    });
+  } else if (template && template.id !== BLANK_TEMPLATE_ID) {
     doc = instantiateTemplate(template, {
       width: o.width,
       height: o.height,

@@ -69,7 +69,7 @@ export function ExportModal() {
   useEffect(() => {
     useUi.getState().set({ exportFormat: format });
     setFilename((f) => (touched ? sanitizeFilename(f, format) : exportFilename(base, readCount(project.id) + 1, format)));
-  }, [format]);
+  }, [format, base, touched, project.id]);
 
   // Render once at full resolution; re-encode when format/quality changes to show the real file size.
   useEffect(() => {
