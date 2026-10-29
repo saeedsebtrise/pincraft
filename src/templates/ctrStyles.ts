@@ -309,4 +309,152 @@ export const CTR_TEMPLATES = [
       ];
     },
   }),
+  ...photoOverlays(),
 ].map((t) => ({ ...t, highCtr: true }));
+
+/** Text straight on one photo, made readable by thick outlines, hard shadows or white boxes (all 736 × 1472). */
+function photoOverlays() {
+  const W = 736;
+  const H = 1472;
+  const base = { w: W, h: H, collage: { layoutId: 'single' } } as const;
+  /** A full-width headline line on the photo. */
+  const pl = (y: number, h: number, text: string, p: TP = {}) =>
+    titleLine(W, y, h, text, { x: W * 0.04, width: W * 0.92, background: bgOff(), letterSpacing: 0, lineHeight: 1, fontWeight: 400, fontSize: h * 0.9, minFontSize: 18, ...p });
+  const spacedSite = (fill = '#FFFFFF') =>
+    footer(W, H, 'over-image', { x: 0, width: W, y: H * 0.955, height: H * 0.03, fontFamily: 'Montserrat', fontWeight: 700, fontSize: H * 0.019, letterSpacing: 10, fill });
+  const boxed = (fill: string): TP => ({ fill, background: bgOn('#FFFFFF', { hug: true, paddingX: W * 0.025, paddingY: H * 0.006 }) });
+  const sticker = (fill: string, ring = '#FFFFFF', width = 12): TP => ({ fill, stroke: ring, strokeWidth: width });
+  const hardShadow = { enabled: true, color: '#111111', blur: 0, offsetX: 7, offsetY: 7, opacity: 1 };
+
+  return [
+    tpl({
+      id: 'ctr-nails-white-band',
+      name: 'High CTR — White Band, Pink Keyword, 4 Photos',
+      description: '2 photos above and below a white band with three huge condensed lines: black number line, pink keyword, black closing line; spaced website on the photo.',
+      family: 1,
+      categories: ['Beauty', 'Hair', 'Listicle'],
+      designTypes: ['split', 'hair-beauty'],
+      w: W,
+      h: H,
+      collage: { layoutId: 'band-2-2', gap: 8, band: 0.29 },
+      layers: ({ band }) => {
+        const y = (f: number) => band.y + band.height * f;
+        const h = (f: number) => band.height * f;
+        return [
+          bandShape('#FFFFFF'),
+          pl(y(0.04), h(0.3), '20+ Trendy', { fontFamily: 'Anton', fill: '#111111', wordCount: 2 }),
+          pl(y(0.36), h(0.28), 'Halloween Nails', { fontFamily: 'Anton', fill: '#D65A8C', wordCount: 2 }),
+          pl(y(0.66), h(0.3), 'For 2026', { fontFamily: 'Anton', fill: '#111111' }),
+          spacedSite(),
+        ];
+      },
+    }),
+    tpl({
+      ...base,
+      id: 'ctr-serif-outline-question',
+      name: 'High CTR — Bold Serif with Thick White Outline',
+      description: 'One photo with a black heavy serif question outlined thickly in white over the lower half: big key word, then a two-line payoff.',
+      family: 6,
+      categories: ['Hair', 'Beauty', 'How-To'],
+      designTypes: ['single-image', 'image-text-overlay'],
+      layers: () => {
+        const serif = (p: TP = {}): TP => ({ fontFamily: 'Playfair Display', fontWeight: 900, textTransform: 'none', letterSpacing: -1, ...sticker('#111111', '#FFFFFF', 14), ...p });
+        return [
+          pl(H * 0.53, H * 0.085, 'How Much', serif({ wordCount: 2 })),
+          pl(H * 0.615, H * 0.085, 'Does Balayage', serif({ wordCount: 2 })),
+          pl(H * 0.7, H * 0.11, 'Cost?', serif({ wordCount: 1 })),
+          pl(H * 0.815, H * 0.07, 'Price Guide and', serif({ wordCount: 3 })),
+          pl(H * 0.885, H * 0.07, 'Ways to Save', serif()),
+          footer(W, H, 'over-image', { y: H * 0.962, height: H * 0.028, fontSize: H * 0.014 }),
+        ];
+      },
+    }),
+    tpl({
+      ...base,
+      id: 'ctr-white-caps-hard-shadow',
+      name: 'High CTR — Huge White Caps, Hard Shadow',
+      description: 'One photo with a stack of huge white heavy caps carrying a solid black offset shadow: number, two keyword lines and a closing word.',
+      family: 6,
+      categories: ['Hair', 'Beauty', 'Fashion'],
+      designTypes: ['single-image', 'image-text-overlay', 'number-badge'],
+      layers: () => {
+        const caps: TP = { fontFamily: 'Archivo Black', fill: '#FFFFFF', shadow: hardShadow };
+        return [
+          badge(W * 0.04, H * 0.3, H * 0.13, '18+', 'square', '#FFFFFF', '#FFFFFF', {
+            x: W * 0.04, width: W * 0.92, height: H * 0.13, background: bgOff(), fontFamily: 'Archivo Black', fontSize: H * 0.12, shadow: hardShadow, lineHeight: 1,
+          }),
+          pl(H * 0.445, H * 0.13, 'Beige', { ...caps, wordCount: 1 }),
+          pl(H * 0.59, H * 0.13, 'Blonde', { ...caps, wordCount: 1 }),
+          pl(H * 0.735, H * 0.13, 'Ideas', caps),
+          footer(W, H, 'over-image', { y: H * 0.955, height: H * 0.03, fontSize: H * 0.015 }),
+        ];
+      },
+    }),
+    tpl({
+      ...base,
+      id: 'ctr-serif-cream-overlay',
+      name: 'High CTR — Elegant Serif in White & Cream',
+      description: 'One photo with a classic serif headline centred over it in white and soft cream with a gentle shadow, and a spaced website.',
+      family: 6,
+      categories: ['Hair', 'Beauty', 'Lifestyle'],
+      designTypes: ['single-image', 'image-text-overlay'],
+      layers: () => {
+        const soft = { enabled: true, color: '#000000', blur: 18, offsetX: 0, offsetY: 3, opacity: 0.55 };
+        const serif = (fill: string, p: TP = {}): TP => ({ fontFamily: 'Libre Baskerville', fontWeight: 400, textTransform: 'none', fill, shadow: soft, ...p });
+        return [
+          badge(W * 0.04, H * 0.2, H * 0.1, '16', 'square', '#FFFFFF', '#FFFFFF', {
+            x: W * 0.04, width: W * 0.92, height: H * 0.1, background: bgOff(), fontFamily: 'Libre Baskerville', fontWeight: 400, fontSize: H * 0.085, shadow: soft, lineHeight: 1,
+          }),
+          pl(H * 0.31, H * 0.095, 'Fresh Short', serif('#FFFFFF', { wordCount: 2 })),
+          pl(H * 0.41, H * 0.095, 'Choppy', serif('#F6F0D8', { wordCount: 1 })),
+          pl(H * 0.51, H * 0.095, 'Haircuts', serif('#F6F0D8', { wordCount: 1 })),
+          pl(H * 0.61, H * 0.095, '2026', serif('#FFFFFF')),
+          spacedSite(),
+        ];
+      },
+    }),
+    tpl({
+      ...base,
+      id: 'ctr-lowercase-sticker',
+      name: 'High CTR — Lowercase Rounded Sticker Text',
+      description: 'One photo with a tall stack of heavy rounded lowercase words outlined in white: black number, pink keyword lines, black payoff lines.',
+      family: 6,
+      categories: ['Beauty', 'Hair', 'Lifestyle'],
+      designTypes: ['single-image', 'image-text-overlay'],
+      layers: () => {
+        const round = (fill: string, p: TP = {}): TP => ({ fontFamily: 'Montserrat', fontWeight: 800, textTransform: 'lowercase', letterSpacing: -1, ...sticker(fill, '#FFFFFF', 12), ...p });
+        return [
+          pl(H * 0.25, H * 0.08, '20+', round('#111111', { wordCount: 1 })),
+          pl(H * 0.33, H * 0.085, 'halloween', round('#D65A8C', { wordCount: 1 })),
+          pl(H * 0.415, H * 0.085, 'nails', round('#D65A8C', { wordCount: 1 })),
+          pl(H * 0.5, H * 0.08, 'everyone', round('#111111', { wordCount: 1 })),
+          pl(H * 0.58, H * 0.08, 'will be', round('#111111', { wordCount: 2 })),
+          pl(H * 0.66, H * 0.08, 'saving', round('#111111')),
+          spacedSite(),
+        ];
+      },
+    }),
+    tpl({
+      ...base,
+      id: 'ctr-four-white-boxes',
+      name: 'High CTR — Four White Boxes, Boxed Website',
+      description: 'One photo with four stacked white boxes in condensed bold type — black, a wide magenta keyword, black, black — and the website in its own small white box.',
+      family: 6,
+      categories: ['Hair', 'Beauty', 'Fashion'],
+      designTypes: ['single-image', 'image-text-overlay', 'hair-beauty'],
+      layers: () => {
+        const cond = (fill: string, p: TP = {}): TP => ({ fontFamily: 'Anton', textTransform: 'none', letterSpacing: 1, fontSize: H * 0.062, ...boxed(fill), ...p });
+        return [
+          pl(H * 0.43, H * 0.082, 'Trendiest', cond('#111111', { wordCount: 1 })),
+          pl(H * 0.522, H * 0.082, 'Chocolate Brown', cond('#F0165A', { wordCount: 2 })),
+          pl(H * 0.614, H * 0.082, 'Hair for', cond('#111111', { wordCount: 2 })),
+          pl(H * 0.706, H * 0.082, 'Women Over 40', cond('#111111')),
+          footer(W, H, 'plain-dark', {
+            x: W * 0.3, width: W * 0.4, y: H * 0.95, height: H * 0.03, fontFamily: 'Montserrat', fontWeight: 700, textTransform: 'none', letterSpacing: 0, fontSize: H * 0.015,
+            fill: '#111111', background: bgOn('#FFFFFF', { hug: true, paddingX: 14, paddingY: 6 }),
+          }),
+        ];
+      },
+    }),
+  ];
+}

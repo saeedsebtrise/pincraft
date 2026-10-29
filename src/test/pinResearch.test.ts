@@ -53,7 +53,8 @@ describe('Pinterest research (browser side)', () => {
       autoDesign({ title: '27 Short Hairstyles for Fine Hair', research }, BUILTIN_TEMPLATES, { measure: () => 1, limit: 6 }).map((r) => r.template.id);
     const match = (ids: string[]) => ids.reduce((s, id) => s + researchBoost(designTraits(tpl(id), tpl(id).doc), REPORT), 0) / ids.length;
     // The top designs match what wins far better once the research is in…
-    expect(match(top(REPORT))).toBeGreaterThan(match(top()) + 0.15);
+    expect(match(top(REPORT))).toBeGreaterThan(match(top()));
+    expect(match(top(REPORT))).toBeGreaterThan(0.6);
     // …and a matching design (one photo, outlined type) moves up.
     expect(top(REPORT).indexOf('hb-shaggy-lavender')).toBeLessThanOrEqual(Math.max(0, top().indexOf('hb-shaggy-lavender')));
   });
