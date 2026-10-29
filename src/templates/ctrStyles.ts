@@ -248,4 +248,65 @@ export const CTR_TEMPLATES = [
       ];
     },
   }),
+  tpl({
+    id: 'ctr-hair-magenta-band',
+    name: 'High CTR — Magenta Number & Keyword, 4 Photos',
+    description: '2 photos above and below a white band: a giant magenta number outlined in black beside a black word, a full-width magenta condensed keyword and two black lines finishing the title.',
+    family: 1,
+    categories: ['Hair', 'Beauty', 'Listicle'],
+    designTypes: ['split', 'number-badge', 'hair-beauty'],
+    w: 736,
+    h: 1472,
+    collage: { layoutId: 'band-2-2', gap: 8, band: 0.2 },
+    layers: ({ W, H, band }) => {
+      const y = (f: number) => band.y + band.height * f;
+      const h = (f: number) => band.height * f;
+      const xs = W * 0.05;
+      const ws = W * 0.9;
+      return [
+        bandShape('#FFFFFF'),
+        badge(xs, y(-0.14), h(0.4), '20', 'square', '#FFFFFF', '#E0168C', {
+          x: xs, width: W * 0.36, height: h(0.4), fontFamily: 'Montserrat', fontWeight: 900, fontSize: h(0.38), background: bgOff(), stroke: '#111111', strokeWidth: 6,
+        }),
+        titleLine(W, y(0.02), h(0.22), 'Trendy', {
+          x: W * 0.43, width: W * 0.52, align: 'left', fontFamily: 'Montserrat', fontWeight: 900, fill: '#111111', letterSpacing: 2, lineHeight: 1, fontSize: h(0.21), background: bgOff(), wordCount: 1,
+        }),
+        titleLine(W, y(0.3), h(0.27), 'Fall Hair Color Ideas', {
+          x: xs, width: ws, fontFamily: 'Anton', fontWeight: 400, fill: '#E0168C', letterSpacing: 0, lineHeight: 1, fontSize: h(0.26), background: bgOff(), wordCount: 4,
+        }),
+        titleLine(W, y(0.61), h(0.15), "You'll Want to Try Before", {
+          x: xs, width: ws, fontFamily: 'Montserrat', fontWeight: 800, fill: '#111111', letterSpacing: 0, lineHeight: 1, fontSize: h(0.14), background: bgOff(), wordCount: 5,
+        }),
+        titleLine(W, y(0.79), h(0.15), 'Your Next Salon Visit', {
+          x: xs, width: ws, fontFamily: 'Montserrat', fontWeight: 800, fill: '#111111', letterSpacing: 0, lineHeight: 1, fontSize: h(0.14), background: bgOff(),
+        }),
+        footer(W, H, 'over-image', { y: H * 0.955, height: H * 0.03, fontFamily: 'Montserrat', fontWeight: 700, fontSize: H * 0.014, letterSpacing: 4 }),
+      ];
+    },
+  }),
+  tpl({
+    id: 'ctr-hair-white-boxes',
+    name: 'High CTR — Photo with Three White Boxes',
+    description: 'One big photo with three stacked white boxes in condensed bold type — black, a wide magenta keyword, black — and a magenta website bar.',
+    family: 6,
+    categories: ['Hair', 'Beauty', 'Fashion'],
+    designTypes: ['single-image', 'image-text-overlay', 'hair-beauty'],
+    w: 736,
+    h: 1472,
+    collage: { layoutId: 'single' },
+    layers: ({ W, H }) => {
+      const box = (y: number, h: number, text: string, fill: string, p: TP = {}) =>
+        titleLine(W, y, h, text, {
+          x: W * 0.03, width: W * 0.94, fontFamily: 'Anton', fontWeight: 400, textTransform: 'none', fill, letterSpacing: 1, lineHeight: 1, fontSize: h * 0.72,
+          background: bgOn('#FFFFFF', { hug: true, paddingX: W * 0.025, paddingY: h * 0.08 }), ...p,
+        });
+      return [
+        box(H * 0.52, H * 0.105, 'Biggest', '#111111', { wordCount: 1 }),
+        box(H * 0.645, H * 0.105, 'Balayage Hair Color', '#F0165A', { wordCount: 3 }),
+        box(H * 0.77, H * 0.105, 'Trends 2026', '#111111'),
+        rect(0, H * 0.958, W, H * 0.042, '#F0165A', { name: 'Footer bar' }),
+        footer(W, H, 'plain-light', { x: 0, width: W, y: H * 0.961, height: H * 0.036, fontFamily: 'Montserrat', fontWeight: 800, fontSize: H * 0.018, letterSpacing: 2, fill: '#FFFFFF' }),
+      ];
+    },
+  }),
 ].map((t) => ({ ...t, highCtr: true }));

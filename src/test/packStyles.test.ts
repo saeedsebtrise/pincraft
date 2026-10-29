@@ -51,9 +51,9 @@ describe('premium designs', () => {
 });
 
 describe('high-click designs', () => {
-  it('add 10 designs with a CTA button and a solid panel behind the text, and they lead Auto Design', async () => {
+  it('add 12 designs with a CTA button and a solid panel behind the text, and they lead Auto Design', async () => {
     const { CTR_TEMPLATES } = await import('../templates/ctrStyles');
-    expect(CTR_TEMPLATES).toHaveLength(10);
+    expect(CTR_TEMPLATES).toHaveLength(12);
     for (const t of CTR_TEMPLATES) {
       expect(t.highCtr && BUILTIN_TEMPLATES.some((b) => b.id === t.id), t.id).toBe(true);
       const cta = t.doc.layers.find((l): l is TextLayer => l.type === 'text' && l.role === 'cta');
