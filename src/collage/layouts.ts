@@ -79,6 +79,46 @@ export const COLLAGE_LAYOUTS: CollageLayout[] = [
     ],
   },
   {
+    id: 'top2-gap-grid4',
+    name: '2 short on top + text + 2×2 grid',
+    count: 6,
+    cells: [
+      c(0, 0, 0.5, 0.15), c(0.5, 0, 0.5, 0.15),
+      c(0, 0.39, 0.5, 0.305), c(0.5, 0.39, 0.5, 0.305),
+      c(0, 0.695, 0.5, 0.305), c(0.5, 0.695, 0.5, 0.305),
+    ],
+  },
+  {
+    id: 'top2-band-grid4',
+    name: '2 on top + text + 2×2 grid',
+    count: 6,
+    cells: [
+      c(0, 0, 0.5, 0.265), c(0.5, 0, 0.5, 0.265),
+      c(0, 0.5, 0.5, 0.25), c(0.5, 0.5, 0.5, 0.25),
+      c(0, 0.75, 0.5, 0.25), c(0.5, 0.75, 0.5, 0.25),
+    ],
+  },
+  {
+    id: 'grid4-band-2',
+    name: '2×2 grid + text + 2 below',
+    count: 6,
+    cells: [
+      c(0, 0, 0.5, 0.257), c(0.5, 0, 0.5, 0.257),
+      c(0, 0.257, 0.5, 0.257), c(0.5, 0.257, 0.5, 0.257),
+      c(0, 0.735, 0.5, 0.265), c(0.5, 0.735, 0.5, 0.265),
+    ],
+  },
+  {
+    id: 'band-3-3',
+    name: '3 top + band + 3 bottom',
+    count: 6,
+    bandable: true,
+    cells: [
+      c(0, 0, third, 0.5), c(third, 0, third, 0.5), c(2 * third, 0, third, 0.5),
+      c(0, 0.5, third, 0.5), c(third, 0.5, third, 0.5), c(2 * third, 0.5, third, 0.5),
+    ],
+  },
+  {
     id: 'band-2-1',
     name: '2 top + band + 1 bottom',
     count: 3,

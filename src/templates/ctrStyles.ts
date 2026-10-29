@@ -310,7 +310,378 @@ export const CTR_TEMPLATES = [
     },
   }),
   ...photoOverlays(),
+  ...fashionPack(),
 ].map((t) => ({ ...t, highCtr: true }));
+
+/**
+ * Bold fashion & food blog Pins (white bands between photo collages, pink keyword
+ * bars, outlined pink numbers, red scripts, white type boxes on one photo).
+ * Mostly 9:16 (1080 × 1920); two are 2:3.
+ */
+function fashionPack() {
+  const PINK = '#F0499B';
+  const HOT = '#F0168C';
+  const site = (W: number, H: number, p: TP = {}) =>
+    footer(W, H, 'over-image', { x: 0, width: W, y: H * 0.957, height: H * 0.03, fontFamily: 'Montserrat', fontWeight: 700, fontSize: H * 0.016, letterSpacing: 8, ...p });
+  const pinkBar = (W: number, H: number) => [
+    rect(0, H * 0.958, W, H * 0.042, PINK, { name: 'Footer bar' }),
+    footer(W, H, 'plain-light', { x: 0, width: W, y: H * 0.961, height: H * 0.036, fontFamily: 'Montserrat', fontWeight: 600, fontSize: H * 0.017, letterSpacing: 5, fill: '#FFFFFF' }),
+  ];
+  /** Headline line at (x, w) in canvas units. */
+  const ln = (W: number, x: number, y: number, w: number, h: number, text: string, p: TP = {}) =>
+    titleLine(W, y, h, text, { x, width: w, background: bgOff(), letterSpacing: 0, lineHeight: 1, fontWeight: 400, fontSize: h * 0.92, minFontSize: 18, ...p });
+  /** A big number set as type (pink with a black outline by default). */
+  const bigNum = (x: number, y: number, w: number, h: number, p: TP = {}) =>
+    badge(x, y, h, '20', 'square', '#FFFFFF', PINK, { x, width: w, height: h, background: bgOff(), fontFamily: 'Archivo Black', fontSize: h * 0.92, lineHeight: 1, stroke: '#111111', strokeWidth: h * 0.045, ...p });
+  const anton = (fill: string, p: TP = {}): TP => ({ fontFamily: 'Anton', fill, ...p });
+  const heavy = (fill: string, p: TP = {}): TP => ({ fontFamily: 'Archivo Black', fill, ...p });
+  const tall = { w: 1080, h: 1920 };
+
+  return [
+    tpl({
+      id: 'ctr-fp-pink-bar-script',
+      name: 'High CTR — Pink Number, Script & Pink Keyword Bar',
+      description: '2 photos above and below a white band: an outlined pink number beside a black script word, a pink bar with white condensed keyword and a black closing line.',
+      family: 5,
+      categories: ['Fashion', 'Beauty', 'Listicle'],
+      designTypes: ['split', 'script-bold', 'number-badge'],
+      ...tall,
+      collage: { layoutId: 'band-2-2', gap: 8, band: 0.27 },
+      layers: ({ W, H, band }) => {
+        const y = (f: number) => band.y + band.height * f;
+        const h = (f: number) => band.height * f;
+        return [
+          bandShape('#FFFFFF'),
+          bigNum(W * 0.05, y(0.03), W * 0.34, h(0.4)),
+          ln(W, W * 0.38, y(0.0), W * 0.58, h(0.38), 'Trendy', { fontFamily: 'Pacifico', textTransform: 'none', fill: '#111111', wordCount: 1 }),
+          rect(0, y(0.47), W, h(0.27), PINK, { name: 'Keyword bar' }),
+          ln(W, W * 0.03, y(0.485), W * 0.94, h(0.24), 'Combat Boot Outfits', anton('#FFFFFF', { wordCount: 3 })),
+          ln(W, W * 0.03, y(0.78), W * 0.94, h(0.19), "You Can't Get Around Right Now", anton('#111111')),
+          site(W, H),
+        ];
+      },
+    }),
+    tpl({
+      id: 'ctr-fp-classy-red-script',
+      name: 'High CTR — Giant Number, Red Script, 6 Photos',
+      description: 'Two short photos on top, a white text area with a giant black number, a red script word, black condensed caps and a heavy last word, then a 2×2 photo grid.',
+      family: 5,
+      categories: ['Fashion', 'Lifestyle', 'Listicle'],
+      designTypes: ['image-text-panel', 'script-bold', 'number-badge'],
+      ...tall,
+      collage: { layoutId: 'top2-gap-grid4', gap: 8 },
+      layers: ({ W, H }) => [
+        bigNum(W * 0.02, H * 0.158, W * 0.38, H * 0.16, { fill: '#111111', strokeWidth: 0, fontFamily: 'Archivo Black' }),
+        ln(W, W * 0.4, H * 0.158, W * 0.58, H * 0.068, 'Classy', { fontFamily: 'Pacifico', textTransform: 'none', fill: '#D91E2E', wordCount: 1 }),
+        ln(W, W * 0.4, H * 0.238, W * 0.58, H * 0.078, 'January', anton('#111111', { wordCount: 1 })),
+        ln(W, W * 0.03, H * 0.316, W * 0.94, H * 0.068, 'Outfits', heavy('#111111')),
+        site(W, H),
+      ],
+    }),
+    tpl({
+      id: 'ctr-fp-pink-number-5photos',
+      name: 'High CTR — Outlined Pink Number, Pink Keyword, 5 Photos',
+      description: '2 photos above and 3 below a white band: an outlined pink number beside a black word, a full-width pink condensed keyword and two heavy black lines.',
+      family: 2,
+      categories: ['Fashion', 'Beauty', 'Listicle'],
+      designTypes: ['split', 'number-badge'],
+      ...tall,
+      collage: { layoutId: 'band-2-3', gap: 8, band: 0.29 },
+      layers: ({ W, H, band }) => {
+        const y = (f: number) => band.y + band.height * f;
+        const h = (f: number) => band.height * f;
+        return [
+          bandShape('#FFFFFF'),
+          bigNum(W * 0.05, y(0.03), W * 0.36, h(0.31), { fill: HOT }),
+          ln(W, W * 0.42, y(0.05), W * 0.54, h(0.29), 'Casual', anton('#111111', { align: 'left', wordCount: 1 })),
+          ln(W, W * 0.03, y(0.36), W * 0.94, h(0.23), 'Winter Outfit Ideas', anton(HOT, { wordCount: 3 })),
+          ln(W, W * 0.03, y(0.61), W * 0.94, h(0.17), "You'll Want to Copy", heavy('#111111', { wordCount: 4 })),
+          ln(W, W * 0.03, y(0.8), W * 0.94, h(0.17), 'All Season', heavy('#111111')),
+          site(W, H),
+        ];
+      },
+    }),
+    tpl({
+      id: 'ctr-fp-serif-boxes-pink',
+      name: 'High CTR — Serif in White Boxes, Pink Keyword Box',
+      description: 'One photo with heavy black serif lines in white boxes, the keyword in white on a pink box, and a pink website bar.',
+      family: 6,
+      categories: ['Fashion', 'Lifestyle', 'Beauty'],
+      designTypes: ['single-image', 'image-text-overlay'],
+      ...tall,
+      collage: { layoutId: 'single' },
+      layers: ({ W, H }) => {
+        const box = (y: number, h: number, text: string, fill: string, bg: string, p: TP = {}) =>
+          ln(W, W * 0.03, y, W * 0.94, h, text, {
+            fontFamily: 'Abril Fatface', fill, fontSize: h * 0.82, background: bgOn(bg, { hug: true, paddingX: W * 0.03, paddingY: h * 0.06 }), ...p,
+          });
+        return [
+          box(H * 0.505, H * 0.075, '15 Ways', '#111111', '#FFFFFF', { wordCount: 2 }),
+          box(H * 0.585, H * 0.075, 'To Look', '#111111', '#FFFFFF', { wordCount: 2 }),
+          box(H * 0.665, H * 0.085, 'Expensive', '#FFFFFF', PINK, { wordCount: 1 }),
+          box(H * 0.757, H * 0.07, 'On a Budget', '#111111', '#FFFFFF'),
+          ...pinkBar(W, H),
+        ];
+      },
+    }),
+    tpl({
+      id: 'ctr-fp-side-rules-6photos',
+      name: 'High CTR — Ruled Lead-in, Huge Pink Keyword, 6 Photos',
+      description: 'Two photos on top, a white band with a lead-in between side rules, a huge pink condensed keyword and two black lines, a 2×2 grid below and a pink website bar.',
+      family: 1,
+      categories: ['Fashion', 'Lifestyle', 'Listicle'],
+      designTypes: ['image-text-panel', 'listicle'],
+      ...tall,
+      collage: { layoutId: 'top2-band-grid4', gap: 8, region: { x: 0, y: 0, width: 1, height: 0.958 } },
+      layers: ({ W, H }) => [
+        rect(W * 0.02, H * 0.296, W * 0.13, 4, '#111111', { name: 'Rule' }),
+        rect(W * 0.85, H * 0.296, W * 0.13, 4, '#111111', { name: 'Rule' }),
+        ln(W, W * 0.16, H * 0.27, W * 0.68, H * 0.052, '20 Trendy Winter', { fontFamily: 'Oswald', fontWeight: 700, fill: '#111111', wordCount: 3 }),
+        ln(W, W * 0.03, H * 0.325, W * 0.94, H * 0.083, 'Outfit Ideas', anton(HOT, { wordCount: 2 })),
+        ln(W, W * 0.03, H * 0.41, W * 0.94, H * 0.036, "You'll Want to Copy Before", { fontFamily: 'Oswald', fontWeight: 700, fill: '#111111', wordCount: 5 }),
+        ln(W, W * 0.03, H * 0.446, W * 0.94, H * 0.036, 'The Cold Really Hits', { fontFamily: 'Oswald', fontWeight: 700, fill: '#111111' }),
+        ...pinkBar(W, H),
+      ],
+    }),
+    tpl({
+      id: 'ctr-fp-old-money-band',
+      name: 'High CTR — Ruled Lead-in, Two Huge Pink Lines',
+      description: '2 photos above and below a white band: a lead-in between side rules, two huge pink condensed keyword lines and a black closing line; pink website bar.',
+      family: 1,
+      categories: ['Fashion', 'Lifestyle', 'Listicle'],
+      designTypes: ['split', 'listicle'],
+      ...tall,
+      collage: { layoutId: 'band-2-2', gap: 8, band: 0.34, region: { x: 0, y: 0, width: 1, height: 0.958 } },
+      layers: ({ W, H, band }) => {
+        const y = (f: number) => band.y + band.height * f;
+        const h = (f: number) => band.height * f;
+        return [
+          bandShape('#FFFFFF'),
+          rect(W * 0.02, y(0.1), W * 0.11, 4, '#111111', { name: 'Rule' }),
+          rect(W * 0.87, y(0.1), W * 0.11, 4, '#111111', { name: 'Rule' }),
+          ln(W, W * 0.14, y(0.03), W * 0.72, h(0.14), '20 Timeless Style', { fontFamily: 'Oswald', fontWeight: 700, fill: '#111111', wordCount: 3 }),
+          ln(W, W * 0.03, y(0.19), W * 0.94, h(0.3), 'Old Money', anton(HOT, { wordCount: 2 })),
+          ln(W, W * 0.03, y(0.5), W * 0.94, h(0.28), 'Outfits', anton(HOT, { wordCount: 1 })),
+          ln(W, W * 0.03, y(0.81), W * 0.94, h(0.15), 'To Copy This Season', { fontFamily: 'Oswald', fontWeight: 700, fill: '#111111' }),
+          ...pinkBar(W, H),
+        ];
+      },
+    }),
+    tpl({
+      id: 'ctr-fp-big-number-5photos',
+      name: 'High CTR — Big Outlined Number over the Photo Edge',
+      description: '2 photos above and 3 below a white band: a big outlined pink number breaking over the top photos, black condensed caps, a pink keyword and a black closing line.',
+      family: 2,
+      categories: ['Fashion', 'Lifestyle', 'Listicle'],
+      designTypes: ['split', 'number-badge'],
+      ...tall,
+      collage: { layoutId: 'band-2-3', gap: 8, band: 0.28 },
+      layers: ({ W, H, band }) => {
+        const y = (f: number) => band.y + band.height * f;
+        const h = (f: number) => band.height * f;
+        return [
+          bandShape('#FFFFFF'),
+          bigNum(W * 0.03, y(-0.3), W * 0.38, h(0.62), { fill: HOT }),
+          ln(W, W * 0.42, y(0.05), W * 0.55, h(0.27), 'Old Money', anton('#111111', { wordCount: 2 })),
+          ln(W, W * 0.03, y(0.36), W * 0.94, h(0.33), 'Winter Outfits', anton(HOT, { wordCount: 2 })),
+          ln(W, W * 0.03, y(0.74), W * 0.94, h(0.18), 'Everyone Will Be Copying This Season', { fontFamily: 'Oswald', fontWeight: 700, fill: '#111111' }),
+          site(W, H),
+        ];
+      },
+    }),
+    tpl({
+      id: 'ctr-fp-recipe-red-script',
+      name: 'High CTR — Number + Red Script, Orange Outlined Line, 6 Photos',
+      description: '3 photos above and below a white band: a heavy black number beside a red script, a huge black keyword and an orange line outlined in black.',
+      family: 5,
+      categories: ['Food / Recipe', 'Listicle'],
+      designTypes: ['split', 'script-bold', 'number-badge'],
+      ...tall,
+      collage: { layoutId: 'band-3-3', gap: 8, band: 0.26 },
+      layers: ({ W, H, band }) => {
+        const y = (f: number) => band.y + band.height * f;
+        const h = (f: number) => band.height * f;
+        return [
+          bandShape('#FFFFFF'),
+          bigNum(W * 0.02, y(0.03), W * 0.28, h(0.34), { fill: '#111111', strokeWidth: 0, fontFamily: 'Montserrat', fontWeight: 900 }),
+          ln(W, W * 0.3, y(0.02), W * 0.68, h(0.36), 'Insanely Good', { fontFamily: 'Pacifico', textTransform: 'none', fill: '#D91E2E', wordCount: 2 }),
+          ln(W, W * 0.02, y(0.4), W * 0.96, h(0.27), 'Thanksgiving', { fontFamily: 'Montserrat', fontWeight: 900, fill: '#111111', wordCount: 1 }),
+          ln(W, W * 0.02, y(0.69), W * 0.96, h(0.27), 'Recipes to Try', { fontFamily: 'Montserrat', fontWeight: 900, fill: '#F07A1E', stroke: '#111111', strokeWidth: h(0.012) }),
+          site(W, H, { fontFamily: 'Archivo Black', fontSize: H * 0.022, letterSpacing: 4, stroke: '#111111', strokeWidth: 3, shadow: { enabled: false, color: '#000000', blur: 0, offsetX: 0, offsetY: 0, opacity: 0 } }),
+        ];
+      },
+    }),
+    tpl({
+      id: 'ctr-fp-marker-outline-photo',
+      name: 'High CTR — Pink Number & Marker Caps on Photo',
+      description: 'One photo with a big pink number outlined thickly in black and two lines of white marker caps outlined in black.',
+      family: 6,
+      categories: ['Fashion', 'Lifestyle'],
+      designTypes: ['single-image', 'image-text-overlay', 'number-badge'],
+      collage: { layoutId: 'single' },
+      layers: ({ W, H }) => [
+        bigNum(W * 0.25, H * 0.09, W * 0.5, H * 0.21, { fill: '#F7B6D2', strokeWidth: H * 0.012, fontFamily: 'Montserrat', fontWeight: 800 }),
+        ln(W, W * 0.04, H * 0.31, W * 0.92, H * 0.1, 'Easy Looks', { fontFamily: 'Permanent Marker', fill: '#FFFFFF', stroke: '#111111', strokeWidth: 12, wordCount: 2 }),
+        ln(W, W * 0.04, H * 0.41, W * 0.92, H * 0.1, 'For Real Life', { fontFamily: 'Permanent Marker', fill: '#FFFFFF', stroke: '#111111', strokeWidth: 12 }),
+        site(W, H, { letterSpacing: 4 }),
+      ],
+    }),
+    tpl({
+      id: 'ctr-fp-pink-bar-brush',
+      name: 'High CTR — Giant Number, Pink Bar, Brush Script',
+      description: '2 photos above and below a cream band: a giant black number beside a black word, a pink bar with a white heavy keyword, black condensed caps and a pink brush-script last word.',
+      family: 4,
+      categories: ['Fashion', 'Lifestyle', 'Listicle'],
+      designTypes: ['split', 'number-badge', 'script-bold'],
+      collage: { layoutId: 'band-2-2', gap: 8, band: 0.48 },
+      layers: ({ W, H, band }) => {
+        const y = (f: number) => band.y + band.height * f;
+        const h = (f: number) => band.height * f;
+        return [
+          bandShape('#FBF8F3'),
+          bigNum(W * 0.04, y(0.02), W * 0.46, h(0.31), { fill: '#111111', strokeWidth: 0 }),
+          ln(W, W * 0.5, y(0.04), W * 0.46, h(0.27), 'Chic', anton('#111111', { wordCount: 1 })),
+          rect(0, y(0.35), W, h(0.2), HOT, { name: 'Keyword bar' }),
+          ln(W, W * 0.03, y(0.355), W * 0.94, h(0.19), 'Brown', heavy('#FFFFFF', { wordCount: 1 })),
+          ln(W, W * 0.03, y(0.58), W * 0.94, h(0.2), 'Palazzo Pants', anton('#111111', { wordCount: 2 })),
+          ln(W, W * 0.03, y(0.8), W * 0.94, h(0.18), 'Outfits', { fontFamily: 'Permanent Marker', fill: HOT, italic: true }),
+          site(W, H),
+        ];
+      },
+    }),
+    tpl({
+      id: 'ctr-fp-glass-panel-mix',
+      name: 'High CTR — See-Through Panel, Script + Serif + Outlined Caps',
+      description: 'One photo with a see-through white panel: an outlined white number, a pink script, black serif caps, two big light-pink lines outlined in black, a serif closing line and the website.',
+      family: 5,
+      categories: ['Fashion', 'Beauty', 'Lifestyle'],
+      designTypes: ['single-image', 'image-text-overlay', 'script-bold'],
+      ...tall,
+      collage: { layoutId: 'single' },
+      layers: ({ W, H }) => {
+        const pinkCaps: TP = { fontFamily: 'Montserrat', fontWeight: 900, fill: '#F8B4CF', stroke: '#111111', strokeWidth: H * 0.0035 };
+        const serif: TP = { fontFamily: 'Playfair Display', fontWeight: 800, fill: '#111111' };
+        return [
+          rect(W * 0.02, H * 0.305, W * 0.96, H * 0.58, '#FFFFFF', { name: 'Panel', opacity: 0.55 }),
+          bigNum(W * 0.3, H * 0.255, W * 0.4, H * 0.1, { fill: '#FFFFFF', strokeWidth: H * 0.005, fontFamily: 'Montserrat', fontWeight: 900 }),
+          ln(W, W * 0.06, H * 0.36, W * 0.88, H * 0.085, 'So Chic', { fontFamily: 'Pacifico', textTransform: 'none', fill: HOT, wordCount: 2 }),
+          ln(W, W * 0.04, H * 0.45, W * 0.92, H * 0.065, 'Date Night', { ...serif, fontWeight: 900, wordCount: 2 }),
+          ln(W, W * 0.04, H * 0.52, W * 0.92, H * 0.09, 'Outfit', { ...pinkCaps, wordCount: 1 }),
+          ln(W, W * 0.04, H * 0.612, W * 0.92, H * 0.09, 'Ideas', { ...pinkCaps, wordCount: 1 }),
+          ln(W, W * 0.06, H * 0.712, W * 0.88, H * 0.036, "You'll Want to Recreate", { ...serif, wordCount: 4 }),
+          ln(W, W * 0.06, H * 0.75, W * 0.88, H * 0.036, 'Every Look', serif),
+          rect(W * 0.38, H * 0.796, W * 0.24, 3, '#111111', { name: 'Rule' }),
+          footer(W, H, 'plain-dark', { x: W * 0.1, width: W * 0.8, y: H * 0.81, height: H * 0.03, fontFamily: 'Montserrat', fontWeight: 600, fontSize: H * 0.016, letterSpacing: 6, fill: '#111111' }),
+        ];
+      },
+    }),
+    tpl({
+      id: 'ctr-fp-grid-red-brush',
+      name: 'High CTR — 6 Photos, Giant Number + Red Brush Script',
+      description: 'A 2×2 grid, a white band with a giant black number beside a red brush script with an underline swoosh and huge black condensed caps, two photos below.',
+      family: 5,
+      categories: ['Fashion', 'Lifestyle', 'Listicle'],
+      designTypes: ['image-text-panel', 'script-bold', 'number-badge'],
+      w: 736,
+      h: 1472,
+      collage: { layoutId: 'grid4-band-2', gap: 8 },
+      layers: ({ W, H }) => [
+        bigNum(W * 0.03, H * 0.53, W * 0.36, H * 0.125, { fill: '#111111', strokeWidth: 0 }),
+        ln(W, W * 0.38, H * 0.525, W * 0.6, H * 0.12, 'Trendy', { fontFamily: 'Permanent Marker', textTransform: 'none', fill: '#D91E2E', italic: true, wordCount: 1 }),
+        createShape({ name: 'Swoosh', role: 'decor', x: W * 0.45, y: H * 0.648, width: W * 0.45, height: H * 0.006, fill: '#D91E2E', rotation: -4, cornerRadius: 4 }),
+        ln(W, W * 0.03, H * 0.66, W * 0.94, H * 0.066, 'Street Style Outfits', anton('#111111')),
+      ],
+    }),
+    tpl({
+      id: 'ctr-fp-grid-red-number',
+      name: 'High CTR — 6 Photos, Giant Red Number + Script',
+      description: 'A 2×2 grid, a white band with a giant red condensed number beside a black brush script, red caps and a heavy black last word, two photos below.',
+      family: 5,
+      categories: ['Fashion', 'Lifestyle', 'Listicle'],
+      designTypes: ['image-text-panel', 'script-bold', 'number-badge'],
+      w: 736,
+      h: 1472,
+      collage: { layoutId: 'grid4-band-2', gap: 8 },
+      layers: ({ W, H }) => [
+        bigNum(W * 0.02, H * 0.522, W * 0.32, H * 0.205, { fill: '#D91E2E', strokeWidth: 0, fontFamily: 'Anton', fontWeight: 400 }),
+        ln(W, W * 0.34, H * 0.525, W * 0.64, H * 0.068, 'Stylish', { fontFamily: 'Pacifico', textTransform: 'none', fill: '#111111', wordCount: 1 }),
+        ln(W, W * 0.34, H * 0.61, W * 0.64, H * 0.055, 'Cold Winter', anton('#D91E2E', { wordCount: 2 })),
+        ln(W, W * 0.34, H * 0.667, W * 0.64, H * 0.06, 'Outfits', heavy('#111111')),
+      ],
+    }),
+    tpl({
+      ...tall,
+      id: 'ctr-fp-black-boxes-left',
+      name: 'High CTR — Black Boxes, White Caps, Flush Left',
+      description: 'One photo with a stack of black boxes set flush left holding white condensed caps — number, keyword lines and a smaller closing line — and a black website bar.',
+      family: 6,
+      categories: ['Beauty', 'Fashion', 'Lifestyle'],
+      designTypes: ['single-image', 'image-text-overlay'],
+      collage: { layoutId: 'single' },
+      layers: ({ W, H }) => {
+        const box = (y: number, h: number, text: string, p: TP = {}) =>
+          ln(W, W * 0.06, y, W * 0.9, h, text, {
+            ...anton('#FFFFFF'), align: 'left', fontSize: h * 0.82, background: bgOn('#111111', { hug: true, paddingX: W * 0.025, paddingY: h * 0.06 }), ...p,
+          });
+        return [
+          box(H * 0.385, H * 0.082, '+20', { wordCount: 1 }),
+          box(H * 0.475, H * 0.082, 'Amazing', { wordCount: 1 }),
+          box(H * 0.565, H * 0.082, 'Winter Nails', { wordCount: 2 }),
+          box(H * 0.655, H * 0.082, '2026', { wordCount: 1 }),
+          box(H * 0.75, H * 0.05, "You'll Be Obsessed With!", { fontSize: H * 0.042 }),
+          rect(0, H * 0.952, W, H * 0.048, '#111111', { name: 'Footer bar' }),
+          footer(W, H, 'plain-light', { x: 0, width: W, y: H * 0.957, height: H * 0.036, fontFamily: 'Montserrat', fontWeight: 600, fontSize: H * 0.016, letterSpacing: 6, fill: '#FFFFFF' }),
+        ];
+      },
+    }),
+    tpl({
+      ...tall,
+      id: 'ctr-fp-white-display-serif',
+      name: 'High CTR — Big White Display Serif on Photo',
+      description: 'One photo with a tall stack of big white display-serif words centred over it, softly shadowed, and the website at the bottom.',
+      family: 6,
+      categories: ['Home Decor', 'Lifestyle', 'Fashion'],
+      designTypes: ['single-image', 'image-text-overlay'],
+      collage: { layoutId: 'single' },
+      layers: ({ W, H }) => {
+        const soft = { enabled: true, color: '#000000', blur: 22, offsetX: 0, offsetY: 4, opacity: 0.45 };
+        const serif = (p: TP = {}): TP => ({ fontFamily: 'Playfair Display', fontWeight: 600, textTransform: 'none', fill: '#FFFFFF', shadow: soft, ...p });
+        return [
+          ln(W, W * 0.05, H * 0.16, W * 0.9, H * 0.12, 'Small', serif({ wordCount: 1 })),
+          ln(W, W * 0.03, H * 0.29, W * 0.94, H * 0.12, 'Bedroom', serif({ wordCount: 1 })),
+          ln(W, W * 0.03, H * 0.42, W * 0.94, H * 0.12, 'Storage', serif({ wordCount: 1 })),
+          ln(W, W * 0.05, H * 0.55, W * 0.9, H * 0.12, 'Hacks', serif()),
+          site(W, H, { fontSize: H * 0.017, letterSpacing: 2 }),
+        ];
+      },
+    }),
+    tpl({
+      id: 'ctr-fp-lowercase-serif-outline',
+      name: 'High CTR — Lowercase Serif with Thick White Outline',
+      description: 'One photo with a stack of heavy black lowercase serif words outlined thickly in white, one italic line, and a small outlined closing line.',
+      family: 6,
+      categories: ['Fashion', 'Beauty', 'Lifestyle'],
+      designTypes: ['single-image', 'image-text-overlay'],
+      w: 736,
+      h: 1472,
+      collage: { layoutId: 'single' },
+      layers: ({ W, H }) => {
+        const serif = (p: TP = {}): TP => ({ fontFamily: 'Abril Fatface', textTransform: 'lowercase', fill: '#111111', stroke: '#FFFFFF', strokeWidth: 7, ...p });
+        return [
+          ln(W, W * 0.05, H * 0.24, W * 0.9, H * 0.075, '10', serif({ wordCount: 1 })),
+          ln(W, W * 0.05, H * 0.315, W * 0.9, H * 0.08, 'hottest', serif({ wordCount: 1 })),
+          ln(W, W * 0.05, H * 0.395, W * 0.9, H * 0.08, 'winter', serif({ wordCount: 1 })),
+          ln(W, W * 0.05, H * 0.475, W * 0.9, H * 0.075, '2026', serif({ fontFamily: 'Playfair Display', fontWeight: 800, italic: true, wordCount: 1 })),
+          ln(W, W * 0.05, H * 0.55, W * 0.9, H * 0.08, 'fashion', serif({ wordCount: 1 })),
+          ln(W, W * 0.05, H * 0.63, W * 0.9, H * 0.08, 'trends', serif({ wordCount: 1 })),
+          ln(W, W * 0.1, H * 0.735, W * 0.8, H * 0.036, 'to hop on before', serif({ strokeWidth: 4, wordCount: 4 })),
+          ln(W, W * 0.1, H * 0.776, W * 0.8, H * 0.036, 'everyone else', serif({ strokeWidth: 4 })),
+          site(W, H, { fontSize: H * 0.019, letterSpacing: 4 }),
+        ];
+      },
+    }),
+  ];
+}
 
 /** Text straight on one photo, made readable by thick outlines, hard shadows or white boxes (all 736 × 1472). */
 function photoOverlays() {
