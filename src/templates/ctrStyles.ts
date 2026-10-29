@@ -435,6 +435,32 @@ function photoOverlays() {
       },
     }),
     tpl({
+      id: 'ctr-grid-white-card-magenta',
+      name: 'High CTR — Grid with White Card, Magenta Keyword',
+      description: '2×2 photos with a white card across the middle: black condensed lead-in, a huge magenta keyword, spaced serif caps and a small closing line; magenta website bar.',
+      family: 3,
+      categories: ['Hair', 'Beauty', 'Fashion'],
+      designTypes: ['collage-4', 'hair-beauty'],
+      w: W,
+      h: H,
+      collage: { layoutId: 'grid-2x2', gap: 8 },
+      layers: () => {
+        const cx = W * 0.1;
+        const cw = W * 0.8;
+        const cl = (y: number, h: number, text: string, p: TP = {}) =>
+          titleLine(W, y, h, text, { x: cx + W * 0.02, width: cw - W * 0.04, background: bgOff(), letterSpacing: 0, lineHeight: 1, fontWeight: 400, fontSize: h * 0.9, minFontSize: 16, ...p });
+        return [
+          rect(cx, H * 0.375, cw, H * 0.27, '#FFFFFF', { name: 'Card' }),
+          cl(H * 0.39, H * 0.058, '22+ Classiest Ever', { fontFamily: 'Anton', fill: '#111111', wordCount: 3 }),
+          cl(H * 0.452, H * 0.088, 'Jet Black', { fontFamily: 'Anton', fill: '#F0165A', wordCount: 2 }),
+          cl(H * 0.545, H * 0.05, 'Hair Ideas', { fontFamily: 'Playfair Display', fontWeight: 700, letterSpacing: 6, fill: '#111111', wordCount: 2 }),
+          cl(H * 0.6, H * 0.032, 'You Need to Try', { fontFamily: 'Montserrat', fontWeight: 600, letterSpacing: 1, fill: '#111111' }),
+          rect(0, H * 0.958, W, H * 0.042, '#F0165A', { name: 'Footer bar' }),
+          footer(W, H, 'plain-light', { x: 0, width: W, y: H * 0.961, height: H * 0.036, fontFamily: 'Montserrat', fontWeight: 600, textTransform: 'none', letterSpacing: 0, fontSize: H * 0.02, fill: '#FFFFFF' }),
+        ];
+      },
+    }),
+    tpl({
       ...base,
       id: 'ctr-four-white-boxes',
       name: 'High CTR — Four White Boxes, Boxed Website',
