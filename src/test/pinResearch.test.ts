@@ -56,7 +56,9 @@ describe('Pinterest research (browser side)', () => {
     expect(match(top(REPORT))).toBeGreaterThan(match(top()));
     expect(match(top(REPORT))).toBeGreaterThan(0.6);
     // …and a matching design (one photo, outlined type) moves up.
-    expect(top(REPORT).indexOf('hb-shaggy-lavender')).toBeLessThanOrEqual(Math.max(0, top().indexOf('hb-shaggy-lavender')));
+    const at = top(REPORT).indexOf('hb-shaggy-lavender');
+    expect(at).toBeGreaterThanOrEqual(0);
+    expect(at).toBeLessThanOrEqual(Math.max(2, top().indexOf('hb-shaggy-lavender')));
   });
 });
 

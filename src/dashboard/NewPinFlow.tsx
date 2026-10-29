@@ -1,5 +1,12 @@
-import { ArrowLeft, ArrowRight, Columns, FileText, Grid, Image as ImageIcon, Layout, Loader2, Save, Sparkles, Square, Type } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { ArrowLeft, ArrowRight, Columns, FileText, Grid, Image as ImageIcon, ImagePlus, Layout, Link2, Loader2, Save, Sparkles, Square, Type, X } from 'lucide-react';
+import { useMemo, useRef, useState } from 'react';
+import { assignImages } from '../model/docOps';
+import type { Id } from '../model/types';
+import { autoText, headlineFor } from '../services/autoDesign';
+import { fetchPage, importPagePhotos, looksLikeUrl, normalizeUrl, siteHost } from '../services/blogImport';
+import { useAssets } from '../store/assetStore';
+import { saveProject } from '../store/projectActions';
+import { thumbUrl } from '../ui/imageUrl';
 import { CANVAS_LIMITS, CANVAS_PRESET_CONFIG, DEFAULT_PRESET_ID, PRESET_VERIFIED_ON, STATUS_LABEL, type CanvasPreset } from '../config/canvasPresets';
 import { DESIGN_TYPES, type DesignType } from '../config/designTypes';
 import { CUSTOM_PIN_LAYOUTS, type CustomPinLayoutId } from '../model/customPinLayouts';
@@ -97,25 +104,86 @@ export function NewPinFlow({ initialTemplateId, initialType }: { initialTemplate
   const [title, setTitle] = useState('');
   const [template, setTemplate] = useState<Template | undefined>(preTemplate);
   const [busy, setBusy] = useState(false);
+  // Photos for the new Pin: read from the blog post link, or uploaded by the user.
+  const [photoIds, setPhotoIds] = useState<Id[]>([]);
+  const [post, setPost] = useState<{ url: string; host: string; title: string } | null>(null);
+  const [reading, setReading] = useState('');
+  const fileRef = useRef<HTMLInputElement>(null);
+  const isLink = looksLikeUrl(title);
+  /** The article title to design with: the post's own title once its link was read. */
+  const articleTitle = (post && normalizeUrl(title) === post.url ? post.title : isLink ? '' : title).trim();
 
-  const recs = useMemo(() => recommendTemplates(title, allTemplates(), { presetId: preset.id, limit: 4 }), [title, preset.id]);
+  const recs = useMemo(() => recommendTemplates(articleTitle, allTemplates(), { presetId: preset.id, limit: 4 }), [articleTitle, preset.id]);
+
+  /** Reads the blog post: its title goes on the Pin and its best photos fill the frames. */
+  const readPost = async (): Promise<{ title: string; ids: Id[]; host: string } | null> => {
+    setReading('Reading the post…');
+    try {
+      const page = await fetchPage(title);
+      const host = siteHost(page.url);
+      const want = Math.max(4, template?.imageCount ?? 4);
+      const { ids } = await importPagePhotos(page.images, {
+        max: Math.min(10, want + 2),
+        onProgress: (done, total) => setReading(`Picking the best photos… ${done}/${total}`),
+      });
+      setPost({ url: normalizeUrl(title), host, title: page.title });
+      setPhotoIds(ids);
+      if (!ids.length) useUi.getState().toast('No usable photos found in that post — add your own below.', 'info');
+      return { title: page.title, ids, host };
+    } catch (e) {
+      useUi.getState().toast((e as Error).message, 'error');
+      return null;
+    } finally {
+      setReading('');
+    }
+  };
+
+  const upload = async (files: File[]) => {
+    const images = files.filter((f) => f.type.startsWith('image/'));
+    if (!images.length) return;
+    setReading('Adding your photos…');
+    const { ids, errors } = await useAssets.getState().importFiles(images);
+    errors.forEach((e) => useUi.getState().toast(e, 'error'));
+    setPhotoIds((cur) => [...cur, ...ids]);
+    setReading('');
+  };
 
   const create = async (t: Template | undefined, layout?: CustomPinLayoutId) => {
     if (!(await ensureCanCreateProject())) return;
     setBusy(true);
     try {
-      const headline = title.trim() ? suggestHeadlines({ articleTitle: title })[0] : undefined;
-      const customLayout = (type === 'blank' || layout) ? (layout ?? selectedLayout) : undefined;
-      const p = await createPin({
+      // A link that hasn't been read yet: read it now so the Pin gets the post's title and photos.
+      let titleText = articleTitle;
+      let ids = photoIds;
+      let host = post?.host ?? '';
+      if (isLink && !titleText) {
+        const read = await readPost();
+        if (read) ({ title: titleText, ids, host } = { ...read, ids: [...read.ids, ...photoIds.filter((id) => !read.ids.includes(id))] });
+      }
+      const text = titleText ? autoText(titleText) : null;
+      const customLayout = layout ?? (type === 'blank' ? selectedLayout : undefined);
+      let p = await createPin({
         width: preset.width,
         height: preset.height,
         presetId: preset.id,
         templateId: customLayout ? null : (t?.id ?? BLANK_TEMPLATE_ID),
         customLayout,
-        articleTitle: title.trim(),
-        headline: title.trim() || headline,
+        articleTitle: titleText,
+        // The whole title goes on the Pin: split over headline + subtitle when the design has a subtitle line, all in the headline otherwise.
+        headline: text ? (t && !customLayout ? headlineFor(t, titleText, text) : titleText) : titleText ? suggestHeadlines({ articleTitle: titleText })[0] : undefined,
+        subtitle: text?.subtitle || undefined,
       });
-      useUi.getState().set({ leftTab: (customLayout && customLayout !== 'blank' && customLayout !== 'quote-advice') || (t && t.imageCount > 0) ? 'uploads' : 'text' });
+      if (ids.length || host) {
+        const metas = useAssets.getState().metas;
+        let doc = ids.length ? assignImages(p.doc, ids, metas, { smart: true, allowDuplicates: true }) : p.doc;
+        // The post's own site in the footer, unless the brand kit already has a website.
+        const brandSite = useLibrary.getState().activeKit().website;
+        if (host && (!brandSite || brandSite === 'yourwebsite.com')) {
+          doc = { ...doc, layers: doc.layers.map((l) => (l.type === 'text' && l.role === 'website' ? { ...l, text: host } : l)) };
+        }
+        p = await saveProject({ ...p, doc, pages: [doc], activePage: 0, assetIds: [...new Set([...p.assetIds, ...ids])] });
+      }
+      useUi.getState().set({ leftTab: ids.length ? 'uploads' : (customLayout && customLayout !== 'blank' && customLayout !== 'quote-advice') || (t && t.imageCount > 0) ? 'uploads' : 'text' });
       location.hash = `#/editor/${p.id}`;
     } catch (e) {
       useUi.getState().toast(`Couldn't create the Pin: ${(e as Error).message}`, 'error');
@@ -124,7 +192,9 @@ export function NewPinFlow({ initialTemplateId, initialType }: { initialTemplate
   };
 
   const next = () => {
-    if (step === 2 && (type === 'blank' || preTemplate)) return create(preTemplate ?? undefined, selectedLayout);
+    // A template picked on the Templates page is used as is; only the blank flow uses a custom layout.
+    if (step === 2 && type === 'blank') return create(undefined, selectedLayout);
+    if (step === 2 && preTemplate) return create(preTemplate);
     setStep((s) => s + 1);
   };
 
@@ -150,19 +220,60 @@ export function NewPinFlow({ initialTemplateId, initialType }: { initialTemplate
         </div>
       </div>
 
-      <div className="card" style={{ padding: 18 }}>
-        <Field label="Your Topic / Article title — auto-adjusts onto your Pin">
-          <input
-            className="input"
-            value={title}
-            placeholder="e.g. 50 Lob Haircut Ideas to Take to Your Next Salon Appointment"
-            onChange={(e) => setTitle(e.target.value)}
-          />
+      <div className="card stack-sm" style={{ padding: 18 }}>
+        <Field label="Blog post link or article title — the title goes on your Pin, the post's photos fill the frames">
+          <div className="row" style={{ gap: 8 }}>
+            <input
+              className="input grow"
+              value={title}
+              placeholder="Paste a blog post link, or type a title — e.g. 50 Lob Haircut Ideas to Take to Your Next Salon Appointment"
+              onChange={(e) => setTitle(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && isLink && !reading && void readPost()}
+            />
+            {isLink && (
+              <button className="btn btn-dark" disabled={!!reading} onClick={() => void readPost()}>
+                {reading ? <Loader2 size={15} /> : <Link2 size={15} />} Read post
+              </button>
+            )}
+            <button className="btn" disabled={!!reading} onClick={() => fileRef.current?.click()}>
+              <ImagePlus size={15} /> Add photos
+            </button>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              multiple
+              hidden
+              onChange={(e) => {
+                void upload([...(e.target.files ?? [])]);
+                e.target.value = '';
+              }}
+            />
+          </div>
         </Field>
-        {title.trim() && (
-          <div className="row" style={{ marginTop: 8, fontSize: 12, color: 'var(--text-2)' }}>
+        {reading && <span className="subtle">{reading}</span>}
+        {post && normalizeUrl(title) === post.url && (
+          <div className="row" style={{ gap: 6, fontSize: 13 }}>
             <Sparkles size={14} style={{ color: 'var(--accent)' }} />
-            <span>Topic headline will be auto-fitted and styled on your Pin.</span>
+            <span>
+              <strong>{post.title}</strong> <span className="subtle">· {post.host}</span>
+            </span>
+          </div>
+        )}
+        {photoIds.length > 0 && (
+          <div className="row" style={{ gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            <span className="subtle">
+              {photoIds.length} photo{photoIds.length === 1 ? '' : 's'} ready — they fill the {template ? `${template.imageCount} frame${template.imageCount === 1 ? '' : 's'} of “${template.name}”` : 'frames'}:
+            </span>
+            <PhotoStrip ids={photoIds} onRemove={(id) => setPhotoIds((cur) => cur.filter((x) => x !== id))} />
+          </div>
+        )}
+        {articleTitle && !reading && (
+          <div className="row" style={{ fontSize: 12, color: 'var(--text-2)' }}>
+            <Sparkles size={14} style={{ color: 'var(--accent)' }} />
+            <span>
+              Headline on your Pin: <strong>{template ? headlineFor(template, articleTitle, autoText(articleTitle)) : articleTitle}</strong> — auto-fitted to the design.
+            </span>
           </div>
         )}
       </div>
@@ -270,6 +381,28 @@ export function NewPinFlow({ initialTemplateId, initialType }: { initialTemplate
       )}
     </div>
   );
+}
+
+/** Small thumbnails of the photos picked for the new Pin, each removable. */
+function PhotoStrip({ ids, onRemove }: { ids: Id[]; onRemove: (id: Id) => void }) {
+  return (
+    <div className="research-shots">
+      {ids.map((id) => (
+        <span key={id} className="research-shot" style={{ width: 56, height: 72 }}>
+          <PhotoThumb id={id} />
+          <button type="button" aria-label="Leave this photo out" onClick={() => onRemove(id)}>
+            <X size={12} />
+          </button>
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function PhotoThumb({ id }: { id: Id }) {
+  const img = useAssets((s) => s.previews[id]);
+  const url = useMemo(() => (img ? thumbUrl(img, 120) : ''), [img]);
+  return url ? <img src={url} alt="" /> : null;
 }
 
 function RecommendRow({ recs, onUse }: { recs: { t: Template; why: string }[]; onUse: (t: Template) => void }) {

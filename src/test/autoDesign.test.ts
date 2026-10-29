@@ -89,3 +89,26 @@ describe('auto design results', () => {
     expect(autoDesign({ title: '  ' }, BUILTIN_TEMPLATES, { measure: fits })).toEqual([]);
   });
 });
+
+describe('short leads keep the whole title', () => {
+  it('uses the full title when the part before "to …" is only a word or two', () => {
+    const t = autoText('9 Mistakes to Avoid Before Dyeing Your Hair Red');
+    expect(t.headline).toBe('9 Mistakes to Avoid Before Dyeing Your Hair Red');
+    expect(t.subtitle.toLowerCase()).not.toContain('avoid before dyeing');
+    // A real keyword before the clause still splits off the rest as the subtitle.
+    const long = autoText('50 Lob Haircut Ideas to Take to Your Next Salon Appointment');
+    expect(long.headline).toBe('50 Lob Haircut Ideas');
+    expect(long.subtitle).toMatch(/salon/i);
+  });
+});
+
+describe('the whole title reaches every Pin', () => {
+  it('puts the part after "to …" in the headline of designs without a subtitle line', () => {
+    const title = '50 Lob Haircut Ideas to Take to Your Next Salon Appointment';
+    const out = autoDesign({ title, cta: false }, BUILTIN_TEMPLATES, { measure: () => 1, limit: 50 });
+    for (const r of out) {
+      const hasSubtitle = r.doc.layers.some((l) => l.type === 'text' && l.role === 'subtitle' && (l as TextLayer).text.trim());
+      if (!hasSubtitle) expect(readHeadline(r.doc).toLowerCase(), r.template.id).toContain('salon appointment');
+    }
+  });
+});

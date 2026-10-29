@@ -33,6 +33,8 @@ export interface NewPinOptions {
   templateId: string | null;
   articleTitle?: string;
   headline?: string;
+  /** Subtitle line; defaults to the part of the article title after the headline. */
+  subtitle?: string;
   customLayout?: CustomPinLayoutId;
 }
 
@@ -55,7 +57,7 @@ export async function createPin(o: NewPinOptions): Promise<Project> {
       height: o.height,
       presetId: o.presetId,
       headline: o.headline,
-      subtitle: o.articleTitle ? titleCase(parseTitle(o.articleTitle).tail) || undefined : undefined,
+      subtitle: o.subtitle ?? (o.articleTitle ? titleCase(parseTitle(o.articleTitle).tail) || undefined : undefined),
       website: brand.website,
       brand: null, // templates keep their designed typography; brand fonts are one click away
     });

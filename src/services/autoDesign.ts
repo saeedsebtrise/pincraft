@@ -59,10 +59,27 @@ export function autoText(title: string, keyword = ''): AutoText {
   const raw = title.trim() || keyword.trim();
   if (!raw) return { headline: '', subtitle: '' };
   const p = parseTitle(raw);
-  let headline = titleCase(p.core || raw);
+  // "9 Mistakes to Avoid Before Dyeing Your Hair Red": the part before "to …" is
+  // too short to carry the post (the keyword is in the tail), so the whole title
+  // is the headline. Longer cores ("50 Lob Haircut Ideas") keep the tail as subtitle.
+  const coreWords = (p.core || '').split(/\s+/).filter((w) => w && !/^\d+\+?$/.test(w)).length;
+  const keepWhole = !!p.tail && coreWords < 3;
+  let headline = titleCase(keepWhole ? raw.replace(/[.!?]+$/, '') : p.core || raw);
   if (!p.number && !p.listNoun && !p.tail && headline.split(' ').length <= 3) headline = `${headline} Ideas`;
-  const subtitle = suggestSubtitles({ articleTitle: raw, keyword }, 1)[0] ?? '';
+  const options = suggestSubtitles({ articleTitle: raw, keyword }, 4);
+  // The tail is already in the headline then — pick a subtitle that doesn't repeat it.
+  const subtitle = (keepWhole ? options.find((s) => !headline.toLowerCase().includes(s.toLowerCase())) : options[0]) ?? '';
   return { headline, subtitle };
+}
+
+/**
+ * The headline for one design: designs without a subtitle line get the whole
+ * title, so the part after "to / for / …" isn't lost.
+ */
+export function headlineFor(template: Template, title: string, text: AutoText): string {
+  const hasSubtitle = template.doc.layers.some((l) => isText(l) && l.role === 'subtitle');
+  if (hasSubtitle || !parseTitle(title).tail) return text.headline;
+  return titleCase(title.trim().replace(/[.!?]+$/, ''));
 }
 
 /**
@@ -193,7 +210,8 @@ export function autoDesign(
   const premiumBoost = input.research ? 0.2 : 1.6;
   const scored = candidates(topic, templates).map(({ template, rank }, i) => {
     const size = input.size ?? { width: template.doc.width, height: template.doc.height, presetId: template.doc.presetId };
-    let doc = keepOwnWords(instantiateTemplate(template, { ...size, headline, subtitle: subtitle || undefined, website: input.website || undefined, brand: null }), headline);
+    const own = input.title.trim() ? headlineFor(template, input.title, { headline, subtitle }) : headline;
+    let doc = keepOwnWords(instantiateTemplate(template, { ...size, headline: own, subtitle: subtitle || undefined, website: input.website || undefined, brand: null }), own);
     doc = withPhotos(doc, photos, input.assetMetas ?? {}, i);
     // With real photos, layouts needing more photos than the post has (repeats) rank lower.
     if (photos.length && template.imageCount > photos.length) rank -= 0.3;
