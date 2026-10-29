@@ -205,7 +205,7 @@ export function autoDesign(
     // recreated from real high-performing Pins; the topic match keeps the results on-theme.
     const impact = opts.ink ? headlineImpact(doc, opts.ink) : 0.5;
     const matches = input.research ? researchBoost(designTraits(template, doc), input.research) : 0;
-    return { template, doc, fit, score: fit * 2 + impact * 1.2 + (template.premium ? premiumBoost : 0) + (template.reference ? 0.8 : 0) + matches + rank };
+    return { template, doc, fit, score: fit * 2 + impact * 1.2 + (template.premium || template.highCtr ? premiumBoost : 0) + (template.reference ? 0.8 : 0) + matches + rank };
   });
   const pool = scored.sort((a, b) => b.score - a.score);
   // Variety: no two look-alike designs, and no more than three from one family, in the first results.

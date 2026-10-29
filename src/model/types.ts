@@ -256,6 +256,8 @@ export interface Template {
   reference?: boolean;
   /** A premium design (clean minimal, bold magazine or luxury) — Auto Design leads with these. */
   premium?: boolean;
+  /** Built for clicks: huge keyword on a solid band, big number, benefit line and CTA — Auto Design leads with these too. */
+  highCtr?: boolean;
   createdAt: number;
 }
 

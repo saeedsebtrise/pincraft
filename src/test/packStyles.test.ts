@@ -49,3 +49,20 @@ describe('premium designs', () => {
     for (const r of out.filter((x) => x.template.premium)) expect(readHeadline(r.doc).toLowerCase(), r.template.id).toContain('cozy bedroom decor');
   });
 });
+
+describe('high-click designs', () => {
+  it('add 10 designs with a CTA button and a solid panel behind the text, and they lead Auto Design', async () => {
+    const { CTR_TEMPLATES } = await import('../templates/ctrStyles');
+    expect(CTR_TEMPLATES).toHaveLength(10);
+    for (const t of CTR_TEMPLATES) {
+      expect(t.highCtr && BUILTIN_TEMPLATES.some((b) => b.id === t.id), t.id).toBe(true);
+      const cta = t.doc.layers.find((l): l is TextLayer => l.type === 'text' && l.role === 'cta');
+      // Pinterest puts its own icons in the lower-right corner: the CTA stays out of it.
+      if (cta) expect(cta.x + cta.width / 2, t.id).toBeLessThan(t.doc.width * 0.75);
+    }
+    expect(CTR_TEMPLATES.filter((t) => t.doc.layers.some((l) => l.role === 'cta')).length).toBeGreaterThanOrEqual(8);
+    const out = autoDesign({ title: 'Easy Chicken Dinner Recipes', cta: false }, BUILTIN_TEMPLATES, { measure: () => 1, limit: 12 });
+    expect(out.filter((r) => r.template.highCtr).length).toBeGreaterThanOrEqual(2);
+    for (const r of out.filter((x) => x.template.highCtr)) expect(readHeadline(r.doc).toLowerCase(), r.template.id).toContain('chicken dinner');
+  });
+});
