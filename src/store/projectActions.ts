@@ -12,12 +12,16 @@ import { BLANK_TEMPLATE_ID, BUILTIN_TEMPLATES } from '../templates/builtins';
 import { useAssets } from './assetStore';
 import { useLibrary } from './libraryStore';
 
+/** Templates in this user's library: their own first, then the built-ins they haven't removed. */
 export function allTemplates(): Template[] {
-  return [...useLibrary.getState().userTemplates, ...BUILTIN_TEMPLATES];
+  const { userTemplates, hiddenTemplateIds } = useLibrary.getState();
+  const hidden = new Set(hiddenTemplateIds);
+  return [...userTemplates, ...BUILTIN_TEMPLATES.filter((t) => !hidden.has(t.id))];
 }
 
+/** Any template by id — removed built-ins too, so projects made from them still open. */
 export function findTemplate(id: string | null | undefined): Template | undefined {
-  return id ? allTemplates().find((t) => t.id === id) : undefined;
+  return id ? [...useLibrary.getState().userTemplates, ...BUILTIN_TEMPLATES].find((t) => t.id === id) : undefined;
 }
 
 import { buildCustomPinDocument, type CustomPinLayoutId } from '../model/customPinLayouts';

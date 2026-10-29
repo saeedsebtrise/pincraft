@@ -66,12 +66,20 @@ export async function suggestText(client, input) {
 
 export const AI_ROUTES = {
   ai: (client, input) => suggestText(client, input),
-  'ai-design': (client, input) => designPins(client, input),
+  'ai-design': (client, input) => designPins(client, { ...input, reference: undefined }),
+  // A Pin the user likes → the same design as an editable template (one reference image).
+  'ai-reference': (client, input) => {
+    if (!input.reference) throw Object.assign(new Error('Add an image of the Pin you want to recreate.'), { status: 400 });
+    return designPins(client, input);
+  },
   'pin-research': (client, input) => researchPins(client, input),
 };
 
-/** Largest request each route accepts. Vercel caps request bodies at 4.5 MB, so research screenshots are shrunk in the browser to fit. */
-export const MAX_BODY = { ai: 32 * 1024, 'ai-design': 32 * 1024, 'pin-research': 4.4 * 1024 * 1024 };
+/** Largest request each route accepts. Vercel caps request bodies at 4.5 MB, so images are shrunk in the browser to fit. */
+export const MAX_BODY = { ai: 32 * 1024, 'ai-design': 32 * 1024, 'ai-reference': 4.4 * 1024 * 1024, 'pin-research': 4.4 * 1024 * 1024 };
+
+/** What each route counts as in the daily allowance (record_ai_use kinds). */
+const USAGE_KIND = { ai: 'ai', 'ai-design': 'ai-design', 'ai-reference': 'ai-design', 'pin-research': 'pin-research' };
 
 // ---------------------------------------------------------------- sign-in & daily limits
 
@@ -104,7 +112,7 @@ export async function authorizeAi(route, authorization, { env = process.env, fet
   const rec = await http(`${url}/rest/v1/rpc/record_ai_use`, {
     method: 'POST',
     headers: { ...headers, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ kind: route }),
+    body: JSON.stringify({ kind: USAGE_KIND[route] ?? route }),
   });
   if (rec.ok) return;
   let message = '';

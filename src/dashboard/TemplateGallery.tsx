@@ -1,4 +1,4 @@
-import { Copy, Eye, Pencil, Search, Trash2 } from 'lucide-react';
+import { Copy, Eye, ImagePlus, Pencil, RotateCcw, Search, Trash2 } from 'lucide-react';
 import { matchesQuery } from '../templates/search';
 import { useMemo, useState } from 'react';
 import { simplifyRatio } from '../config/canvasPresets';
@@ -10,6 +10,7 @@ import { useUi } from '../store/uiStore';
 import { useTemplateThumb } from '../templates/useThumb';
 import { IconButton, Modal } from '../ui/controls';
 import { CATEGORY_FILTERS } from '../editor/panels/TemplatesPanel';
+import { ReferenceTemplateModal } from './ReferenceTemplateModal';
 
 export function TemplateCard({ t, onUse, selected, compact }: { t: Template; onUse: (t: Template) => void; selected?: boolean; compact?: boolean }) {
   const src = useTemplateThumb(t, 300);
@@ -68,6 +69,18 @@ export function TemplateCard({ t, onUse, selected, compact }: { t: Template; onU
                 </IconButton>
               </>
             )}
+            {t.source === 'builtin' && (
+              <IconButton
+                label="Remove from my library"
+                onClick={() => {
+                  if (!confirm(`Remove “${t.name}” from your templates and Auto Design? You can bring it back with “Restore removed templates”.`)) return;
+                  lib.hideTemplate(t.id);
+                  useUi.getState().toast(`Removed “${t.name}”`, 'success');
+                }}
+              >
+                <Trash2 size={14} />
+              </IconButton>
+            )}
           </div>
         )}
       </div>
@@ -103,6 +116,8 @@ export function TemplateCard({ t, onUse, selected, compact }: { t: Template; onU
 /** Gallery: design type → template family sections → cards, with category filters. */
 export function TemplateGallery({ onUse, initialType = 'all', initialQuery = '', compact, selectedId }: { onUse: (t: Template) => void; initialType?: DesignType | 'all'; initialQuery?: string; compact?: boolean; selectedId?: string }) {
   useLibrary((s) => s.userTemplates);
+  const hidden = useLibrary((s) => s.hiddenTemplateIds); // re-render when templates are removed or restored
+  const [fromImage, setFromImage] = useState(false);
   const [type, setType] = useState<DesignType | 'all'>(initialType);
   const [cat, setCat] = useState<TemplateCategory | 'all'>('all');
   const [query, setQuery] = useState(initialQuery);
@@ -128,6 +143,25 @@ export function TemplateGallery({ onUse, initialType = 'all', initialQuery = '',
         ))}
       </nav>
       <div className="stack">
+        <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+          <button className="btn btn-pink btn-sm" onClick={() => setFromImage(true)}>
+            <ImagePlus size={15} /> Create template from a Pin image
+          </button>
+          {hidden.length > 0 && (
+            <button className="btn btn-sm" onClick={() => useLibrary.getState().restoreHiddenTemplates()}>
+              <RotateCcw size={14} /> Restore removed templates ({hidden.length})
+            </button>
+          )}
+        </div>
+        {fromImage && (
+          <ReferenceTemplateModal
+            onClose={() => setFromImage(false)}
+            onUse={(t) => {
+              setFromImage(false);
+              onUse(t);
+            }}
+          />
+        )}
         <label className="search-box">
           <Search size={17} />
           <input placeholder="Search templates…" value={query} onChange={(e) => setQuery(e.target.value)} aria-label="Search templates" />
@@ -147,7 +181,7 @@ export function TemplateGallery({ onUse, initialType = 'all', initialQuery = '',
           <section>
             <div className="family-title">
               <h3>My Templates</h3>
-              <span className="subtle">Designs you saved</span>
+              <span className="subtle">Designs you saved or made from a Pin image</span>
             </div>
             <div className="tpl-grid">
               {mine.map((t) => (

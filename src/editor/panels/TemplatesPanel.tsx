@@ -32,6 +32,7 @@ export function MiniTemplate({ t, onPick, note }: { t: Template; onPick: (t: Tem
 export function TemplatesPanel({ onClose }: { onClose?: () => void }) {
   const project = useEditor((s) => s.project!);
   useLibrary((s) => s.userTemplates); // re-render when user templates change
+  useLibrary((s) => s.hiddenTemplateIds); // …or built-ins are removed / restored
   const [query, setQuery] = useState('');
   const [type, setType] = useState<DesignType | 'all'>('all');
   const [cat, setCat] = useState<TemplateCategory | 'all'>('all');

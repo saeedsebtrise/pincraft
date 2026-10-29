@@ -58,6 +58,12 @@ In Auto Design, **Research Pinterest first** works in three steps:
 
 Auto Design then ranks templates that match the winning styles higher (`src/services/pinResearch.ts`), and AI designs are briefed to match the feed and beat it. Screenshots are sent to the Anthropic API only for that analysis and are not stored.
 
+### Your own template library
+
+- **Template from a Pin image (Pro):** on the Templates page, **Create template from a Pin image** takes any Pin you like (drop, paste or pick it). AI recreates its layout, colours, fonts and text style as an editable template in **My Templates**, which Auto Design then uses like any other (`POST /api/ai-reference`, `src/services/aiReference.ts`). The image is sent only for that request and is not stored; it counts as one AI design in the daily allowance.
+- **Save, rename, duplicate, delete:** save any design from the editor as a template; your templates can be renamed or deleted, and any built-in template can be duplicated into My Templates to change it.
+- **Remove built-in templates:** the bin icon on a built-in template removes it from your gallery and from Auto Design (projects made from it still open). **Restore removed templates** brings them all back.
+
 ### Blog URL → Pins
 
 In **Auto Design**, paste a blog post link and press Enter. PinCraft reads the post's title and photos, then designs 50 Pins with those photos already in the frames. You can click a photo to leave it out, and the footer uses the post's site unless your Brand Kit has a website.

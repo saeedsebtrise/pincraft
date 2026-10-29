@@ -4,7 +4,11 @@
  * The browser turns each spec into an editable PinCraft design and runs the
  * usual checks (text fit, nothing cut off, photos, CTA) — see
  * src/services/aiDesign.ts. Only text goes to the API: the headline, the
- * photos' aspect ratios and colour palette — never the images themselves.
+ * photos' aspect ratios and colour palette — never the user's photos.
+ *
+ * Reference mode (POST /api/ai-reference): the user uploads a Pin they like
+ * and Claude recreates its design as an editable template. The one image
+ * sent is that reference; it is used for this request only and not stored.
  */
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
 import { z } from 'zod';
@@ -15,7 +19,7 @@ const NAME = /^[A-Za-z0-9 .+-]{1,40}$/;
 const clean = (v, max) => (typeof v === 'string' ? v.replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, max) : '');
 
 /** Builds the output schema for one request (layouts and fonts the app can render). */
-export function designSchema(layoutIds, fonts) {
+export function designSchema(layoutIds, fonts, withHeadline = false) {
   const Font = z.enum(fonts);
   const Box = { x: z.number(), y: z.number(), w: z.number(), h: z.number() };
   const Text = z.object({
@@ -40,6 +44,7 @@ export function designSchema(layoutIds, fonts) {
     designs: z.array(
       z.object({
         name: z.string(),
+        ...(withHeadline ? { headline: z.string().describe('the headline text exactly as it reads on the reference Pin, number included') } : {}),
         background: z.string(),
         photos: z.object({ layout: z.enum(layoutIds), top: z.number(), height: z.number(), gap: z.number().int() }),
         panels: z.array(z.object({ ...Box, color: z.string(), opacity: z.number(), radius: z.number() })),
@@ -80,13 +85,34 @@ Rules every design must follow:
 - CTA: a short button (show it in most designs); website: small, near the bottom.
 - Make every design in the response clearly different from the others: different layout, colour scheme, typography and text treatment. No two designs should look like the same template.`;
 
+const REF_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
+const REF_MAX_B64 = 6 * 1024 * 1024;
+
+/** The reference Pin as an image block, or null when none (or a bad one) was sent. */
+function referenceImage(ref) {
+  if (!ref || !REF_TYPES.has(ref.mediaType) || typeof ref.data !== 'string') return null;
+  if (ref.data.length < 100 || ref.data.length > REF_MAX_B64 || !/^[A-Za-z0-9+/=]+$/.test(ref.data.slice(0, 200))) return null;
+  return { type: 'image', source: { type: 'base64', media_type: ref.mediaType, data: ref.data } };
+}
+
+const REFERENCE_BRIEF = `The attached image is a Pinterest Pin the user likes. Recreate ITS design as an editable template, as faithfully as the schema allows:
+- Same structure: pick the photo layout closest to its photo arrangement and set photos.top/height to match where its photos sit; panels, bands and boxes where it has them.
+- Same colours (sample them as hex), same text treatments (white boxes, coloured blocks, outlines, shadows, highlights), same positions and relative sizes, same alignment.
+- Fonts: the closest ones from the list (condensed bold: Anton, Bebas Neue or Oswald; heavy geometric: Montserrat or Archivo Black; serif: Playfair Display, DM Serif Display, Libre Baskerville or Cormorant Garamond; script: Pacifico, Allura or Great Vibes).
+- Break the headline into lines exactly where the reference breaks it, with the same emphasis (which line is biggest or coloured). Put its number in the badge when it shows one big number.
+- Set "headline" to the headline text as it reads on the reference.
+- Do not copy logos or the reference's website name; the website line is only a placeholder.
+- When asked for more than one design, the first is the faithful copy and the others are close variations (colours or font pairing changed, same structure).`;
+
 export async function designPins(client, raw) {
+  const reference = referenceImage(raw.reference);
+  if (raw.reference && !reference) throw Object.assign(new Error('Add a JPEG, PNG or WEBP image of the Pin (under 4 MB).'), { status: 400 });
   const headline = clean(raw.headline, 120);
-  if (!headline) throw Object.assign(new Error('headline is required'), { status: 400 });
+  if (!headline && !reference) throw Object.assign(new Error('headline is required'), { status: 400 });
   const layoutIds = (Array.isArray(raw.layouts) ? raw.layouts : []).map((l) => clean(l?.id, 40)).filter((id) => /^[a-z0-9-]{1,40}$/.test(id)).slice(0, 40);
   const fonts = (Array.isArray(raw.fonts) ? raw.fonts : []).map((f) => clean(f, 40)).filter((f) => NAME.test(f)).slice(0, 40);
   if (!layoutIds.length || !fonts.length) throw Object.assign(new Error('layouts and fonts are required'), { status: 400 });
-  const count = Math.max(1, Math.min(8, Number(raw.count) || 4));
+  const count = Math.max(1, Math.min(reference ? 3 : 8, Number(raw.count) || (reference ? 1 : 4)));
   const layouts = raw.layouts
     .filter((l) => layoutIds.includes(l?.id))
     .map((l) => `${l.id} (${Number(l.count) || 1} photo${Number(l.count) === 1 ? '' : 's'}${l.band ? ', leaves an empty text band across the middle 32% of the photo area — put the headline there' : ''})`);
@@ -109,15 +135,17 @@ export async function designPins(client, raw) {
   const brief = [
     `Design ${count} different Pins.`,
     `Canvas: ${Math.round(Number(raw.width) || 1000)} x ${Math.round(Number(raw.height) || 1500)} px.`,
-    `Headline: ${headline}`,
+    headline ? `Headline: ${headline}` : 'Headline: use the one on the reference Pin.',
     raw.subtitle && `Subtitle: ${clean(raw.subtitle, 120)}`,
-    `Topic: ${clean(raw.topic, 200) || headline}`,
+    `Topic: ${clean(raw.topic, 200) || headline || 'as on the reference Pin'}`,
     `Photos available: ${ratios.length} (height/width ratios: ${ratios.map((r) => r.toFixed(2)).join(', ') || 'none — use the single layout and design for any photo'})`,
     palette.length && `Photo colour palette: ${palette.join(', ')}`,
     `Photo layouts you can use: ${layouts.join('; ')}`,
     `Fonts you can use: ${fonts.join(', ')}`,
     research,
+    reference && REFERENCE_BRIEF,
   ].filter(Boolean);
+  const schema = designSchema(layoutIds, fonts, !!reference);
 
   const response = await client.beta.messages.create({
     model: AI_DESIGN_MODEL,
@@ -125,14 +153,14 @@ export async function designPins(client, raw) {
     // If Claude declines, the API re-runs the request on a fallback model automatically.
     betas: ['server-side-fallback-2026-07-01'],
     fallbacks: 'default',
-    output_config: { effort: 'medium', format: zodOutputFormat(designSchema(layoutIds, fonts)) },
+    output_config: { effort: 'medium', format: zodOutputFormat(schema) },
     system: SYSTEM,
-    messages: [{ role: 'user', content: brief.join('\n') }],
+    messages: [{ role: 'user', content: reference ? [reference, { type: 'text', text: brief.join('\n') }] : brief.join('\n') }],
   });
   if (response.stop_reason === 'refusal') throw Object.assign(new Error('The AI declined this request'), { status: 422 });
   if (response.stop_reason === 'max_tokens') throw Object.assign(new Error('The AI response was cut off — ask for fewer designs'), { status: 502 });
   const text = response.content.find((b) => b.type === 'text')?.text ?? '';
-  const parsed = designSchema(layoutIds, fonts).safeParse(JSON.parse(text));
+  const parsed = schema.safeParse(JSON.parse(text));
   if (!parsed.success) throw Object.assign(new Error('Unexpected AI response'), { status: 502 });
   return { designs: parsed.data.designs.slice(0, count) };
 }

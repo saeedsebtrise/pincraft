@@ -11,6 +11,7 @@ import { repos } from '../storage/repositories';
 
 const PRESET_KEY = 'pinforge.presets';
 const ACTIVE_KIT_KEY = 'pinforge.activeKit';
+const HIDDEN_KEY = 'pinforge.hiddenTemplates';
 
 export const DEFAULT_BRAND_KIT: BrandKit = {
   id: 'kit_default',
@@ -41,12 +42,18 @@ interface LibraryState {
   brandKits: BrandKit[];
   activeKitId: string;
   customPresets: CanvasPreset[];
+  /** Built-in templates this user removed from their library (kept so old projects still open). */
+  hiddenTemplateIds: string[];
 
   load: () => Promise<void>;
   saveTemplate: (name: string, doc: PinDocument, categories?: TemplateCategory[]) => Promise<Template>;
   duplicateTemplate: (t: Template) => Promise<Template>;
   renameTemplate: (id: string, name: string) => Promise<void>;
   deleteTemplate: (id: string) => Promise<void>;
+  /** Removes a built-in template from this user's library and Auto Design. */
+  hideTemplate: (id: string) => void;
+  /** Brings every removed built-in template back. */
+  restoreHiddenTemplates: () => void;
   saveBrandKit: (kit: BrandKit) => Promise<void>;
   deleteBrandKit: (id: string) => Promise<void>;
   setActiveKit: (id: string) => void;
@@ -61,6 +68,7 @@ export const useLibrary = create<LibraryState>((set, get) => ({
   brandKits: [DEFAULT_BRAND_KIT],
   activeKitId: readJson(ACTIVE_KIT_KEY, DEFAULT_BRAND_KIT.id),
   customPresets: readJson<CanvasPreset[]>(PRESET_KEY, []),
+  hiddenTemplateIds: readJson<string[]>(HIDDEN_KEY, []),
 
   load: async () => {
     try {
@@ -112,6 +120,23 @@ export const useLibrary = create<LibraryState>((set, get) => ({
   deleteTemplate: async (id) => {
     await repos.templates.remove(id);
     set({ userTemplates: get().userTemplates.filter((x) => x.id !== id) });
+  },
+  hideTemplate: (id) => {
+    const next = [...new Set([...get().hiddenTemplateIds, id])];
+    set({ hiddenTemplateIds: next });
+    try {
+      localStorage.setItem(HIDDEN_KEY, JSON.stringify(next));
+    } catch {
+      /* storage unavailable: hidden for this session only */
+    }
+  },
+  restoreHiddenTemplates: () => {
+    set({ hiddenTemplateIds: [] });
+    try {
+      localStorage.removeItem(HIDDEN_KEY);
+    } catch {
+      /* storage unavailable */
+    }
   },
 
   saveBrandKit: async (kit) => {
