@@ -189,6 +189,8 @@ export function autoDesign(
   if (!headline) return [];
   const topic = `${input.title} ${input.keyword ?? ''}`.trim();
   const photos = input.assetIds ?? [];
+  // Premium looks lead — unless Pinterest research says what wins for this keyword, which then matters more.
+  const premiumBoost = input.research ? 0.2 : 1.6;
   const scored = candidates(topic, templates).map(({ template, rank }, i) => {
     const size = input.size ?? { width: template.doc.width, height: template.doc.height, presetId: template.doc.presetId };
     let doc = keepOwnWords(instantiateTemplate(template, { ...size, headline, subtitle: subtitle || undefined, website: input.website || undefined, brand: null }), headline);
@@ -199,11 +201,11 @@ export function autoDesign(
     if (opts.ink) ({ doc, blocked } = clearCutText(doc, opts.ink));
     // A design that still cuts the keyword goes to the very end.
     const fit = blocked ? 0 : fitScore(doc, opts.measure);
-    // Fit matters most, then a big readable headline, then designs recreated from
-    // real high-performing Pins; the topic match keeps the results on-theme.
+    // Fit matters most, then the premium looks, a big readable headline and designs
+    // recreated from real high-performing Pins; the topic match keeps the results on-theme.
     const impact = opts.ink ? headlineImpact(doc, opts.ink) : 0.5;
     const matches = input.research ? researchBoost(designTraits(template, doc), input.research) : 0;
-    return { template, doc, fit, score: fit * 2 + impact * 1.2 + (template.reference ? 0.8 : 0) + matches + rank };
+    return { template, doc, fit, score: fit * 2 + impact * 1.2 + (template.premium ? premiumBoost : 0) + (template.reference ? 0.8 : 0) + matches + rank };
   });
   const pool = scored.sort((a, b) => b.score - a.score);
   // Variety: no two look-alike designs, and no more than three from one family, in the first results.

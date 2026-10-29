@@ -71,9 +71,10 @@ describe('auto design results', () => {
   it('shows up to 50 designs by default', () => {
     expect(autoDesign({ title: '50 Short Hairstyles' }, BUILTIN_TEMPLATES, { measure: fits })).toHaveLength(50);
   });
-  it('puts designs recreated from real Pins first and never shows two look-alikes up top', () => {
+  it('leads with premium designs and ones recreated from real Pins, never two look-alikes up top', () => {
     const out = autoDesign({ title: '20 Burgundy Hair Color Ideas' }, BUILTIN_TEMPLATES, { measure: fits, limit: 10 });
-    expect(out.slice(0, 5).every((r) => r.template.reference), out.slice(0, 5).map((r) => r.template.id).join()).toBe(true);
+    expect(out.slice(0, 5).every((r) => r.template.reference || r.template.premium), out.slice(0, 5).map((r) => r.template.id).join()).toBe(true);
+    expect(out.slice(0, 5).some((r) => r.template.premium)).toBe(true);
     const keys = out.slice(0, 10).map((r) => lookKey(r.doc));
     expect(new Set(keys).size).toBe(keys.length);
   });

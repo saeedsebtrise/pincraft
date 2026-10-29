@@ -254,6 +254,8 @@ export interface Template {
   source: 'builtin' | 'user';
   /** Recreated from a real high-performing Pin — Auto Design prefers these. */
   reference?: boolean;
+  /** A premium design (clean minimal, bold magazine or luxury) — Auto Design leads with these. */
+  premium?: boolean;
   createdAt: number;
 }
 

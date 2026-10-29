@@ -12,12 +12,15 @@ import type { Template } from '../model/types';
 import { accent, badge, bandShape, bgOn, divider, footer, inBand, label, SHADOW, title, titleLine, tpl } from './kit';
 import { HAIR_TEMPLATES } from './hairStyles';
 import { PACK_STYLE_TEMPLATES } from './packStyles';
+import { PREMIUM_TEMPLATES } from './premiumStyles';
 import { PIN_STYLE_TEMPLATES } from './pinStyles';
 import { TRENDING_TEMPLATES } from './trendingTemplates';
 
 export { bgOn, footer, type FooterStyle } from './kit';
 
 export const BUILTIN_TEMPLATES: Template[] = [
+  // Premium looks: clean minimal, bold magazine and luxury (Auto Design leads with these).
+  ...PREMIUM_TEMPLATES,
   // Newly crafted trending high-converting Pinterest templates
   ...TRENDING_TEMPLATES,
   // Recreated from real high-performing Pins (Auto Design ranks these first).
