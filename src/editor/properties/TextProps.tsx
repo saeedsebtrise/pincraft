@@ -8,7 +8,7 @@ import { useUi } from '../../store/uiStore';
 import { ColorField, NumberField, RangeField, Seg, Select, Toggle } from '../../ui/controls';
 import { badgePosition, type BadgePosition } from '../blocks';
 import { layoutText } from '../canvas/textLayout';
-import { fontOptions } from '../panels/MiscPanels';
+import { FontPicker } from './FontPicker';
 
 const WEIGHT_LABEL: Record<number, string> = { 300: 'Light', 400: 'Regular', 500: 'Medium', 600: 'Semibold', 700: 'Bold', 800: 'Extra bold', 900: 'Black' };
 
@@ -101,7 +101,7 @@ export function TextProps({ layer }: { layer: TextLayer }) {
 
       <div className="panel-section">
         <span className="section-title">Typography</span>
-        <Select label="Font" value={layer.fontFamily} onChange={(v) => set({ fontFamily: v })} options={fontOptions} />
+        <FontPicker doc={doc} family={layer.fontFamily} weight={layer.fontWeight} onChange={(fontFamily, fontWeight) => set({ fontFamily, fontWeight })} />
         <div className="grid-2">
           <Select label="Weight" value={String(weights.includes(layer.fontWeight) ? layer.fontWeight : weights[0])} onChange={(v) => set({ fontWeight: Number(v) })} options={weights.map((w) => ({ value: String(w), label: WEIGHT_LABEL[w] ?? String(w) }))} />
           <NumberField label={layer.autoFit ? 'Max size' : 'Size'} value={layer.fontSize} min={6} max={600} onChange={(v) => set({ fontSize: v })} unit="px" />

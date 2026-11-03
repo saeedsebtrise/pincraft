@@ -114,3 +114,25 @@
 .ai-opts { padding: 14px 18px; display: flex; flex-direction: column; gap: 14px; }
 .ai-opts > summary { cursor: pointer; display: flex; align-items: center; gap: 8px; font-weight: 600; }
 .ai-opts[open] > summary { margin-bottom: 12px; }
+
+/* ---------------------------------------------------------------- Font picker */
+.fp { position: relative; }
+.fp-trigger { display: flex; align-items: center; gap: 8px; text-align: left; cursor: pointer; }
+.fp-trigger > span:first-child { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; }
+.fp-pop { position: absolute; z-index: 50; top: calc(100% + 6px); left: 0; right: 0; min-width: 260px; max-height: 460px; display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: 0 16px 40px rgba(15, 23, 42, .16); overflow: hidden; }
+.fp-search { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--border); color: var(--text-3); }
+.fp-search input { flex: 1; border: 0; outline: 0; background: none; font-size: 14px; color: var(--text); }
+.fp-list { overflow-y: auto; padding: 6px; }
+.fp-section { display: flex; align-items: center; gap: 8px; padding: 12px 8px 6px; font-size: 12px; font-weight: 700; color: var(--text); }
+.fp-family-head { width: 100%; display: flex; align-items: center; gap: 8px; padding: 8px; border: 0; background: none; border-radius: 8px; cursor: pointer; font-size: 16px; color: var(--text); text-align: left; }
+.fp-family-head:hover { background: var(--surface-hover); }
+.fp-family-head > span:nth-child(2) { flex: 1; }
+.fp-count { font-size: 11px; color: var(--text-3); font-family: inherit; }
+.fp-check { color: var(--accent); }
+.fp-weight { width: 100%; display: flex; align-items: center; justify-content: space-between; padding: 9px 12px 9px 40px; border: 0; background: none; border-radius: 10px; cursor: pointer; font-size: 16px; color: var(--text); text-align: left; }
+.fp-weight:hover { background: var(--surface-hover); }
+.fp-weight.is-on { background: #efeafd; }
+.fp-empty { display: block; padding: 12px; }
+.fp-upload { margin: 8px; justify-content: center; }
+.fp-alike { padding: 4px 8px; }
+.fp-section .fp-count { margin-left: auto; }

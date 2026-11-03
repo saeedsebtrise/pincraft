@@ -6,6 +6,7 @@ import { useAccount } from './saas/accountStore';
 import { AuthScreen, type AuthView } from './saas/ui/AuthScreen';
 import { UpgradeDialog } from './saas/ui/PlanViews';
 import { useLibrary } from './store/libraryStore';
+import { loadCustomFonts } from './services/fonts';
 import { ErrorBoundary, Toasts } from './ui/controls';
 
 type Route = { screen: 'editor'; id: string } | { screen: 'auth'; view: AuthView } | { screen: DashTab; params: URLSearchParams };
@@ -44,6 +45,7 @@ export function App() {
     const on = () => setHash(location.hash);
     window.addEventListener('hashchange', on);
     void useAccount.getState().init().then(() => useLibrary.getState().load());
+    void loadCustomFonts();
     return () => window.removeEventListener('hashchange', on);
   }, []);
   const route = parseRoute(hash);

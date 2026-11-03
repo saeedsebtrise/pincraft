@@ -139,3 +139,13 @@ it('studio text layers use the brand kit fonts', () => {
   expect(l.fontFamily).toBe(DEFAULT_BRAND_KIT.headingFont);
   expect(l.text).toBe('{{title}}');
 });
+
+describe('Font picker', () => {
+  it('lists the design’s own fonts once, in layer order, with weight names', async () => {
+    const { documentFonts, weightName } = await import('../editor/properties/FontPicker');
+    const doc = blank();
+    const layers = [...readyBlock(doc, 'hero', DEFAULT_BRAND_KIT), ...readyBlock(doc, 'recipe', DEFAULT_BRAND_KIT)];
+    expect(documentFonts({ ...doc, layers }).map((f) => f.family)).toEqual([DEFAULT_BRAND_KIT.headingFont, DEFAULT_BRAND_KIT.bodyFont]);
+    expect([100, 800, 650].map(weightName)).toEqual(['Thin', 'ExtraBold', '650']);
+  });
+});
