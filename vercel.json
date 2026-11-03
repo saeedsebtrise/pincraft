@@ -21,6 +21,9 @@
     },
     "api/ai-reference.mjs": {
       "maxDuration": 300
+    },
+    "api/pinterest/[op].mjs": {
+      "maxDuration": 60
     }
   }
 }

@@ -9,7 +9,7 @@
 import { create } from 'zustand';
 
 export type ActivityOutcome = 'completed' | 'warning' | 'failed' | 'update';
-export type ActivityArea = 'Pins' | 'Export' | 'AI' | 'Research' | 'Blog import' | 'Templates' | 'Brand Kit' | 'Account' | 'Projects';
+export type ActivityArea = 'Pins' | 'Export' | 'AI' | 'Research' | 'Blog import' | 'Templates' | 'Brand Kit' | 'Account' | 'Projects' | 'Boards' | 'Publishing';
 
 export interface ActivityEvent {
   id: string;

@@ -1,4 +1,4 @@
-import { CheckCircle2, Download, FileImage, Image as ImageIcon, Loader2, Zap } from 'lucide-react';
+import { CheckCircle2, Download, FileImage, Image as ImageIcon, Loader2, Send, Zap } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { readHeadline } from '../../model/docOps';
 import { normalizeProject } from '../../model/factory';
@@ -158,9 +158,14 @@ export function ExportModal() {
   return (
     <Modal title="Export Your Pin" onClose={close}>
       <div className="stack export-modal">
-        <div className="row export-brand">
-          <BrandMark size={30} />
-          <strong>PinCraft</strong>
+        <div className="row-between export-brand">
+          <span className="row" style={{ gap: 8 }}>
+            <BrandMark size={30} />
+            <strong>PinCraft</strong>
+          </span>
+          <button className="btn btn-sm btn-outline" onClick={() => useUi.getState().set({ modal: 'publish' })}>
+            <Send size={14} /> Publish to Pinterest
+          </button>
         </div>
         <div className="stack-sm">
           <span className="field-label-strong">File Format</span>

@@ -9,11 +9,14 @@
  *   VITE_AI_PROXY_URL=/api/ai npm run dev
  *
  * Login isn't required on your own computer; set AI_REQUIRE_LOGIN=true to test it.
+ * Keys can also go in a .env file in the project folder (see server/loadEnv.mjs).
  */
+import './loadEnv.mjs'; // first, so the keys are set before the other modules read them
 import http from 'node:http';
 import Anthropic from '@anthropic-ai/sdk';
 import { AI_TEXT_MODEL, MAX_BODY, handleAi } from './aiRoutes.mjs';
 import { pageMiddleware } from './pageFetch.mjs';
+import { MAX_PIN_BODY, handlePinterest, pinterestConfigured, sendPinterest } from './pinterest.mjs';
 
 const PORT = Number(process.env.AI_PROXY_PORT || 8787);
 
@@ -25,6 +28,25 @@ const server = http.createServer((req, res) => {
     res.writeHead(status, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(body));
   };
+  // Pinterest connection, boards, publishing, analytics and trends (server/pinterest.mjs).
+  const pin = /^\/api\/pinterest\/([a-z]+)/.exec(req.url || '');
+  if (pin) {
+    let raw = '';
+    req.on('data', (chunk) => {
+      raw += chunk;
+      if (raw.length > MAX_PIN_BODY) req.destroy();
+    });
+    req.on('end', async () => {
+      let body = {};
+      try {
+        body = raw ? JSON.parse(raw) : {};
+      } catch {
+        /* not JSON */
+      }
+      sendPinterest(res, await handlePinterest(pin[1], req, body));
+    });
+    return;
+  }
   // Blog URL → Pins (GET /api/page, /api/image) for production builds served behind this proxy.
   if (req.method === 'GET') return void readPages(req, res, () => send(404, { error: 'Not found' }));
   const route = (req.url || '').replace(/^\/api\//, '');
@@ -50,4 +72,8 @@ const server = http.createServer((req, res) => {
   });
 });
 
-server.listen(PORT, () => console.log(`PinCraft AI proxy on http://localhost:${PORT}/api/ai (model ${AI_TEXT_MODEL})`));
+server.listen(PORT, () => {
+  console.log(`PinCraft server on http://localhost:${PORT} (AI model ${AI_TEXT_MODEL})`);
+  console.log(`  Claude AI:  ${process.env.ANTHROPIC_API_KEY ? 'ready' : 'no ANTHROPIC_API_KEY — AI features off'}`);
+  console.log(`  Pinterest:  ${pinterestConfigured() ? 'ready' : 'not set up — add PINTEREST_APP_ID, PINTEREST_APP_SECRET, PINTEREST_TOKEN_SECRET (docs/PINTEREST_SETUP.md)'}`);
+});

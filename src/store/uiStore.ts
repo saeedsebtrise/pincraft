@@ -3,7 +3,7 @@ import type { Id } from '../model/types';
 
 export type LeftTab = 'templates' | 'uploads' | 'layouts' | 'text' | 'brand' | 'background' | 'elements' | 'projects';
 export type RightTab = 'design' | 'images' | 'text' | 'layers';
-export type ModalName = 'export' | 'preview' | 'variations' | 'saveTemplate' | 'aiAssistant' | null;
+export type ModalName = 'export' | 'preview' | 'variations' | 'saveTemplate' | 'aiAssistant' | 'publish' | null;
 
 export interface Toast {
   id: number;

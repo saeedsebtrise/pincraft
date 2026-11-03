@@ -28,10 +28,12 @@ import { cloudEnabled } from '../saas/config';
 import { PLANS } from '../saas/plans';
 import { planLabel, UpgradeButton } from '../saas/ui/PlanViews';
 import { logActivity } from '../services/activity';
+import { connectPinterest, defaultBoard, usePinterest } from '../services/pinterest';
 import { useUi } from '../store/uiStore';
 import { DEFAULT_PREFS, useWorkspace, windowError } from '../store/workspaceStore';
 import { Field } from '../ui/controls';
 import { formatBytes, useUsage, type UsageLine } from './usage';
+import { PinterestGuide } from './PinterestGuide';
 
 const SUPPORT_EMAIL: string | undefined = import.meta.env.VITE_SUPPORT_EMAIL || undefined;
 
@@ -424,47 +426,113 @@ function SecuritySection() {
   );
 }
 
-/** Shared "Pinterest isn't connected" notice — boards, analytics and publishing need a Pinterest developer app. */
+/** Shared "Pinterest isn't connected" notice with a working Connect button (or setup help when the server has no Pinterest app yet). */
 export function PinterestNotConnected({ what }: { what: string }) {
+  const pin = usePinterest();
+  const [guide, setGuide] = useState(false);
+  useEffect(() => {
+    if (pin.configured === null && !pin.loading) void pin.refresh();
+  }, []);
+  const ready = pin.configured === true;
+  const title = pin.serverOffline ? 'PinCraft server isn’t running' : pin.configured === false ? 'Pinterest isn’t set up yet' : 'Pinterest profile not connected';
+  const text = pin.serverOffline
+    ? 'Start the PinCraft server, add your Pinterest app keys, then connect — the guide walks you through it.'
+    : pin.configured === false
+      ? 'Add your Pinterest app keys to the server, then connect — the guide walks you through it.'
+      : 'Connect your Pinterest account to publish Pins, load boards and see analytics.';
   return (
     <div className="pin-alert">
       <div className="row" style={{ gap: 8 }}>
         <XCircle size={18} />
-        <strong>Pinterest profile not connected</strong>
+        <strong>{title}</strong>
       </div>
       <span>
-        {what} PinCraft needs a Pinterest connection for this, and connecting needs a Pinterest developer app (approved by Pinterest) set up for this site. Until then, design and export
-        your Pins here and upload them to Pinterest yourself.
+        {what} {text}
       </span>
       <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
-        <button className="btn btn-pink" disabled title="Available once the Pinterest app is set up">
+        {/* Always clickable: connects when everything is ready, otherwise opens the setup guide. */}
+        <button className="btn btn-pink" onClick={() => (ready ? connectPinterest() : setGuide(true))}>
           Connect Pinterest
         </button>
-        <a className="btn btn-outline" href="https://developers.pinterest.com/" target="_blank" rel="noopener noreferrer">
-          Pinterest developer apps <ExternalLink size={14} />
-        </a>
+        <button className="btn btn-outline" onClick={() => setGuide(true)}>
+          How to connect
+        </button>
       </div>
+      {guide && <PinterestGuide onClose={() => setGuide(false)} />}
     </div>
   );
 }
 
 function PinterestSection() {
+  const pin = usePinterest();
+  useWorkspace((s) => s.prefs.defaultBoardId); // re-render when the default board changes
+  // Back from the Pinterest sign-in: ?pinterest=connected | denied | failed
+  const result = new URLSearchParams(location.hash.split('?')[1] ?? '').get('pinterest');
+  useEffect(() => {
+    void pin.refresh().then(() => {
+      if (result === 'connected' && usePinterest.getState().connected) {
+        const a = usePinterest.getState().account;
+        logActivity({ area: 'Account', outcome: 'completed', title: 'Pinterest connected', detail: a ? `Connected as @${a.username}.` : 'Pinterest account connected.' });
+        void usePinterest.getState().loadBoards().catch(() => {});
+      }
+      if (result === 'failed') logActivity({ area: 'Account', outcome: 'failed', title: 'Pinterest connection failed', detail: 'Pinterest did not finish the sign-in. Try again.' });
+      if (result) history.replaceState(null, '', '#/settings?tab=pinterest');
+    });
+  }, []);
+  const a = pin.account;
+  // Same rule as the Boards page: the chosen default, else the first board.
+  const board = pin.boards.length ? defaultBoard(pin.boards) : undefined;
+  useEffect(() => {
+    if (pin.connected && !pin.boardsLoaded) void usePinterest.getState().loadBoards().catch(() => {});
+  }, [pin.connected]);
   return (
     <div className="stack">
       <SectionHead
         kicker="Connected profiles"
         title="Pinterest"
-        text="Manage the Pinterest profiles used for boards, scheduling and publishing. Choose a default profile when more than one is connected."
+        text="The Pinterest account used for boards, publishing and analytics."
       />
+      {result === 'denied' && <div className="note-box">You cancelled the Pinterest sign-in — nothing was connected.</div>}
+      {result === 'failed' && <div className="issue">Pinterest didn’t finish the sign-in. Try connecting again.</div>}
       <section className="settings-card">
         <div className="row-between">
           <div className="stack-sm" style={{ gap: 2 }}>
-            <strong>Connected profiles</strong>
-            <span className="subtle">Your default profile is used automatically unless a campaign picks another one.</span>
+            <strong>Connected profile</strong>
+            <span className="subtle">Pins you publish go to this account.</span>
           </div>
-          <span className="act-badge act-fail">Disconnected</span>
+          <div className="row" style={{ gap: 8 }}>
+            <span className={`act-badge ${pin.connected ? 'act-ok' : 'act-fail'}`}>{pin.connected ? 'Connected' : 'Disconnected'}</span>
+            <button className="btn btn-sm" disabled={pin.loading} onClick={() => void pin.refresh()} aria-label="Refresh connection">
+              <RefreshCw size={14} />
+            </button>
+          </div>
         </div>
-        <PinterestNotConnected what="Publishing, board sync and analytics come from your Pinterest account." />
+        {pin.connected && a ? (
+          <>
+            <div className="member-row">
+              {a.image ? <img src={a.image} alt="" className="pin-avatar" /> : <span className="avatar" style={{ width: 40, height: 40 }}>{a.username.slice(0, 2).toUpperCase()}</span>}
+              <div className="stack-sm grow" style={{ gap: 2 }}>
+                <strong>{a.name}</strong>
+                <span className="subtle">@{a.username}{a.type ? ` · ${a.type.toLowerCase()} account` : ''}</span>
+                <span className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
+                  {a.followers !== undefined && <span className="chip">{a.followers.toLocaleString()} followers</span>}
+                  {a.monthlyViews !== undefined && <span className="chip">{a.monthlyViews.toLocaleString()} monthly views</span>}
+                </span>
+              </div>
+              <button className="btn btn-outline" onClick={() => confirm('Disconnect your Pinterest account from PinCraft?') && void pin.disconnect()}>
+                Disconnect
+              </button>
+            </div>
+            <div className="row-between" style={{ flexWrap: 'wrap', gap: 8 }}>
+              <span className="muted">Default board: <strong>{board?.name ?? 'Not set'}</strong></span>
+              <a className="link-btn" href="#/boards">
+                Manage boards <ArrowRight size={14} />
+              </a>
+            </div>
+          </>
+        ) : (
+          <PinterestNotConnected what="Publishing, board sync and analytics come from your Pinterest account." />
+        )}
       </section>
     </div>
   );

@@ -24,6 +24,10 @@ export default defineConfig({
       '/api/ai': 'http://localhost:8787',
       '/api/ai-design': 'http://localhost:8787',
       '/api/pin-research': 'http://localhost:8787',
+      '/api/ai-reference': 'http://localhost:8787',
+      // Pinterest connection (server/pinterest.mjs). The Host header stays localhost:5173, so the
+      // sign-in comes back to http://localhost:5173/api/pinterest/callback.
+      '/api/pinterest': { target: 'http://localhost:8787', changeOrigin: false },
     },
   },
   test: {

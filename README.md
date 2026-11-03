@@ -58,6 +58,10 @@ In Auto Design, **Research Pinterest first** works in three steps:
 
 Auto Design then ranks templates that match the winning styles higher (`src/services/pinResearch.ts`), and AI designs are briefed to match the feed and beat it. Screenshots are sent to the Anthropic API only for that analysis and are not stored.
 
+### Pinterest connection
+
+Connect a Pinterest account in **Settings → Pinterest** to sync and create **Boards**, publish a Pin from the editor (**Export → Publish to Pinterest**), and see **Analytics** (impressions, engagements, outbound clicks, Pin clicks, saves) and **Pinterest Trends**. It uses the official Pinterest API v5 (`server/pinterest.mjs`, routes `/api/pinterest/*`); tokens stay in an encrypted httpOnly cookie. Setup: [docs/PINTEREST_SETUP.md](docs/PINTEREST_SETUP.md).
+
 ### Your own template library
 
 - **Template from a Pin image (Pro):** on the Templates page, **Create template from a Pin image** takes any Pin you like (drop, paste or pick it). AI recreates its layout, colours, fonts and text style as an editable template in **My Templates**, which Auto Design then uses like any other (`POST /api/ai-reference`, `src/services/aiReference.ts`). The image is sent only for that request and is not stored; it counts as one AI design in the daily allowance.

@@ -1,4 +1,4 @@
-import { Activity as ActivityIcon, ArrowRight, Copy, CreditCard, Receipt, FolderOpen, Home, Image as ImageIcon, LayoutTemplate, MoreHorizontal, Palette, Pencil, Plus, PlusCircle, Search, Settings, Sparkles, Trash2, Wand2, X } from 'lucide-react';
+import { Activity as ActivityIcon, ArrowRight, BarChart3, LayoutGrid, Copy, CreditCard, Receipt, FolderOpen, Home, Image as ImageIcon, LayoutTemplate, MoreHorizontal, Palette, Pencil, Plus, PlusCircle, Search, Settings, Sparkles, Trash2, Wand2, X } from 'lucide-react';
 import { AutoDesign } from './AutoDesign';
 import { ensureCanCreateProject, handleLimitError } from '../saas/gates';
 import { AccountPage, PricingPage, UpgradeButton, UserCard } from '../saas/ui/PlanViews';
@@ -17,8 +17,9 @@ import { NewPinFlow } from './NewPinFlow';
 import { TypeCard } from './TypeCard';
 import { ActivityPage } from './ActivityPage';
 import { BillingPage, SettingsPage } from './AccountPages';
+import { AnalyticsPage, BoardsPage } from './PinterestPages';
 
-export type DashTab = 'home' | 'auto' | 'projects' | 'templates' | 'brand' | 'new' | 'account' | 'pricing' | 'activity' | 'billing' | 'settings';
+export type DashTab = 'home' | 'auto' | 'projects' | 'templates' | 'brand' | 'new' | 'account' | 'pricing' | 'activity' | 'billing' | 'settings' | 'boards' | 'analytics';
 
 const NAV: { id: DashTab; label: string; href: string; icon: React.ReactNode }[] = [
   { id: 'home', label: 'Home', href: '#/', icon: <Home size={18} /> },
@@ -28,6 +29,12 @@ const NAV: { id: DashTab; label: string; href: string; icon: React.ReactNode }[]
   { id: 'brand', label: 'Brand Kit', href: '#/brand', icon: <Palette size={18} /> },
   { id: 'projects', label: 'Projects', href: '#/projects', icon: <FolderOpen size={18} /> },
   { id: 'pricing', label: 'Plans & Pricing', href: '#/pricing', icon: <CreditCard size={18} /> },
+];
+
+/** Publish & grow section of the sidebar (Pinterest). */
+const GROW_NAV: { id: DashTab; label: string; href: string; icon: React.ReactNode }[] = [
+  { id: 'boards', label: 'Boards', href: '#/boards', icon: <LayoutGrid size={18} /> },
+  { id: 'analytics', label: 'Analytics', href: '#/analytics', icon: <BarChart3 size={18} /> },
 ];
 
 /** Account section of the sidebar. */
@@ -58,6 +65,13 @@ export function Dashboard({ tab, params }: { tab: DashTab; params: URLSearchPara
         </a>
         <nav className="dash-side-nav">
           {NAV.map((n) => (
+            <a key={n.id} href={n.href} className="dash-side-item" aria-current={tab === n.id ? 'page' : undefined}>
+              {n.icon}
+              {n.label}
+            </a>
+          ))}
+          <span className="dash-side-label">Publish & grow</span>
+          {GROW_NAV.map((n) => (
             <a key={n.id} href={n.href} className="dash-side-item" aria-current={tab === n.id ? 'page' : undefined}>
               {n.icon}
               {n.label}
@@ -117,6 +131,8 @@ export function Dashboard({ tab, params }: { tab: DashTab; params: URLSearchPara
         {tab === 'account' && <AccountPage />}
         {tab === 'pricing' && <PricingPage />}
         {tab === 'activity' && <ActivityPage />}
+        {tab === 'boards' && <BoardsPage />}
+        {tab === 'analytics' && <AnalyticsPage key={params.get('tab') ?? ''} initialTab={params.get('tab') ?? undefined} />}
         {tab === 'billing' && <BillingPage />}
         {tab === 'settings' && <SettingsPage key={params.get('tab') ?? ''} initialTab={params.get('tab') ?? undefined} />}
         {tab === 'new' && <NewPinFlow key={params.toString()} initialTemplateId={params.get('template') ?? undefined} initialType={(params.get('type') as DesignType) ?? undefined} />}

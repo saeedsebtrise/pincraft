@@ -26,6 +26,8 @@ function parseRoute(hash: string): Route {
   if (path.startsWith('/account')) return { screen: 'account', params };
   if (path.startsWith('/pricing')) return { screen: 'pricing', params };
   if (path.startsWith('/activity')) return { screen: 'activity', params };
+  if (path.startsWith('/boards')) return { screen: 'boards', params };
+  if (path.startsWith('/analytics')) return { screen: 'analytics', params };
   if (path.startsWith('/billing')) return { screen: 'billing', params };
   if (path.startsWith('/settings')) return { screen: 'settings', params };
   if (path.startsWith('/new')) return { screen: 'new', params };

@@ -13,6 +13,7 @@ import { useAutosave, usePasteImages, useProjectAssets, useShortcuts } from './h
 import { importAndPlace } from './importImages';
 import { AiAssistantModal } from './modals/AiAssistantModal';
 import { ExportModal } from './modals/ExportModal';
+import { PublishModal } from './modals/PublishModal';
 import { PreviewModal } from './modals/PreviewModal';
 import { SaveTemplateModal } from './modals/SaveTemplateModal';
 import { VariationsModal } from './modals/VariationsModal';
@@ -178,6 +179,7 @@ function EditorLoaded() {
         </aside>
       </div>
       {ui.modal === 'export' && <ExportModal />}
+      {ui.modal === 'publish' && <PublishModal />}
       {ui.modal === 'preview' && <PreviewModal />}
       {ui.modal === 'variations' && <VariationsModal />}
       {ui.modal === 'saveTemplate' && <SaveTemplateModal />}

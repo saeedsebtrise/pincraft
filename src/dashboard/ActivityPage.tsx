@@ -24,7 +24,7 @@ const OUTCOMES: { id: OutcomeFilter; label: string }[] = [
   { id: 'failed', label: 'Failed' },
   { id: 'update', label: 'Updates' },
 ];
-const AREAS: ActivityArea[] = ['Pins', 'Export', 'AI', 'Research', 'Blog import', 'Templates', 'Brand Kit', 'Projects', 'Account'];
+const AREAS: ActivityArea[] = ['Pins', 'Export', 'Publishing', 'Boards', 'AI', 'Research', 'Blog import', 'Templates', 'Brand Kit', 'Projects', 'Account'];
 
 const BADGE: Record<ActivityOutcome, { label: string; className: string; icon: React.ReactNode }> = {
   completed: { label: 'Completed', className: 'act-ok', icon: <CheckCircle2 size={18} /> },

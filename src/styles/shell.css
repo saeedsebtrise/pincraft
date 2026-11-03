@@ -1555,3 +1555,50 @@ details > summary { cursor: pointer; font-weight: 600; }
   .settings-item > svg { margin-top: 0; }
   .settings-item[aria-current='page'] { border-left-width: 1px; border-bottom: 3px solid var(--accent); }
 }
+
+/* ---------------------------------------------------------------- Pinterest: boards, analytics, publish */
+.pin-avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; flex: none; }
+.board-hero { padding: 20px; display: flex; gap: 18px; flex-wrap: wrap; align-items: stretch; }
+.board-stats { display: grid; grid-template-columns: repeat(3, minmax(130px, 1fr)); gap: 10px; flex: 1 1 420px; }
+.board-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; }
+.board-card { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--surface); display: flex; flex-direction: column; }
+.board-card.is-default { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.board-cover { aspect-ratio: 16 / 10; background: var(--surface-3); display: grid; place-items: center; color: var(--text-3); }
+.board-cover img { width: 100%; height: 100%; object-fit: cover; }
+.board-desc { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.analytics-tabs { padding: 6px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.analytics-tab { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 12px 14px; border-radius: 10px; border: 1px solid transparent; background: none; cursor: pointer; text-align: left; color: var(--text); }
+.analytics-tab strong { display: inline-flex; gap: 8px; align-items: center; }
+.analytics-tab[aria-selected='true'] { background: var(--accent-soft); border-color: var(--accent); }
+.analytics-tab[aria-selected='true'] strong { color: var(--accent); }
+.metric-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; }
+.metric-card { padding: 14px; display: flex; flex-direction: column; gap: 8px; text-align: left; cursor: pointer; border: 1px solid var(--border); background: var(--surface); }
+.metric-card.is-active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.analytics-grid { display: grid; grid-template-columns: minmax(0, 3fr) minmax(240px, 1fr); gap: 16px; }
+.bar-chart { height: 240px; display: flex; align-items: flex-end; gap: 2px; padding: 12px; border-radius: 10px; background: var(--surface-2); }
+.bar-chart .bar { flex: 1; min-width: 2px; border-radius: 3px 3px 0 0; background: var(--accent); opacity: .85; }
+.bar-chart .bar:hover { opacity: 1; }
+.table-wrap { overflow-x: auto; margin-top: 8px; }
+.data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.data-table th { text-align: left; padding: 8px 10px; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--text-3); border-bottom: 1px solid var(--border); white-space: nowrap; }
+.data-table td { padding: 8px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+.publish-grid { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 16px; align-items: start; }
+.publish-preview { width: 100%; border-radius: 10px; box-shadow: var(--shadow-sm); }
+@media (max-width: 860px) {
+  .analytics-grid, .publish-grid { grid-template-columns: 1fr; }
+  .board-stats { grid-template-columns: 1fr; }
+  .publish-preview { max-width: 180px; }
+}
+
+/* ---------------------------------------------------------------- Pinterest setup guide */
+.guide-checklist { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.guide-status { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text-3); }
+.guide-status strong { color: var(--text); font-size: 14px; }
+.guide-status.is-ok { border-color: #a7f3d0; background: var(--success-soft); color: var(--success); }
+.guide-steps { margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: 18px; }
+.guide-steps li { display: flex; flex-direction: column; gap: 8px; }
+.guide-steps li::marker { font-weight: 800; color: var(--accent); }
+.copy-box { display: flex; align-items: flex-start; gap: 8px; padding: 8px 8px 8px 12px; border-radius: 10px; border: 1px solid var(--border); background: #0f172a; }
+.copy-box pre { margin: 0; flex: 1; min-width: 0; overflow-x: auto; color: #e2e8f0; font-size: 13px; line-height: 1.5; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.copy-box .btn { flex: none; }
+@media (max-width: 700px) { .guide-checklist { grid-template-columns: 1fr; } }
