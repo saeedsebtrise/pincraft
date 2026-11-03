@@ -5,6 +5,7 @@
  */
 import { createStore, del, get, keys, set, values } from 'idb-keyval';
 import type { AssetMeta, BrandKit, Id, Project, Template } from '../model/types';
+import { logActivity } from '../services/activity';
 
 export interface ProjectRepository {
   list(): Promise<Project[]>;
@@ -100,6 +101,7 @@ export function setRepositories(next: RepositorySet) {
 export async function deleteProjectAndOrphans(id: Id): Promise<void> {
   const project = await repos.projects.get(id);
   await repos.projects.remove(id);
+  logActivity({ area: 'Projects', outcome: 'update', title: 'Project deleted', detail: project ? `“${project.name}” deleted.` : 'A project was deleted.' });
   if (!project) return;
   const others = await repos.projects.list();
   const stillUsed = new Set(others.flatMap((p) => p.assetIds));

@@ -11,6 +11,7 @@ import { getFont } from '../config/fonts';
 import { isText } from '../model/docOps';
 import type { PinDocument, Template, TextLayer } from '../model/types';
 import { aiAuthHeaders } from './ai/auth';
+import { tracked } from './activity';
 
 export type LayoutStyle = 'single-photo' | 'two-photos' | 'collage-3-4' | 'collage-5-plus' | 'band-between-photos' | 'text-panel' | 'text-only';
 export type TextStyle = 'white-blocks' | 'solid-band' | 'overlay-no-box' | 'outlined-sticker' | 'script-accent' | 'serif-editorial' | 'distressed' | 'pill-labels';
@@ -118,6 +119,14 @@ export async function fitScreenshots(
 }
 
 export async function requestResearch(keyword: string, images: { mediaType: string; data: string }[]): Promise<ResearchReport> {
+  return tracked(
+    { area: 'Research', title: 'Pinterest research done', failTitle: 'Pinterest research failed', link: { href: '#/auto', label: 'Open Auto Design' } },
+    () => requestResearchOnce(keyword, images),
+    (r) => ({ detail: `${r.pinsAnalyzed} Pins analysed${keyword ? ` for “${keyword}”` : ''} from ${images.length} screenshot${images.length === 1 ? '' : 's'}.` }),
+  );
+}
+
+async function requestResearchOnce(keyword: string, images: { mediaType: string; data: string }[]): Promise<ResearchReport> {
   let res: Response;
   try {
     const fitted = await fitScreenshots(images);

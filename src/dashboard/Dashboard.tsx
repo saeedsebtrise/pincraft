@@ -1,4 +1,4 @@
-import { ArrowRight, Copy, CreditCard, FolderOpen, Home, Image as ImageIcon, LayoutTemplate, MoreHorizontal, Palette, Pencil, Plus, PlusCircle, Search, Settings, Sparkles, Trash2, Wand2, X } from 'lucide-react';
+import { Activity as ActivityIcon, ArrowRight, Copy, CreditCard, Receipt, FolderOpen, Home, Image as ImageIcon, LayoutTemplate, MoreHorizontal, Palette, Pencil, Plus, PlusCircle, Search, Settings, Sparkles, Trash2, Wand2, X } from 'lucide-react';
 import { AutoDesign } from './AutoDesign';
 import { ensureCanCreateProject, handleLimitError } from '../saas/gates';
 import { AccountPage, PricingPage, UpgradeButton, UserCard } from '../saas/ui/PlanViews';
@@ -15,8 +15,10 @@ import { IconButton } from '../ui/controls';
 import { TemplateCard, TemplateGallery } from './TemplateGallery';
 import { NewPinFlow } from './NewPinFlow';
 import { TypeCard } from './TypeCard';
+import { ActivityPage } from './ActivityPage';
+import { BillingPage, SettingsPage } from './AccountPages';
 
-export type DashTab = 'home' | 'auto' | 'projects' | 'templates' | 'brand' | 'new' | 'account' | 'pricing';
+export type DashTab = 'home' | 'auto' | 'projects' | 'templates' | 'brand' | 'new' | 'account' | 'pricing' | 'activity' | 'billing' | 'settings';
 
 const NAV: { id: DashTab; label: string; href: string; icon: React.ReactNode }[] = [
   { id: 'home', label: 'Home', href: '#/', icon: <Home size={18} /> },
@@ -26,6 +28,13 @@ const NAV: { id: DashTab; label: string; href: string; icon: React.ReactNode }[]
   { id: 'brand', label: 'Brand Kit', href: '#/brand', icon: <Palette size={18} /> },
   { id: 'projects', label: 'Projects', href: '#/projects', icon: <FolderOpen size={18} /> },
   { id: 'pricing', label: 'Plans & Pricing', href: '#/pricing', icon: <CreditCard size={18} /> },
+];
+
+/** Account section of the sidebar. */
+const ACCOUNT_NAV: { id: DashTab; label: string; href: string; icon: React.ReactNode }[] = [
+  { id: 'settings', label: 'Settings', href: '#/settings', icon: <Settings size={18} /> },
+  { id: 'activity', label: 'Activity', href: '#/activity', icon: <ActivityIcon size={18} /> },
+  { id: 'billing', label: 'Billing', href: '#/billing', icon: <Receipt size={18} /> },
 ];
 
 /** Design types shown on the home screen (the full list of 16 is in Create New). */
@@ -54,6 +63,13 @@ export function Dashboard({ tab, params }: { tab: DashTab; params: URLSearchPara
               {n.label}
             </a>
           ))}
+          <span className="dash-side-label">Account</span>
+          {ACCOUNT_NAV.map((n) => (
+            <a key={n.id} href={n.href} className="dash-side-item" aria-current={tab === n.id ? 'page' : undefined}>
+              {n.icon}
+              {n.label}
+            </a>
+          ))}
         </nav>
         <div className="grow" />
         <UserCard />
@@ -73,7 +89,7 @@ export function Dashboard({ tab, params }: { tab: DashTab; params: URLSearchPara
             <span style={{ fontSize: '11px', fontWeight: 700, padding: '2px 7px', background: 'var(--surface-3)', borderRadius: '6px', color: 'var(--text-3)' }}>/</span>
           </form>
           <div className="grow" />
-          <a className="icon-btn" href="#/account" aria-label="Account settings" data-tip="Account settings">
+          <a className="icon-btn" href="#/settings" aria-label="Settings" data-tip="Settings">
             <Settings size={20} />
           </a>
           <UpgradeButton className="btn btn-outline btn-lg" />
@@ -100,6 +116,9 @@ export function Dashboard({ tab, params }: { tab: DashTab; params: URLSearchPara
         {tab === 'brand' && <BrandHome />}
         {tab === 'account' && <AccountPage />}
         {tab === 'pricing' && <PricingPage />}
+        {tab === 'activity' && <ActivityPage />}
+        {tab === 'billing' && <BillingPage />}
+        {tab === 'settings' && <SettingsPage key={params.get('tab') ?? ''} initialTab={params.get('tab') ?? undefined} />}
         {tab === 'new' && <NewPinFlow key={params.toString()} initialTemplateId={params.get('template') ?? undefined} initialType={(params.get('type') as DesignType) ?? undefined} />}
       </div>
     </div>
@@ -321,7 +340,7 @@ function BrandHome() {
   const [draft, setDraft] = useState<BrandKit>(kit);
   useEffect(() => setDraft(kit), [kit]);
   return (
-    <div className="dash-main" style={{ maxWidth: 680 }}>
+    <div className="dash-main">
       <h1 className="dash-h1">Brand Kit</h1>
       <p className="muted">Your website, colors and fonts. Used by website footers, the color picker and “Apply brand”.</p>
       <div className="card" style={{ padding: 20 }}>

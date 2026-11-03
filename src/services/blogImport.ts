@@ -7,6 +7,7 @@ import type { ImageSource } from '../editor/canvas/nodes';
 import type { Id } from '../model/types';
 import { useAssets } from '../store/assetStore';
 import { sniffImageType } from './fileValidation';
+import { tracked } from './activity';
 
 export interface PageImage {
   url: string;
@@ -49,9 +50,15 @@ async function errorText(res: Response): Promise<string> {
 }
 
 export async function fetchPage(url: string): Promise<PageInfo> {
-  const res = await fetch(`/api/page?url=${encodeURIComponent(normalizeUrl(url))}`);
-  if (!res.ok) throw new Error(await errorText(res));
-  return (await res.json()) as PageInfo;
+  return tracked(
+    { area: 'Blog import', title: 'Blog post read', failTitle: 'Couldn’t read the blog post' },
+    async () => {
+      const res = await fetch(`/api/page?url=${encodeURIComponent(normalizeUrl(url))}`);
+      if (!res.ok) throw new Error(await errorText(res));
+      return (await res.json()) as PageInfo;
+    },
+    (page) => ({ detail: `“${page.title}” · ${page.images.length} image${page.images.length === 1 ? '' : 's'} found`, data: { url: page.url } }),
+  );
 }
 
 /** Shortest side a downloaded photo needs to be worth putting on a Pin. */

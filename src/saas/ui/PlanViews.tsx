@@ -148,7 +148,7 @@ export function AccountPage() {
   const date = (s: string | null) => (s ? new Date(s).toLocaleDateString() : null);
 
   return (
-    <div className="dash-main" style={{ maxWidth: 760 }}>
+    <div className="dash-main">
       <h1 className="dash-h1">Account</h1>
       {acc.mode === 'local' && (
         <div className="ok-box">

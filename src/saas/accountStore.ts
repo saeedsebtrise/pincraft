@@ -15,6 +15,8 @@ import { createCloudRepositories, LimitError } from './cloudRepos';
 import { cloudEnabled } from './config';
 import { canCreateProject, canExport, hasFeature, monthKey, tierFromSubscription, type LimitCheck, type PlanTier, type ProFeature, type UsageSnapshot } from './plans';
 import { supabase } from './supabase';
+import { logActivity, useActivity } from '../services/activity';
+import { useWorkspace } from '../store/workspaceStore';
 
 export interface Account {
   id: string;
@@ -73,6 +75,8 @@ const LOCAL: Subscription = { tier: 'pro', status: 'local', renewsAt: null, ends
 export const useAccount = create<AccountState>((set, get) => {
   const enterCloud = async (uid: string) => {
     const sb = supabase()!;
+    useActivity.getState().useOwner(uid);
+    useWorkspace.getState().useOwner(uid);
     setRepositories(createCloudRepositories(sb, uid));
     await Promise.all([get().refresh(), useLibrary.getState().load()]);
   };
@@ -96,6 +100,8 @@ export const useAccount = create<AccountState>((set, get) => {
       if (!sb) {
         const name = localStorage.getItem(LOCAL_NAME_KEY) || 'You';
         set({ mode: 'local', status: 'signedIn', account: { id: 'local', email: null, name }, subscription: LOCAL });
+        useActivity.getState().useOwner('local');
+        useWorkspace.getState().useOwner('local');
         await get().refresh();
         return;
       }
@@ -123,7 +129,11 @@ export const useAccount = create<AccountState>((set, get) => {
 
     signIn: async (email, password) => {
       const { error } = await supabase()!.auth.signInWithPassword({ email, password });
-      if (error) throw new Error(error.message);
+      if (error) {
+        logActivity({ area: 'Account', outcome: 'failed', title: 'Sign-in failed', detail: error.message });
+        throw new Error(error.message);
+      }
+      logActivity({ area: 'Account', outcome: 'completed', title: 'Signed in', detail: `Signed in as ${email}.` });
     },
     signUp: async (name, email, password) => {
       const { data, error } = await supabase()!.auth.signUp({
@@ -131,7 +141,11 @@ export const useAccount = create<AccountState>((set, get) => {
         password,
         options: { data: { display_name: name }, emailRedirectTo: location.origin + location.pathname },
       });
-      if (error) throw new Error(error.message);
+      if (error) {
+        logActivity({ area: 'Account', outcome: 'failed', title: 'Sign-up failed', detail: error.message });
+        throw new Error(error.message);
+      }
+      logActivity({ area: 'Account', outcome: 'completed', title: 'Account created', detail: data.session ? 'Account created and signed in.' : 'Account created. Confirm your email to sign in.' });
       return data.session ? 'signedIn' : 'confirmEmail';
     },
     signOut: async () => {

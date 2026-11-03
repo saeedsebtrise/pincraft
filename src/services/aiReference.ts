@@ -14,6 +14,7 @@ import type { PinDocument, Template } from '../model/types';
 import { aiAuthHeaders } from './ai/auth';
 import { AI_OFFLINE, AiDesignError, specToTemplate, type AiDesignSpec } from './aiDesign';
 import { fitScreenshots, prepareScreenshot } from './pinResearch';
+import { tracked } from './activity';
 
 /** The canvas closest to the reference's shape: 2:3, 9:16 or the long 1:2 blog Pin. */
 export function canvasForRatio(heightOverWidth: number): { width: number; height: number; presetId: string } {
@@ -32,6 +33,14 @@ export interface ReferenceDesign {
 
 /** Sends the reference Pin and returns the recreated design(s). */
 export async function requestReferenceDesigns(file: Blob, opts: { headline?: string; count?: number } = {}): Promise<ReferenceDesign[]> {
+  return tracked(
+    { area: 'Templates', title: 'Template made from a Pin image', failTitle: 'Couldn’t make a template from the image', link: { href: '#/templates', label: 'Open templates' } },
+    () => requestReferenceDesignsOnce(file, opts),
+    (d) => ({ detail: `${d.length} design${d.length === 1 ? '' : 's'} recreated (“${d[0]?.headline ?? ''}”).` }),
+  );
+}
+
+async function requestReferenceDesignsOnce(file: Blob, opts: { headline?: string; count?: number }): Promise<ReferenceDesign[]> {
   const bmp = await createImageBitmap(file);
   const ratio = bmp.height / Math.max(1, bmp.width);
   bmp.close();

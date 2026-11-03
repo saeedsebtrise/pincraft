@@ -8,6 +8,7 @@ import { clone, newId } from '../model/factory';
 import type { BrandKit, PinDocument, Template, TemplateCategory } from '../model/types';
 import { frames } from '../model/docOps';
 import { repos } from '../storage/repositories';
+import { logActivity } from '../services/activity';
 
 const PRESET_KEY = 'pinforge.presets';
 const ACTIVE_KIT_KEY = 'pinforge.activeKit';
@@ -101,6 +102,7 @@ export const useLibrary = create<LibraryState>((set, get) => ({
     };
     await repos.templates.put(t);
     set({ userTemplates: [t, ...get().userTemplates] });
+    logActivity({ area: 'Templates', outcome: 'update', title: 'Template saved', detail: `“${t.name}” added to My Templates.`, link: { href: '#/templates', label: 'Open templates' } });
     return t;
   },
   duplicateTemplate: async (t) => {
@@ -118,11 +120,14 @@ export const useLibrary = create<LibraryState>((set, get) => ({
     set({ userTemplates: get().userTemplates.map((x) => (x.id === id ? next : x)) });
   },
   deleteTemplate: async (id) => {
+    const name = get().userTemplates.find((x) => x.id === id)?.name ?? 'Template';
     await repos.templates.remove(id);
+    logActivity({ area: 'Templates', outcome: 'update', title: 'Template deleted', detail: `“${name}” removed from My Templates.` });
     set({ userTemplates: get().userTemplates.filter((x) => x.id !== id) });
   },
   hideTemplate: (id) => {
     const next = [...new Set([...get().hiddenTemplateIds, id])];
+    logActivity({ area: 'Templates', outcome: 'update', title: 'Built-in template removed', detail: `${id} hidden from the gallery and Auto Design.`, link: { href: '#/templates', label: 'Restore it' } });
     set({ hiddenTemplateIds: next });
     try {
       localStorage.setItem(HIDDEN_KEY, JSON.stringify(next));
@@ -131,6 +136,7 @@ export const useLibrary = create<LibraryState>((set, get) => ({
     }
   },
   restoreHiddenTemplates: () => {
+    if (get().hiddenTemplateIds.length) logActivity({ area: 'Templates', outcome: 'update', title: 'Removed templates restored', detail: `${get().hiddenTemplateIds.length} built-in template(s) are back.` });
     set({ hiddenTemplateIds: [] });
     try {
       localStorage.removeItem(HIDDEN_KEY);
@@ -145,7 +151,9 @@ export const useLibrary = create<LibraryState>((set, get) => ({
     set({ brandKits: exists ? get().brandKits.map((k) => (k.id === kit.id ? kit : k)) : [...get().brandKits, kit] });
   },
   deleteBrandKit: async (id) => {
+    const name = get().brandKits.find((k) => k.id === id)?.name ?? 'Brand kit';
     await repos.brandKits.remove(id);
+    logActivity({ area: 'Brand Kit', outcome: 'update', title: 'Brand kit deleted', detail: `“${name}” deleted.` });
     const kits = get().brandKits.filter((k) => k.id !== id);
     set({ brandKits: kits.length ? kits : [DEFAULT_BRAND_KIT] });
     if (get().activeKitId === id) get().setActiveKit((kits[0] ?? DEFAULT_BRAND_KIT).id);

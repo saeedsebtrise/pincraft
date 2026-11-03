@@ -10,6 +10,7 @@ import { ensureCanCreateProject, handleLimitError } from '../saas/gates';
 import type { AutoInput } from '../services/autoDesign';
 import { repos } from '../storage/repositories';
 import { useLibrary } from '../store/libraryStore';
+import { logActivity } from '../services/activity';
 
 export const SIZES: { id: string; label: string; size?: AutoInput['size'] }[] = [
   { id: 'native', label: 'Each design’s own size' },
@@ -78,8 +79,10 @@ export async function saveAsProject(docs: PinDocument[], info: ProjectInfo): Pro
   try {
     await repos.projects.put(p);
   } catch (e) {
+    logActivity({ area: 'Pins', outcome: /limit/i.test((e as Error).message) ? 'warning' : 'failed', title: 'Couldn’t save the Pins', detail: (e as Error).message, link: { href: '#/billing', label: 'See your plan' } });
     if (handleLimitError(e)) return null;
     throw e;
   }
+  logActivity({ area: 'Pins', outcome: 'completed', title: `${docs.length} Pin${docs.length === 1 ? '' : 's'} created`, detail: `“${info.name}”`, link: { href: `#/editor/${p.id}`, label: 'Open project' }, data: { pins: docs.length, ...(info.articleUrl ? { post: info.articleUrl } : {}) } });
   return p;
 }

@@ -21,6 +21,7 @@ import { Field } from '../ui/controls';
 import { ensureCanCreateProject } from '../saas/gates';
 import { TemplateCard, TemplateGallery } from './TemplateGallery';
 import { TypeCard } from './TypeCard';
+import { logActivity } from '../services/activity';
 
 const chipClass = (p: CanvasPreset) => (p.status === 'official-recommended' ? 'chip chip-rec' : p.status === 'official-supported' ? 'chip chip-sup' : 'chip chip-custom');
 
@@ -184,8 +185,10 @@ export function NewPinFlow({ initialTemplateId, initialType }: { initialTemplate
         p = await saveProject({ ...p, doc, pages: [doc], activePage: 0, assetIds: [...new Set([...p.assetIds, ...ids])] });
       }
       useUi.getState().set({ leftTab: ids.length ? 'uploads' : (customLayout && customLayout !== 'blank' && customLayout !== 'quote-advice') || (t && t.imageCount > 0) ? 'uploads' : 'text' });
+      logActivity({ area: 'Pins', outcome: 'completed', title: 'Pin created', detail: `“${p.name}”${t && !customLayout ? ` from ${t.name}` : ''}`, link: { href: `#/editor/${p.id}`, label: 'Open Pin' }, data: { size: `${preset.width}×${preset.height}`, photos: ids.length } });
       location.hash = `#/editor/${p.id}`;
     } catch (e) {
+      logActivity({ area: 'Pins', outcome: 'failed', title: 'Couldn’t create the Pin', detail: (e as Error).message });
       useUi.getState().toast(`Couldn't create the Pin: ${(e as Error).message}`, 'error');
       setBusy(false);
     }

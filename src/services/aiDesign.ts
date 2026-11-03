@@ -14,6 +14,7 @@ import type { Layer, Template, TextLayer } from '../model/types';
 import { badge, bgOff, bgOn, tpl } from '../templates/kit';
 import type { ResearchReport } from './pinResearch';
 import { aiAuthHeaders } from './ai/auth';
+import { tracked } from './activity';
 
 // ---------------------------------------------------------------- spec (mirrors server/aiDesign.mjs)
 
@@ -95,6 +96,14 @@ export function photoPalette(photos: ImageSource[]): string[] {
 export class AiDesignError extends Error {}
 
 export async function requestAiDesigns(req: AiDesignRequest): Promise<AiDesignSpec[]> {
+  return tracked(
+    { area: 'AI', title: 'AI designs made', failTitle: 'AI designs failed', link: { href: '#/auto', label: 'Try again in Auto Design' } },
+    () => requestAiDesignsOnce(req),
+    (designs) => ({ detail: `${designs.length} design${designs.length === 1 ? '' : 's'} for “${req.headline}”.` }),
+  );
+}
+
+async function requestAiDesignsOnce(req: AiDesignRequest): Promise<AiDesignSpec[]> {
   let res: Response;
   try {
     res = await fetch('/api/ai-design', {
