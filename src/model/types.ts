@@ -193,6 +193,8 @@ export interface ProjectMeta {
   keyword: string;
   templateId: string | null;
   brandKitId: string | null;
+  /** Publishing details from CSV Import (one entry per page), ready for the Pin's board and schedule. */
+  publish?: { board: string; link: string; description: string; publishAt: number | null }[];
   createdAt: number;
   updatedAt: number;
 }

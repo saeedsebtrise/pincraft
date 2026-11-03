@@ -155,7 +155,41 @@ export function publishPin(p: PublishInput): Promise<{ id: string; url: string }
   );
 }
 
-export const fetchAnalytics = (days: 7 | 30 | 90) => call<Analytics>('analytics', undefined, `?days=${days}`);
+/**
+ * Publishes a video Pin: registers the upload, sends the file straight to
+ * Pinterest's upload URL, waits until Pinterest has processed it, then creates the Pin.
+ */
+export function publishVideoPin(
+  p: Omit<PublishInput, 'image'> & { video: Blob },
+  onStep?: (step: 'uploading' | 'processing' | 'publishing') => void,
+): Promise<{ id: string; url: string }> {
+  return tracked(
+    { area: 'Publishing', title: 'Video Pin published to Pinterest', failTitle: 'Video Pin publishing failed', link: { href: '#/video', label: 'Open Video Pins' } },
+    async () => {
+      const reg = await call<{ mediaId: string; uploadUrl: string; uploadParameters: Record<string, string> }>('media', { method: 'POST', body: '{}' });
+      onStep?.('uploading');
+      const form = new FormData();
+      for (const [k, v] of Object.entries(reg.uploadParameters)) form.append(k, v);
+      form.append('file', p.video);
+      const up = await fetch(reg.uploadUrl, { method: 'POST', body: form }).catch(() => null);
+      if (!up || !up.ok) throw new Error('Pinterest didn’t accept the video upload. Use an MP4 (H.264), 4 s – 15 min, under 2 GB.');
+      onStep?.('processing');
+      for (let i = 0; i < 60; i++) {
+        const { status } = await call<{ status: string }>('media', undefined, `?id=${encodeURIComponent(reg.mediaId)}`);
+        if (status === 'succeeded') break;
+        if (status === 'failed') throw new Error('Pinterest couldn’t process this video. Try an MP4 (H.264).');
+        if (i === 59) throw new Error('Pinterest is still processing the video — try publishing again in a few minutes.');
+        await new Promise((r) => setTimeout(r, 4000));
+      }
+      onStep?.('publishing');
+      const { video: _video, ...rest } = p;
+      return (await call<{ pin: { id: string; url: string } }>('videopin', { method: 'POST', body: JSON.stringify({ ...rest, mediaId: reg.mediaId }) })).pin;
+    },
+    (pin) => ({ detail: `“${p.title || 'Untitled video'}”`, link: { href: pin.url, label: 'View on Pinterest' } }),
+  );
+}
+
+export const fetchAnalytics =(days: 7 | 30 | 90) => call<Analytics>('analytics', undefined, `?days=${days}`);
 export const fetchTrends = (region: string, type: string) =>
   call<{ region: string; type: string; trends: Trend[] }>('trends', undefined, `?region=${encodeURIComponent(region)}&type=${encodeURIComponent(type)}`);
 

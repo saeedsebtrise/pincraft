@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type { Id } from '../model/types';
 
-export type LeftTab = 'templates' | 'uploads' | 'layouts' | 'text' | 'brand' | 'background' | 'elements' | 'projects';
+export type LeftTab = 'templates' | 'uploads' | 'layouts' | 'text' | 'brand' | 'background' | 'elements' | 'projects' | 'studio';
 export type RightTab = 'design' | 'images' | 'text' | 'layers';
 export type ModalName = 'export' | 'preview' | 'variations' | 'saveTemplate' | 'aiAssistant' | 'publish' | null;
 

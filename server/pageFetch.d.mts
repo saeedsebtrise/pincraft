@@ -11,6 +11,7 @@ export interface PageInfo {
   description: string;
   siteName: string;
   images: PageImage[];
+  colors: string[];
 }
 export class FetchError extends Error {
   status: number;
@@ -24,3 +25,5 @@ export function parsePage(html: string, pageUrl: string): PageInfo;
 export function readPage(raw: string): Promise<PageInfo>;
 export function readImage(raw: string): Promise<{ type: string; body: Uint8Array }>;
 export function pageMiddleware(): (req: IncomingMessage, res: ServerResponse, next?: () => void) => Promise<void>;
+/** Brand colors of a page: theme-color first, then the most used colorful CSS colors. */
+export function siteColors(html: string, metas?: Record<string, string>): string[];

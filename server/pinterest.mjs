@@ -223,6 +223,41 @@ export async function handlePinterest(op, req, body, { env = process.env, fetch:
       );
       return done(200, { pin: { id: pin.id, url: `https://www.pinterest.com/pin/${pin.id}/` } });
     }
+    // Video Pins: register an upload (the browser then sends the file straight to Pinterest's
+    // upload URL), check its processing status, then create the Pin from the media id.
+    if (op === 'media' && req.method === 'POST') {
+      const m = await api(session, '/media', { method: 'POST', body: JSON.stringify({ media_type: 'video' }) }, ctx);
+      return done(200, { mediaId: m.media_id, uploadUrl: m.upload_url, uploadParameters: m.upload_parameters ?? {} });
+    }
+    if (op === 'media' && req.method === 'GET') {
+      const id = url.searchParams.get('id') ?? '';
+      if (!/^\d+$/.test(id)) throw fail(400, 'Unknown upload.');
+      const m = await api(session, `/media/${id}`, undefined, ctx);
+      return done(200, { status: m.status });
+    }
+    if (op === 'videopin' && req.method === 'POST') {
+      if (!body?.boardId) throw fail(400, 'Choose a board.');
+      if (!/^\d+$/.test(String(body?.mediaId ?? ''))) throw fail(400, 'The video upload is missing.');
+      const link = String(body.link ?? '').trim();
+      if (link && !/^https?:\/\//i.test(link)) throw fail(400, 'The link must start with http:// or https://');
+      const pin = await api(
+        session,
+        '/pins',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            board_id: String(body.boardId),
+            title: String(body.title ?? '').slice(0, 100),
+            description: String(body.description ?? '').slice(0, 800),
+            alt_text: String(body.altText ?? '').slice(0, 500) || undefined,
+            link: link || undefined,
+            media_source: { source_type: 'video_id', media_id: String(body.mediaId), cover_image_key_frame_time: 0 },
+          }),
+        },
+        ctx,
+      );
+      return done(200, { pin: { id: pin.id, url: `https://www.pinterest.com/pin/${pin.id}/` } });
+    }
     if (op === 'analytics') {
       const days = [7, 30, 90].includes(Number(url.searchParams.get('days'))) ? Number(url.searchParams.get('days')) : 30;
       const end = new Date(Date.now() - 86_400_000);

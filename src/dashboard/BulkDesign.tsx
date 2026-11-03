@@ -2,14 +2,23 @@
  * Bulk Design: paste any number of blog post links. For each post PinCraft
  * reads the title, picks the post's best photos and designs N Pins with them;
  * "Create" saves one project per post (its Pins are the pages).
+ *
+ * AI Designer options: the brand palette and fonts (optionally applied to every
+ * design), the template strategy (Smart Dynamic Mix or rotating through the
+ * user's own Studio templates) and a daily publishing pace for the schedule.
  */
-import { AlertCircle, Check, ExternalLink, Layers, Loader2 } from 'lucide-react';
+import { AlertCircle, CalendarClock, Check, ExternalLink, Layers, Loader2, Palette } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ImageMap } from '../editor/canvas/nodes';
 import { requirePro } from '../saas/gates';
 import { requestAiDesigns, specToTemplate } from '../services/aiDesign';
 import { autoDesign, autoText, type AutoDesignResult } from '../services/autoDesign';
-import type { Template } from '../model/types';
+import { applyBrand } from '../model/docOps';
+import type { BrandKit, PinDocument, ProjectMeta, Template } from '../model/types';
+import { fontOptions } from '../editor/panels/MiscPanels';
+import { schedulePins } from '../services/csvImport';
+import { fillVariables } from '../services/studioVars';
+import { BRAND_PALETTES } from './StudioPages';
 import { fetchPage, importPagePhotos, siteHost, type ImportedPhoto } from '../services/blogImport';
 import { parseLinks, pickForPost } from '../services/bulkDesign';
 import { useAssets } from '../store/assetStore';
@@ -20,7 +29,7 @@ import { docThumbnail } from '../templates/thumbnails';
 import { inkWithCanvas, measureWithCanvas, saveAsProject, SIZES } from './autoShared';
 
 const PINS_PER_POST = [1, 3, 5, 10, 15];
-const MAX_POSTS = 50;
+const MAX_POSTS = 200;
 const PHOTOS_PER_POST = 6;
 
 type Status = 'waiting' | 'reading' | 'photos' | 'designing' | 'done' | 'error';
@@ -30,6 +39,7 @@ interface Post {
   status: Status;
   message?: string;
   title?: string;
+  description?: string;
   host?: string;
   photos?: ImportedPhoto[];
   results?: AutoDesignResult[];
@@ -75,7 +85,16 @@ export function BulkDesign() {
   const [running, setRunning] = useState(false);
   const [saving, setSaving] = useState(false);
   const runId = useRef(0);
-  const kitWebsite = useLibrary((s) => s.activeKit().website);
+  const lib = useLibrary();
+  const kit = lib.activeKit();
+  const kitWebsite = kit.website;
+  const [brandDraft, setBrandDraft] = useState<BrandKit>(kit);
+  useEffect(() => setBrandDraft(kit), [kit]);
+  const [useBrand, setUseBrand] = useState(false);
+  const [strategy, setStrategy] = useState<'mix' | 'studio'>('mix');
+  const [paceFrom, setPaceFrom] = useState(2);
+  const [paceTo, setPaceTo] = useState(50);
+  const studioTemplates = lib.userTemplates;
   const links = useMemo(() => parseLinks(text), [text]);
 
   const update = (i: number, patch: Partial<Post>) => setPosts((list) => list.map((p, j) => (j === i ? { ...p, ...patch } : p)));
@@ -96,7 +115,7 @@ export function BulkDesign() {
         if (run !== runId.current) return;
         if (!page.title) throw new Error('No title on this page.');
         const host = siteHost(page.url);
-        update(i, { status: 'photos', title: page.title, host });
+        update(i, { status: 'photos', title: page.title, description: page.description, host });
         const { photos } = page.images.length ? await importPagePhotos(page.images, { max: PHOTOS_PER_POST }) : { photos: [] as ImportedPhoto[] };
         // Light previews are kept per post; the full ones come back when a project opens.
         useAssets.getState().dropPreviews(photos.map((p) => p.id));
@@ -106,9 +125,9 @@ export function BulkDesign() {
         const website = kitWebsite && !/yourwebsite/i.test(kitWebsite) ? kitWebsite : host;
         const ranked = autoDesign(
           { title: page.title, website, size, assetIds: photos.map((p) => p.id), assetMetas: useAssets.getState().metas, cta, ctaOffset: i * perPost },
-          allTemplates(),
+          strategy === 'studio' && studioTemplates.length ? studioTemplates : allTemplates(),
           { limit: Math.max(perPost * 2, perPost + 4), measure: measureWithCanvas, ink: inkWithCanvas },
-        );
+        ).map((r) => ({ ...r, doc: fillVariables(r.doc, { title: page.title, description: page.description, website }) }));
         // Optional: brand-new AI designs first (up to 4 per post), then the best template designs.
         let aiMade: AutoDesignResult[] = [];
         let note: string | undefined;
@@ -154,8 +173,15 @@ export function BulkDesign() {
   const ready = posts.filter((p) => p.status === 'done' && p.results?.length && p.keep?.size && !p.projectId);
   const pinCount = ready.reduce((n, p) => n + (p.keep?.size ?? 0), 0);
 
+  /** Brand colors and fonts on a design, keeping the Pin's own website. */
+  const branded = (doc: PinDocument, website: string) => (useBrand ? applyBrand(doc, { ...brandDraft, website }) : doc);
+
   const create = async (indexes: number[], open: boolean) => {
     setSaving(true);
+    // One publishing plan across the whole batch, at the chosen daily pace.
+    const counts = indexes.map((i) => (posts[i].projectId ? 0 : (posts[i].results ?? []).filter((r) => posts[i].keep?.has(r.template.id)).length));
+    const times = schedulePins(Array.from({ length: counts.reduce((a, b) => a + b, 0) }, () => ({ fixedAt: null })), { minPerDay: paceFrom, maxPerDay: paceTo, startHour: 8, endHour: 20 });
+    let slot = 0;
     let made = 0;
     let lastId = '';
     try {
@@ -164,11 +190,16 @@ export function BulkDesign() {
         const chosen = (p.results ?? []).filter((r) => p.keep?.has(r.template.id));
         if (!chosen.length || p.projectId) continue;
         const headline = autoText(p.title ?? '').headline || p.title || 'Pins';
+        const site = siteHost(p.url);
+        const publish: NonNullable<ProjectMeta['publish']> = chosen.map(() => ({ board: '', link: p.url, description: p.description ?? '', publishAt: times[slot++] ?? null }));
         const project = await saveAsProject(
-          chosen.map((r) => r.doc),
+          chosen.map((r) => branded(r.doc, kitWebsite && !/yourwebsite/i.test(kitWebsite) ? kitWebsite : site)),
           { name: headline, articleTitle: p.title ?? '', articleUrl: p.url, headline, templateId: chosen[0].template.id, assetIds: (p.photos ?? []).map((x) => x.id) },
         );
         if (!project) break; // plan limit reached — the upgrade prompt is showing
+        project.meta.publish = publish;
+        const { repos } = await import('../storage/repositories');
+        await repos.projects.put(project);
         update(i, { projectId: project.id });
         lastId = project.id;
         made++;
@@ -250,6 +281,113 @@ export function BulkDesign() {
           </button>
         </div>
       </form>
+
+      <details className="card ai-opts">
+        <summary>
+          <Palette size={15} /> Brand &amp; fonts
+          <span className="palette-dots" style={{ marginLeft: 'auto' }}>
+            <i style={{ background: brandDraft.accent }} />
+            <i style={{ background: brandDraft.primary }} />
+          </span>
+        </summary>
+        <div className="stack">
+          <div className="palette-chips">
+            {BRAND_PALETTES.map((p) => {
+              const on = brandDraft.accent.toUpperCase() === p.accent && brandDraft.primary.toUpperCase() === p.primary;
+              return (
+                <button key={p.name} type="button" className={`palette-chip ${on ? 'is-on' : ''}`} aria-pressed={on} onClick={() => setBrandDraft({ ...brandDraft, primary: p.primary, secondary: p.secondary, accent: p.accent })}>
+                  <span className="palette-dots">
+                    <i style={{ background: p.primary }} />
+                    <i style={{ background: p.accent }} />
+                  </span>
+                  {p.name}
+                </button>
+              );
+            })}
+          </div>
+          <div className="grid-2">
+            <label className="field">
+              <span className="field-label">Headline font</span>
+              <select className="select" value={brandDraft.headingFont} onChange={(e) => setBrandDraft({ ...brandDraft, headingFont: e.target.value })}>
+                {fontOptions.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="field">
+              <span className="field-label">Body font</span>
+              <select className="select" value={brandDraft.bodyFont} onChange={(e) => setBrandDraft({ ...brandDraft, bodyFont: e.target.value })}>
+                {fontOptions.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <div className="row" style={{ gap: 12, flexWrap: 'wrap' }}>
+            <label className="row subtle" style={{ gap: 6 }}>
+              <input type="checkbox" checked={useBrand} onChange={(e) => setUseBrand(e.target.checked)} />
+              Use these colors &amp; fonts on the Pins (off: each design keeps its original look)
+            </label>
+            <button
+              type="button"
+              className="btn btn-sm"
+              disabled={JSON.stringify(brandDraft) === JSON.stringify(kit)}
+              onClick={async () => {
+                await lib.saveBrandKit(brandDraft);
+                useUi.getState().toast('Brand saved', 'success');
+              }}
+            >
+              Save brand
+            </button>
+          </div>
+        </div>
+      </details>
+
+      <details className="card ai-opts" open>
+        <summary>
+          <Layers size={15} /> Template strategy
+        </summary>
+        <div className="csv-modes">
+          <button type="button" className={`csv-mode ${strategy === 'mix' ? 'is-on' : ''}`} aria-pressed={strategy === 'mix'} onClick={() => setStrategy('mix')}>
+            <span className="stack-sm" style={{ gap: 2 }}>
+              <strong>Smart Dynamic Mix</strong>
+              <span className="subtle">Matches PinCraft templates to each post and avoids repeating layouts.</span>
+            </span>
+          </button>
+          <button type="button" className={`csv-mode ${strategy === 'studio' ? 'is-on' : ''}`} aria-pressed={strategy === 'studio'} disabled={!studioTemplates.length} onClick={() => setStrategy('studio')}>
+            <span className="stack-sm" style={{ gap: 2 }}>
+              <strong>Studio Smart Rotation</strong>
+              <span className="subtle">
+                {studioTemplates.length ? `Rotates through your ${studioTemplates.length} saved Studio template${studioTemplates.length === 1 ? '' : 's'}.` : 'Save a template in the Design Studio to enable this.'}
+              </span>
+            </span>
+          </button>
+        </div>
+      </details>
+
+      <details className="card ai-opts">
+        <summary>
+          <CalendarClock size={15} /> Daily publishing pace · {paceFrom}–{paceTo} Pins / day
+        </summary>
+        <div className="row" style={{ gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+          <span className="subtle grow">
+            A publishing target for this batch across all its posts. Each Pin gets a planned time (8:00–20:00, from tomorrow) saved with its project, ready for scheduling.
+          </span>
+          <label className="field" style={{ width: 90 }}>
+            <span className="field-label">From</span>
+            <input className="input" type="number" min={1} max={50} value={paceFrom} onChange={(e) => setPaceFrom(Math.min(paceTo, Math.max(1, +e.target.value || 1)))} />
+          </label>
+          <label className="field" style={{ width: 90 }}>
+            <span className="field-label">To</span>
+            <input className="input" type="number" min={1} max={50} value={paceTo} onChange={(e) => setPaceTo(Math.max(paceFrom, Math.min(50, +e.target.value || 1)))} />
+          </label>
+          <span className="subtle">Pins / day</span>
+        </div>
+      </details>
 
       {!!posts.length && (
         <section className="stack">

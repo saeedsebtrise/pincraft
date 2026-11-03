@@ -278,7 +278,37 @@ export function parsePage(html, pageUrl) {
     add(src, a.alt || '');
   }
 
-  return { url: String(pageUrl), title, description, siteName, images };
+  return { url: String(pageUrl), title, description, siteName, images, colors: siteColors(html, metas) };
+}
+
+/**
+ * The site's brand colors: theme-color first, then the most used colorful hex
+ * values in its inline CSS (near-white, near-black and greys are skipped).
+ */
+export function siteColors(html, metas = {}) {
+  const hex6 = (h) => {
+    const v = h.replace('#', '').toLowerCase();
+    return '#' + (v.length === 3 ? v.split('').map((c) => c + c).join('') : v.slice(0, 6));
+  };
+  const colorful = (h) => {
+    const n = parseInt(h.slice(1), 16);
+    const r = n >> 16, g = (n >> 8) & 255, b = n & 255;
+    const max = Math.max(r, g, b), min = Math.min(r, g, b);
+    return max - min > 40 && max > 40 && min < 235;
+  };
+  const counts = new Map();
+  const css = [...html.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style>/gi)].map((m) => m[1]).join('\n') + ' ' + [...html.matchAll(/style="([^"]*)"/gi)].map((m) => m[1]).join(';');
+  for (const m of css.matchAll(/#([0-9a-f]{6}|[0-9a-f]{3})\b/gi)) {
+    const h = hex6(m[0]);
+    if (colorful(h)) counts.set(h, (counts.get(h) || 0) + 1);
+  }
+  const out = [];
+  for (const k of ['theme-color', 'msapplication-tilecolor']) {
+    const v = metas[k];
+    if (v && /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(v.trim())) out.push(hex6(v.trim()));
+  }
+  for (const [h] of [...counts].sort((a, b) => b[1] - a[1])) if (!out.includes(h)) out.push(h);
+  return out.slice(0, 6);
 }
 
 // ---------------------------------------------------------------- routes

@@ -19,6 +19,8 @@ export interface PageInfo {
   description: string;
   siteName: string;
   images: PageImage[];
+  /** Brand colors found on the page (theme-color, then the most used CSS colors). */
+  colors?: string[];
 }
 
 /** "example.com/post", "https://…" — one token with a dot and no spaces. */

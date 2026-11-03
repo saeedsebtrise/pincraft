@@ -1,15 +1,13 @@
-import { Activity as ActivityIcon, ArrowRight, BarChart3, LayoutGrid, Copy, CreditCard, Receipt, FolderOpen, Home, Image as ImageIcon, LayoutTemplate, MoreHorizontal, Palette, Pencil, Plus, PlusCircle, Search, Settings, Sparkles, Trash2, Wand2, X } from 'lucide-react';
+import { Activity as ActivityIcon, ArrowRight, FileSpreadsheet, PenTool, Video, BarChart3, LayoutGrid, Copy, CreditCard, Receipt, FolderOpen, Home, Image as ImageIcon, LayoutTemplate, MoreHorizontal, Palette, Pencil, Plus, PlusCircle, Search, Settings, Sparkles, Trash2, Wand2, X } from 'lucide-react';
 import { AutoDesign } from './AutoDesign';
 import { ensureCanCreateProject, handleLimitError } from '../saas/gates';
 import { AccountPage, PricingPage, UpgradeButton, UserCard } from '../saas/ui/PlanViews';
 import { useEffect, useMemo, useState } from 'react';
 import { DESIGN_TYPES, type DesignType } from '../config/designTypes';
-import type { BrandKit, Project } from '../model/types';
+import type { Project } from '../model/types';
 import { allTemplates, duplicateProject } from '../store/projectActions';
-import { useLibrary } from '../store/libraryStore';
 import { useUi } from '../store/uiStore';
 import { deleteProjectAndOrphans, repos } from '../storage/repositories';
-import { BrandKitEditor } from '../editor/panels/MiscPanels';
 import { BrandMark } from '../ui/BrandMark';
 import { IconButton } from '../ui/controls';
 import { TemplateCard, TemplateGallery } from './TemplateGallery';
@@ -18,13 +16,19 @@ import { TypeCard } from './TypeCard';
 import { ActivityPage } from './ActivityPage';
 import { BillingPage, SettingsPage } from './AccountPages';
 import { AnalyticsPage, BoardsPage } from './PinterestPages';
+import { BrandKitPage, StudioHome } from './StudioPages';
+import { CsvImportPage } from './CsvImportPage';
+import { VideoPinsPage } from './VideoPinsPage';
 
-export type DashTab = 'home' | 'auto' | 'projects' | 'templates' | 'brand' | 'new' | 'account' | 'pricing' | 'activity' | 'billing' | 'settings' | 'boards' | 'analytics';
+export type DashTab = 'home' | 'auto' | 'projects' | 'templates' | 'brand' | 'new' | 'account' | 'pricing' | 'activity' | 'billing' | 'settings' | 'boards' | 'analytics' | 'studio' | 'csv' | 'video';
 
 const NAV: { id: DashTab; label: string; href: string; icon: React.ReactNode }[] = [
   { id: 'home', label: 'Home', href: '#/', icon: <Home size={18} /> },
   { id: 'auto', label: 'Auto Design', href: '#/auto', icon: <Wand2 size={18} /> },
   { id: 'new', label: 'Create New', href: '#/new', icon: <PlusCircle size={18} /> },
+  { id: 'studio', label: 'Design Studio', href: '#/studio', icon: <PenTool size={18} /> },
+  { id: 'csv', label: 'CSV Import', href: '#/csv', icon: <FileSpreadsheet size={18} /> },
+  { id: 'video', label: 'Video Pins', href: '#/video', icon: <Video size={18} /> },
   { id: 'templates', label: 'Templates', href: '#/templates', icon: <LayoutTemplate size={18} /> },
   { id: 'brand', label: 'Brand Kit', href: '#/brand', icon: <Palette size={18} /> },
   { id: 'projects', label: 'Projects', href: '#/projects', icon: <FolderOpen size={18} /> },
@@ -127,7 +131,10 @@ export function Dashboard({ tab, params }: { tab: DashTab; params: URLSearchPara
             <TemplateGallery key={params.get('q') ?? ''} initialQuery={params.get('q') ?? ''} onUse={(t) => (location.hash = `#/new?template=${t.id}`)} />
           </div>
         )}
-        {tab === 'brand' && <BrandHome />}
+        {tab === 'brand' && <BrandKitPage />}
+        {tab === 'studio' && <StudioHome />}
+        {tab === 'csv' && <CsvImportPage />}
+        {tab === 'video' && <VideoPinsPage />}
         {tab === 'account' && <AccountPage />}
         {tab === 'pricing' && <PricingPage />}
         {tab === 'activity' && <ActivityPage />}
@@ -350,29 +357,3 @@ function ProjectGrid({ limit }: { limit?: number }) {
   );
 }
 
-function BrandHome() {
-  const lib = useLibrary();
-  const kit = lib.activeKit();
-  const [draft, setDraft] = useState<BrandKit>(kit);
-  useEffect(() => setDraft(kit), [kit]);
-  return (
-    <div className="dash-main">
-      <h1 className="dash-h1">Brand Kit</h1>
-      <p className="muted">Your website, colors and fonts. Used by website footers, the color picker and “Apply brand”.</p>
-      <div className="card" style={{ padding: 20 }}>
-        <BrandKitEditor kit={draft} onChange={setDraft} />
-      </div>
-      <div className="row">
-        <button
-          className="btn btn-pink"
-          onClick={async () => {
-            await lib.saveBrandKit(draft);
-            useUi.getState().toast('Brand Kit saved', 'success');
-          }}
-        >
-          Save Brand Kit
-        </button>
-      </div>
-    </div>
-  );
-}

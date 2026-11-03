@@ -30,6 +30,9 @@ function parseRoute(hash: string): Route {
   if (path.startsWith('/analytics')) return { screen: 'analytics', params };
   if (path.startsWith('/billing')) return { screen: 'billing', params };
   if (path.startsWith('/settings')) return { screen: 'settings', params };
+  if (path.startsWith('/studio')) return { screen: 'studio', params };
+  if (path.startsWith('/csv')) return { screen: 'csv', params };
+  if (path.startsWith('/video')) return { screen: 'video', params };
   if (path.startsWith('/new')) return { screen: 'new', params };
   return { screen: 'home', params };
 }

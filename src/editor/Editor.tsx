@@ -1,5 +1,5 @@
 import {
-  FolderOpen, Home, Layers, LayoutGrid, LayoutTemplate, Loader2, PaintBucket, Palette, Shapes, Type, Upload,
+  FolderOpen, Home, PenTool, Layers, LayoutGrid, LayoutTemplate, Loader2, PaintBucket, Palette, Shapes, Type, Upload,
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useEditor } from '../store/editorStore';
@@ -19,6 +19,7 @@ import { SaveTemplateModal } from './modals/SaveTemplateModal';
 import { VariationsModal } from './modals/VariationsModal';
 import { BackgroundPanel, BrandPanel, ElementsPanel, ProjectsPanel } from './panels/MiscPanels';
 import { LayoutsPanel } from './panels/LayoutsPanel';
+import { StudioPanel } from './panels/StudioPanel';
 import { TemplatesPanel } from './panels/TemplatesPanel';
 import { TextPanel } from './panels/TextPanel';
 import { UploadsPanel } from './panels/UploadsPanel';
@@ -28,6 +29,7 @@ import { PageStrip } from './shell/PageStrip';
 import { TopBar } from './shell/TopBar';
 
 const TABS: { id: LeftTab; label: string; icon: React.ReactNode }[] = [
+  { id: 'studio', label: 'Studio', icon: <PenTool size={22} /> },
   { id: 'templates', label: 'Templates', icon: <LayoutTemplate size={22} /> },
   { id: 'layouts', label: 'Layouts', icon: <LayoutGrid size={22} /> },
   { id: 'uploads', label: 'Uploads', icon: <Upload size={22} /> },
@@ -159,6 +161,7 @@ function EditorLoaded() {
               {tab === 'background' && <BackgroundPanel />}
               {tab === 'elements' && <ElementsPanel />}
               {tab === 'projects' && <ProjectsPanel />}
+              {tab === 'studio' && <StudioPanel />}
             </ErrorBoundary>
           )}
         </aside>
