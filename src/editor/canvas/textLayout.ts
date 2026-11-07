@@ -41,33 +41,138 @@ export interface TextLayout {
   lineHeight: number;
 }
 
-let measurer: Konva.Text | null = null;
 const cache = new Map<string, TextLayout>();
 
-function measure(l: TextLayer, text: string, fontSize: number, width: number, lineHeight = l.lineHeight) {
-  measurer ??= new Konva.Text({ wrap: 'word' });
-  measurer.setAttrs({
-    text,
-    fontFamily: l.fontFamily,
-    fontStyle: konvaFontStyle(l),
-    fontSize,
-    lineHeight,
-    letterSpacing: l.letterSpacing,
-    width: Math.max(1, width),
-    padding: 0,
-    height: undefined,
-    wrap: 'word',
-  });
-  const lines = (measurer as unknown as { textArr: { text: string; width: number }[] }).textArr;
-  const maxLine = lines.reduce((m, ln) => Math.max(m, ln.width), 0);
-  // A single word wider than the box gets broken mid-word by Konva — treat as overflow.
-  measurer.setAttrs({ width: undefined, wrap: 'none' });
-  const words = text.split(/\s+/).filter(Boolean);
-  let widest = 0;
-  for (const w of words) {
-    measurer.text(w);
-    widest = Math.max(widest, measurer.width());
+// ---------------------------------------------------------------- word wrap
+//
+// The same wrapping as Konva.Text (wrap: 'word', no fixed height, no ellipsis), so
+// layouts match what the editor and export draw. Konva re-splits the whole line into
+// characters with a regex on every step of its search, which made Auto Design (thousands
+// of lines) take seconds; here each line is split once and text widths are cached.
+
+let ctx: CanvasRenderingContext2D | null = null;
+let ctxFont = '';
+const widths = new Map<string, number>();
+let widthsEpoch = -1;
+
+/** A font for measuring: Konva's font string pieces without the size. */
+interface MeasureFont {
+  style: string;
+  family: string;
+  size: number;
+}
+
+/** Konva's font string: style, variant, size, quoted family. */
+function contextFont(fontStyle: string, fontSize: number, family: string): MeasureFont {
+  const fam = family
+    .split(',')
+    .map((f) => {
+      const t = f.trim();
+      return t.indexOf(' ') >= 0 && t.indexOf('"') < 0 && t.indexOf("'") < 0 ? `"${t}"` : t;
+    })
+    .join(', ');
+  return { style: fontStyle, family: fam, size: fontSize };
+}
+
+/** Strings are measured once at this size; canvas text width scales linearly with the font size. */
+const REF_SIZE = 100;
+
+/**
+ * Canvas width of a string in a font plus Konva's letter spacing. Measuring is the slow
+ * part (each new string needs shaping), and auto-fit tries many sizes of the same text,
+ * so widths are measured once at REF_SIZE and scaled; the cache resets when fonts load.
+ */
+function textWidth(font: MeasureFont, s: string, letterSpacing: number): number {
+  if (widthsEpoch !== fontEpoch() || widths.size > 200000) {
+    widths.clear();
+    widthsEpoch = fontEpoch();
   }
+  const ref = `${font.style} normal ${REF_SIZE}px ${font.family}`;
+  const key = `${ref}\u0000${s}`;
+  let w = widths.get(key);
+  if (w === undefined) {
+    ctx ??= Konva.Util.createCanvasElement().getContext('2d');
+    if (!ctx) return s.length * 0.5 * font.size + letterSpacing * s.length;
+    if (ctxFont !== ref) {
+      ctx.font = ref;
+      ctxFont = ref;
+    }
+    w = ctx.measureText(s).width;
+    widths.set(key, w);
+  }
+  return (w * font.size) / REF_SIZE + letterSpacing * s.length;
+}
+
+/** Konva's stringToArray: characters, keeping an emoji with its modifier / zero-width joiner. */
+function toChars(s: string): string[] {
+  const arr = [...s];
+  const out: string[] = [];
+  for (let i = 0; i < arr.length; i++) {
+    const c = arr[i];
+    const next = arr[i + 1];
+    if (/\p{Emoji}/u.test(c) && next && /\p{Emoji_Modifier}|‍/u.test(next)) {
+      out.push(c + next);
+      i++;
+    } else out.push(c);
+  }
+  return out;
+}
+
+/** Konva.Text's word wrap: the widths of the lines it would draw in a box maxWidth wide. */
+function wrapWidths(text: string, font: MeasureFont, ls: number, maxWidth: number): number[] {
+  const out: number[] = [];
+  const push = (line: string) => out.push(textWidth(font, line, ls));
+  for (let line of text.split('\n')) {
+    let lineWidth = textWidth(font, line, ls);
+    if (lineWidth <= maxWidth) {
+      push(line);
+      continue;
+    }
+    while (line.length > 0) {
+      const chars = toChars(line);
+      let low = 0;
+      let high = chars.length;
+      let match = '';
+      let matchWidth = 0;
+      while (low < high) {
+        const mid = (low + high) >>> 1;
+        const sub = chars.slice(0, mid + 1).join('');
+        const w = textWidth(font, sub, ls);
+        if (w <= maxWidth) {
+          low = mid + 1;
+          match = sub;
+          matchWidth = w;
+        } else high = mid;
+      }
+      if (!match) break;
+      const matchChars = toChars(match);
+      const nextChar = chars[matchChars.length];
+      const wrapIndex = (nextChar === ' ' || nextChar === '-') && matchWidth <= maxWidth ? matchChars.length : Math.max(matchChars.lastIndexOf(' '), matchChars.lastIndexOf('-')) + 1;
+      if (wrapIndex > 0) {
+        low = wrapIndex;
+        match = chars.slice(0, low).join('');
+      }
+      push(match.trimEnd());
+      line = chars.slice(low).join('').trimStart();
+      if (line.length > 0) {
+        lineWidth = textWidth(font, line, ls);
+        if (lineWidth <= maxWidth) {
+          push(line);
+          break;
+        }
+      }
+    }
+  }
+  return out;
+}
+
+function measure(l: TextLayer, text: string, fontSize: number, width: number, lineHeight = l.lineHeight) {
+  const font = contextFont(konvaFontStyle(l), fontSize, l.fontFamily);
+  const lines = wrapWidths(text, font, l.letterSpacing, Math.max(1, width));
+  const maxLine = lines.reduce((m, w) => Math.max(m, w), 0);
+  // A single word wider than the box gets broken mid-word by Konva — treat as overflow.
+  let widest = 0;
+  for (const w of text.split(/\s+/).filter(Boolean)) widest = Math.max(widest, textWidth(font, w, l.letterSpacing));
   return { height: lines.length * fontSize * lineHeight, maxLine, widest, lines: lines.length };
 }
 

@@ -11,6 +11,7 @@ import type { AutoInput } from '../services/autoDesign';
 import { repos } from '../storage/repositories';
 import { useLibrary } from '../store/libraryStore';
 import { logActivity } from '../services/activity';
+import { fontEpoch } from '../services/fonts';
 
 export const SIZES: { id: string; label: string; size?: AutoInput['size'] }[] = [
   { id: 'native', label: 'Each design’s own size' },
@@ -28,6 +29,9 @@ export const measureWithCanvas = (l: TextLayer) => Math.min(1, layoutText(l).fon
  * line's centre, so the real glyph top/bottom come from the canvas text metrics.
  */
 let metricsCtx: CanvasRenderingContext2D | null = null;
+/** Glyph ascent/descent per font and text at 100px (they scale with the size); reset when fonts load. */
+const inkMetrics = new Map<string, { above: number; below: number }>();
+let inkEpoch = -1;
 export const inkWithCanvas = (l: TextLayer): Rect => {
   const t = layoutText(l);
   if (l.role === 'badge' && t.bg) return { x: l.x + t.bg.x, y: l.y + t.bg.y, width: t.bg.width, height: t.bg.height };
@@ -37,11 +41,21 @@ export const inkWithCanvas = (l: TextLayer): Rect => {
   let above = t.fontSize * 0.5;
   let below = t.fontSize * 0.5;
   if (metricsCtx) {
-    metricsCtx.font = `${konvaFontStyle(l)} ${t.fontSize}px ${cssFontFamily(l.fontFamily)}`;
-    metricsCtx.textBaseline = 'middle';
-    const m = metricsCtx.measureText(t.text);
-    above = m.actualBoundingBoxAscent;
-    below = m.actualBoundingBoxDescent;
+    if (inkEpoch !== fontEpoch() || inkMetrics.size > 50000) {
+      inkMetrics.clear();
+      inkEpoch = fontEpoch();
+    }
+    const key = `${konvaFontStyle(l)}|${l.fontFamily}|${t.text}`;
+    let m = inkMetrics.get(key);
+    if (!m) {
+      metricsCtx.font = `${konvaFontStyle(l)} 100px ${cssFontFamily(l.fontFamily)}`;
+      metricsCtx.textBaseline = 'middle';
+      const mm = metricsCtx.measureText(t.text);
+      m = { above: mm.actualBoundingBoxAscent, below: mm.actualBoundingBoxDescent };
+      inkMetrics.set(key, m);
+    }
+    above = (m.above * t.fontSize) / 100;
+    below = (m.below * t.fontSize) / 100;
   }
   const ax = l.align === 'left' ? 0 : l.align === 'right' ? 1 : 0.5;
   const sw = l.strokeWidth / 2; // outlines grow the letters on every side

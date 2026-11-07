@@ -55,7 +55,7 @@ export async function fetchPage(url: string): Promise<PageInfo> {
   return tracked(
     { area: 'Blog import', title: 'Blog post read', failTitle: 'Couldn’t read the blog post' },
     async () => {
-      const res = await fetch(`/api/page?url=${encodeURIComponent(normalizeUrl(url))}`);
+      const res = await fetch(`/api/page?url=${encodeURIComponent(normalizeUrl(url))}`, { signal: AbortSignal.timeout(30000) });
       if (!res.ok) throw new Error(await errorText(res));
       return (await res.json()) as PageInfo;
     },
@@ -196,6 +196,9 @@ async function analyse(blob: Blob): Promise<{ blob: Blob; stats: PhotoStats; thu
 }
 
 const THUMB_SIDE = 640;
+/** Photos downloaded at the same time, and how long one may take. */
+const PHOTO_WORKERS = 6;
+const IMAGE_TIMEOUT_MS = 20000;
 
 export interface ImportedPhoto {
   id: Id;
@@ -223,7 +226,8 @@ export async function importPagePhotos(
     while (next < total) {
       const i = next++;
       try {
-        const res = await fetch(`/api/image?url=${encodeURIComponent(images[i].url)}`);
+        // A slow image is skipped instead of holding up the whole post.
+        const res = await fetch(`/api/image?url=${encodeURIComponent(images[i].url)}`, { signal: AbortSignal.timeout(IMAGE_TIMEOUT_MS) });
         const a = res.ok ? await analyse(await res.blob()) : null;
         if (a) {
           const name = decodeURIComponent(new URL(images[i].url).pathname.split('/').pop() || 'photo.jpg');
@@ -235,7 +239,7 @@ export async function importPagePhotos(
       opts.onProgress?.(++done, total);
     }
   };
-  await Promise.all([worker(), worker(), worker(), worker()]);
+  await Promise.all(Array.from({ length: PHOTO_WORKERS }, worker));
 
   const best = pickBest(got, max);
   const photos: ImportedPhoto[] = [];

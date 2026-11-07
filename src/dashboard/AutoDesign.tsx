@@ -157,7 +157,28 @@ export function AutoDesign({ initialTitle = '', initialMode = 'one' }: { initial
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const templateResults = useMemo(() => (input ? autoDesign(input, allTemplates(), { limit, measure: measureWithCanvas, ink: inkWithCanvas }) : []), [input, limit]);
+  // Designing measures text on hundreds of templates: done after the "Designing…" status has
+  // painted, so the page never looks frozen.
+  const [templateResults, setTemplateResults] = useState<AutoDesignResult[]>([]);
+  const [designing, setDesigning] = useState(false);
+  useEffect(() => {
+    if (!input) {
+      setTemplateResults([]);
+      return;
+    }
+    let alive = true;
+    setDesigning(true);
+    const id = setTimeout(() => {
+      const out = autoDesign(input, allTemplates(), { limit, measure: measureWithCanvas, ink: inkWithCanvas });
+      if (!alive) return;
+      setTemplateResults(out);
+      setDesigning(false);
+    }, 30);
+    return () => {
+      alive = false;
+      clearTimeout(id);
+    };
+  }, [input, limit]);
   // AI-made designs (newest first) sit above the template designs.
   const [aiResults, setAiResults] = useState<AutoDesignResult[]>([]);
   const [aiBusy, setAiBusy] = useState(false);
@@ -315,6 +336,11 @@ export function AutoDesign({ initialTitle = '', initialMode = 'one' }: { initial
             </label>
           </div>
         </form>
+        {designing && !reading && (
+          <div className="row subtle" role="status">
+            <Loader2 size={16} /> Designing {limit} Pins…
+          </div>
+        )}
         {reading && (
           <div className="row subtle" role="status">
             <Loader2 size={16} /> {reading}
