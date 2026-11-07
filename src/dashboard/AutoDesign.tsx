@@ -1,4 +1,4 @@
-import { Check, Layers, Link2, Loader2, Pencil, Sparkles, Wand2 } from 'lucide-react';
+import { Check, Layers, Link2, Loader2, Pencil, Sparkles, Wand2, Zap } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ImageMap } from '../editor/canvas/nodes';
 import type { Id, Template } from '../model/types';
@@ -49,7 +49,10 @@ function ResultCard({ r, checked, onToggle, onEdit, photos }: { r: AutoDesignRes
       </div>
       <label className="tpl-info row" style={{ cursor: 'pointer' }}>
         <input type="checkbox" checked={checked} onChange={onToggle} />
-        <strong className="grow">{r.template.name}</strong>
+        <span className="grow stack-sm" style={{ gap: 0, minWidth: 0 }}>
+          <strong className="ellipsis">{r.headline ?? r.template.name}</strong>
+          {r.headline && <span className="subtle ellipsis">{r.template.name} · {r.palette}</span>}
+        </span>
         {r.template.id.startsWith('ai-') && <span className="chip chip-ai">AI</span>}
       </label>
     </div>
@@ -70,6 +73,8 @@ export function AutoDesign({ initialTitle = '', initialMode = 'one' }: { initial
   const [keyword, setKeyword] = useState('');
   const [sizeId, setSizeId] = useState('native');
   const [cta, setCta] = useState(true);
+  // Every Pin different: its own title, CTA and color scheme.
+  const [vary, setVary] = useState(true);
   const [research, setResearch] = useState<ResearchReport | null>(null);
   const [limit, setLimit] = useState(50);
   const [input, setInput] = useState<AutoInput | null>(null);
@@ -95,7 +100,7 @@ export function AutoDesign({ initialTitle = '', initialMode = 'one' }: { initial
     const website = kitWebsite && !/yourwebsite/i.test(kitWebsite) ? kitWebsite : src?.host || kitWebsite;
     setLimit(50);
     setAiResults([]);
-    setInput({ title: t, keyword: k, website, size: SIZES.find((s) => s.id === sizeId)?.size, assetIds: ids, assetMetas: useAssets.getState().metas, cta, research });
+    setInput({ title: t, keyword: k, website, size: SIZES.find((s) => s.id === sizeId)?.size, assetIds: ids, assetMetas: useAssets.getState().metas, cta, research, vary });
   };
 
   const generate = async (t = title, k = keyword) => {
@@ -297,6 +302,17 @@ export function AutoDesign({ initialTitle = '', initialMode = 'one' }: { initial
               />
               Add a call to action (different on each Pin)
             </label>
+            <label className="row subtle" style={{ gap: 6 }}>
+              <input
+                type="checkbox"
+                checked={vary}
+                onChange={(e) => {
+                  setVary(e.target.checked);
+                  setInput((cur) => cur && { ...cur, vary: e.target.checked });
+                }}
+              />
+              Every Pin different — own title, CTA &amp; colors
+            </label>
           </div>
         </form>
         {reading && (
@@ -366,14 +382,17 @@ export function AutoDesign({ initialTitle = '', initialMode = 'one' }: { initial
         <section className="stack">
           <div className="row-between" style={{ flexWrap: 'wrap', gap: 10 }}>
             <h2 className="dash-h2">
-              {results.length} designs for “{text?.headline}”
+              {results.length} {input?.vary ? 'different Pins' : 'designs'} for “{text?.headline}”
             </h2>
             <div className="row" style={{ gap: 8 }}>
               <button className="btn" onClick={() => setKeep(keep.size === results.length ? new Set() : new Set(results.map((r) => r.template.id)))}>
                 {keep.size === results.length ? 'Select none' : 'Select all'}
               </button>
-              <button className="btn btn-pink" disabled={!chosen.length || busy} onClick={() => create(chosen)}>
-                <Check size={15} /> Create {chosen.length} Pin{chosen.length === 1 ? '' : 's'}
+              <button className="btn" disabled={!chosen.length || busy} onClick={() => create(chosen)}>
+                <Check size={15} /> Create {chosen.length} selected
+              </button>
+              <button className="btn btn-pink" disabled={busy} onClick={() => create(results)} title="Every design on this page, as one project (one Pin per page)">
+                {busy ? <Loader2 size={15} /> : <Zap size={15} />} Create all {results.length} Pins
               </button>
             </div>
           </div>

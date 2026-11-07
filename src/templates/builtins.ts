@@ -14,6 +14,7 @@ import { HAIR_TEMPLATES } from './hairStyles';
 import { PACK_STYLE_TEMPLATES } from './packStyles';
 import { PREMIUM_TEMPLATES } from './premiumStyles';
 import { CTR_TEMPLATES } from './ctrStyles';
+import { LUXE_CTR_TEMPLATES } from './luxeCtrPack';
 import { PIN_STYLE_TEMPLATES } from './pinStyles';
 import { TRENDING_TEMPLATES } from './trendingTemplates';
 
@@ -24,6 +25,7 @@ export const BUILTIN_TEMPLATES: Template[] = [
   ...PREMIUM_TEMPLATES,
   // Built for clicks: huge keyword on a solid band, big number, benefit line, CTA.
   ...CTR_TEMPLATES,
+  ...LUXE_CTR_TEMPLATES,
   // Newly crafted trending high-converting Pinterest templates
   ...TRENDING_TEMPLATES,
   // Recreated from real high-performing Pins (Auto Design ranks these first).

@@ -6,11 +6,12 @@
  * down, so the first results are the ones where the title reads best.
  */
 import { BLANK_TEMPLATE_ID } from '../templates/builtins';
-import { assignImages, instantiateTemplate, isText } from '../model/docOps';
+import { applyHeadline, assignImages, instantiateTemplate, isText } from '../model/docOps';
 import type { AssetMeta, Id, PinDocument, Rect, Template, TextLayer } from '../model/types';
 import { applyCta, ctaOptions } from './autoCta';
 import { parseTitle, suggestSubtitles, titleCase } from './headlines';
 import { designTraits, researchBoost, type ResearchReport } from './pinResearch';
+import { paletteFor, recolorDoc, titleVariants } from './pinVariety';
 import { recommendTemplates } from './recommend';
 
 export interface AutoInput {
@@ -29,6 +30,8 @@ export interface AutoInput {
   ctaOffset?: number;
   /** Pinterest research for the keyword: designs that match the winning styles rank higher. */
   research?: ResearchReport | null;
+  /** Every Pin different: its own headline and color scheme (CTAs already differ). */
+  vary?: boolean;
 }
 
 /**
@@ -52,6 +55,9 @@ export interface AutoDesignResult {
   doc: PinDocument;
   /** 0..1 — how well the title fits (1 = every line at its designed size, nothing empty). */
   fit: number;
+  /** With `vary`: this Pin's own headline and color scheme. */
+  headline?: string;
+  palette?: string;
 }
 
 /** Headline + subtitle from what the user typed. A bare keyword becomes "<Keyword> Ideas". */
@@ -247,9 +253,29 @@ export function autoDesign(
     if (out.length >= limit) break;
     if (!out.some((o) => o.template.id === r.template.id)) out.push({ template: r.template, doc: r.doc, fit: r.fit });
   }
-  if (input.cta === false) return out;
+  const varied = input.vary ? varyResults(out, input, opts.ink) : out;
+  if (input.cta === false) return varied;
   // A call to action on every Pin, worded differently from one Pin to the next.
   const ctas = ctaOptions(topic);
   const offset = input.ctaOffset ?? 0;
-  return out.map((r, k) => ({ ...r, doc: applyCta(r.doc, ctas[(k + offset) % ctas.length], opts.ink ?? undefined) }));
+  return varied.map((r, k) => ({ ...r, doc: applyCta(r.doc, ctas[(k + offset) % ctas.length], opts.ink ?? undefined) }));
+}
+
+/**
+ * "Every Pin different": the k-th design gets the k-th headline variant of the article
+ * title and the k-th color scheme (the first keeps the article's title and its own colors).
+ */
+function varyResults(out: AutoDesignResult[], input: AutoInput, ink?: InkMeasure): AutoDesignResult[] {
+  const titles = titleVariants(input.title, input.keyword ?? '', out.length);
+  return out.map((r, k) => {
+    let doc = r.doc;
+    const headline = titles[k % titles.length];
+    if (k > 0 && headline) {
+      doc = keepOwnWords(applyHeadline(doc, headline), headline);
+      if (ink) doc = clearCutText(doc, ink).doc;
+    }
+    const palette = paletteFor(k, input.title);
+    if (palette) doc = recolorDoc(doc, palette);
+    return { ...r, doc, headline, palette: palette?.name ?? 'Original' };
+  });
 }

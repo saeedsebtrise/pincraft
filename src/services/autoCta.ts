@@ -47,6 +47,11 @@ const GENERAL_CTAS = [
   'Read More', 'Get the Full List', 'Save for Later', 'See All Ideas', 'Tap for More', 'Click for More', 'Get Inspired', 'Read the Post',
   'Tap to Read', 'See the Full Post', 'Keep Reading', 'Save This Pin', 'See the List', 'Get the Details', 'Discover More', "Don't Miss These",
   'Find Out Now', 'Start Here', 'Learn More', 'See Why', 'Get the Ideas', 'Open the Full List', 'See More Ideas', 'Save It for Later',
+  // Enough on their own for a 50-Pin batch with no repeats, whatever the topic.
+  'Read the Full Guide', 'See Them All', 'Get Inspired Now', 'Save for Your Next Project', 'Tap to See More', 'See the Best Ones',
+  'Find Your Favorite', 'Get the List', 'Click to See All', 'Explore the Ideas', 'See Every Idea', 'Pin It for Later', 'See What Works',
+  'Get the Full Story', 'Read It Now', 'Try These Today', 'Pick Your Favorite', 'Get Started', 'Take a Look', 'See the Collection',
+  'Save for Inspiration', 'See How', 'Get the Inspiration', 'Read the Tips', 'Click to Read', 'See the Ideas', 'Get the Guide', 'Find Out More',
 ];
 /** List-post CTAs with the title's own number: "See All 25 Looks" tells the reader exactly what they get. */
 const numberCtas = (n: string, noun: string): string[] => [
