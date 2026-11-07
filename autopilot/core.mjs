@@ -4,34 +4,58 @@ import { parsePublicUrl, safeGet, parsePage, decodeEntities, readImage } from '.
 const pinterestId = z.string().trim().regex(/^\d{1,40}$/);
 /** Calls to action the templates use (each template has its own default). */
 export const CTAS = ['SEE ALL IDEAS', 'GET THE IDEAS', 'SAVE FOR LATER', 'READ MORE'];
-/** Upper-cased overlay text with a length cap; missing becomes empty. */
-const caps = max => z.string().trim().max(max).transform(v => v.toUpperCase()).default('');
+/**
+ * A failure with a short, safe category for the Actions log ("gemini: HTTP 429",
+ * "schema: title"). Details are built only from our own messages, HTTP status codes
+ * and field names — never secrets, URLs or provider response bodies.
+ */
+export class StageError extends Error {
+  constructor(stage, detail = '') {
+    super(detail ? `${stage}: ${detail}` : stage);
+    this.name = 'StageError';
+    this.stage = stage;
+  }
+}
+
+/**
+ * Text cut to `max` characters at a word boundary. The model sometimes writes a little
+ * more than asked; shortening beats failing the whole run (the Pin renderer fits any line).
+ */
+export function clampText(value, max) {
+  const s = String(value ?? '').replace(/\s+/g, ' ').trim();
+  if (s.length <= max) return s;
+  const cut = s.slice(0, max + 1).replace(/\s+\S*$/, '');
+  return (cut || s.slice(0, max)).replace(/[\s,;:–—-]+$/, '');
+}
+const metaText = (min, max) => z.string().transform(v => clampText(v, max)).pipe(z.string().min(min));
+/** Upper-cased overlay text. The prompt asks for `asked` characters; up to `cap` is kept. */
+const caps = cap => z.string().transform(v => clampText(v, cap).toUpperCase()).default('');
 export const copySchema = z.object({
-  // Pinterest metadata
-  keyword: z.string().trim().min(1).max(120),
-  title: z.string().trim().min(1).max(100),
-  description: z.string().trim().min(1).max(500),
-  alt_text: z.string().trim().min(1).max(500),
+  // Pinterest metadata (Pinterest's own limits: longer text is shortened, not rejected)
+  keyword: metaText(1, 120),
+  title: metaText(1, 100),
+  description: metaText(1, 500),
+  alt_text: metaText(1, 500),
   board_id: pinterestId,
   // Text drawn on the Pin image
-  number: z.string().trim().regex(/^\d{0,3}$/, 'number must be digits only').default(''),
-  hook: caps(12).refine(v => !/\s/.test(v), 'hook must be one word'),
-  headline_line1: caps(14),
-  headline_line2: caps(14),
-  category: caps(22),
-  script_word: z.string().trim().max(10).default('Ideas').transform(v => v || 'Ideas'),
-  script_line: z.string().trim().max(22).default(''),
-  banner: caps(16),
-  tagline: caps(28),
+  number: z.preprocess(v => (typeof v === 'number' ? String(v) : v), z.string().trim()).transform(v => (/^\d{1,3}$/.test(v) ? v : '')).default(''),
+  hook: z.string().transform(v => clampText(v.trim().split(/\s+/)[0] ?? '', 12).toUpperCase()).default(''),
+  headline_line1: caps(24),
+  headline_line2: caps(24),
+  category: caps(32),
+  script_word: z.string().transform(v => clampText(v, 14) || 'Ideas').default('Ideas'),
+  script_line: z.string().transform(v => clampText(v, 30)).default(''),
+  banner: caps(24),
+  tagline: caps(40),
   cta: z.preprocess(v => (typeof v === 'string' ? v.trim().toUpperCase() : v), z.enum(CTAS)).catch('SEE ALL IDEAS'),
-  subtitle: z.string().trim().max(60).optional(),
+  subtitle: z.string().transform(v => clampText(v, 60)).optional(),
 });
 export const boardsSchema = z.array(z.object({ id: pinterestId, name: z.string().trim().min(1).max(150) })).min(1).max(100)
   .refine(boards => new Set(boards.map(board => board.id)).size === boards.length, 'Board IDs must be unique.');
 export function validateCopy(value, boards, requestedBoard = '') {
   const copy = copySchema.parse(value);
-  if (!boards.some(b => b.id === copy.board_id)) throw new Error('AI selected an unconfigured board.');
-  if (requestedBoard && copy.board_id !== requestedBoard) throw new Error('AI changed the requested board.');
+  if (!boards.some(b => b.id === copy.board_id)) throw new StageError('schema', 'AI selected an unconfigured board');
+  if (requestedBoard && copy.board_id !== requestedBoard) throw new StageError('schema', 'AI changed the requested board');
   return copy;
 }
 export function validatePinResponse(value) {
@@ -78,37 +102,69 @@ export function checkCopyFacts(copy, article) {
   return out;
 }
 
+/** Field names (never values) of a schema failure, for the log. */
+const issuePaths = error => [...new Set(error.issues.map(i => i.path.join('.') || 'root'))].slice(0, 6).join(', ');
+
+export const DEFAULT_GEMINI_MODEL = 'gemini-2.5-flash-lite';
+/** The model ID as pasted into a repository variable: trims spaces and a "models/" prefix; empty → default. */
+export function geminiModel(value) {
+  const id = String(value ?? '').trim().replace(/^models[/]/, '');
+  return id || DEFAULT_GEMINI_MODEL;
+}
+
 export async function generateCopy(article, boards, requestedBoard, env = process.env) {
   boards = boardsSchema.parse(boards);
-  if (!env.GEMINI_API_KEY || !/^[a-zA-Z0-9.-]+$/.test(env.GEMINI_MODEL || '')) throw new Error('Configure GEMINI_API_KEY and GEMINI_MODEL.');
-  if (requestedBoard && !boards.some(b => b.id === requestedBoard)) throw new Error('Sheet Board ID is not configured.');
+  if (!env.GEMINI_API_KEY) throw new StageError('config', 'GEMINI_API_KEY is not set');
+  const model = geminiModel(env.GEMINI_MODEL);
+  if (!/^[a-zA-Z0-9.-]+$/.test(model)) throw new StageError('config', 'GEMINI_MODEL has characters a model ID cannot have');
+  if (requestedBoard && !boards.some(b => b.id === requestedBoard)) throw new StageError('config', 'the Sheet Board ID is not configured in AUTOPILOT_BOARDS_JSON');
   const input = JSON.stringify({ title: article.title, text: article.text, photos: article.images.slice(0, 10).map(p => p.alt), boards, requestedBoard });
   const contents = [{ role: 'user', parts: [{ text: input }] }];
   // One corrective retry: the model sees which limits it broke and fixes them.
   for (let attempt = 1; ; attempt++) {
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${env.GEMINI_MODEL}:generateContent`, {
-      method: 'POST', signal: AbortSignal.timeout(60000),
-      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': env.GEMINI_API_KEY },
-      body: JSON.stringify({ systemInstruction: { parts: [{ text: COPY_PROMPT }] }, contents, generationConfig: { responseMimeType: 'application/json', maxOutputTokens: 2048 } }),
-    });
-    if (!response.ok) throw new Error(`Gemini request failed (${response.status}).`);
-    const data = await response.json();
-    const text = data.candidates?.[0]?.content?.parts?.filter(p => !p.thought).map(p => p.text || '').join('');
+    let response;
+    try {
+      response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+        method: 'POST', signal: AbortSignal.timeout(60000),
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': env.GEMINI_API_KEY },
+        body: JSON.stringify({ systemInstruction: { parts: [{ text: COPY_PROMPT }] }, contents, generationConfig: { responseMimeType: 'application/json', maxOutputTokens: 4096 } }),
+      });
+    } catch (error) {
+      throw new StageError('gemini', error?.name === 'TimeoutError' ? 'no answer within 60 s' : 'network error');
+    }
+    // 400 = bad request/model, 403 = key, 404 = unknown model, 429 = quota or rate limit.
+    if (!response.ok) throw new StageError('gemini', `HTTP ${response.status}`);
+    const data = await response.json().catch(() => null);
+    const candidate = data?.candidates?.[0];
+    const text = candidate?.content?.parts?.filter(p => !p.thought).map(p => p.text || '').join('');
+    let failure;
     try {
       return checkCopyFacts(validateCopy(JSON.parse(text || '{}'), boards, requestedBoard), article);
     } catch (error) {
-      if (attempt >= 2) throw error;
-      const issues = error instanceof z.ZodError ? error.issues.map(i => `${i.path.join('.')}: ${i.message}`).join('; ') : error.message;
+      failure = error instanceof z.ZodError
+        ? new StageError('schema', issuePaths(error))
+        : error instanceof StageError ? error
+          : new StageError('gemini', text ? `the answer was not valid JSON${candidate?.finishReason && candidate.finishReason !== 'STOP' ? ` (finish: ${String(candidate.finishReason).slice(0, 20)})` : ''}` : `empty answer${candidate?.finishReason ? ` (finish: ${String(candidate.finishReason).slice(0, 20)})` : ''}`);
+      if (attempt >= 2) throw failure;
+      const issues = error instanceof z.ZodError ? error.issues.map(i => `${i.path.join('.')}: ${i.message}`).join('; ') : failure.message;
       contents.push({ role: 'model', parts: [{ text: text || '{}' }] }, { role: 'user', parts: [{ text: `That JSON failed validation (${issues}). Return the corrected JSON only.` }] });
     }
   }
 }
+/** Up to 10 article photos, downloaded four at a time (in article order). */
 export async function loadPhotos(article) {
-  const photos = [];
-  for (const item of article.images.slice(0, 10)) {
-    try { photos.push((await readImage(item.url)).body); } catch { /* Try the next article photo. */ }
-  }
-  if (!photos.length) throw new Error('No article photos could be downloaded.');
+  const items = article.images.slice(0, 10);
+  const results = new Array(items.length).fill(null);
+  let next = 0;
+  const worker = async () => {
+    while (next < items.length) {
+      const i = next++;
+      try { results[i] = (await readImage(items[i].url)).body; } catch { /* Try the next article photo. */ }
+    }
+  };
+  await Promise.all([worker(), worker(), worker(), worker()]);
+  const photos = results.filter(Boolean);
+  if (!photos.length) throw new StageError('photos', 'no article photo could be downloaded');
   return photos;
 }
 export function validateWebhook(raw) {

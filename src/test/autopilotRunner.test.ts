@@ -6,6 +6,8 @@ import sharp from 'sharp';
 // loaded sharp's native libvips could crash later while running another file.
 // @ts-expect-error The worker runs as native Node ESM.
 import { runAutopilot } from '../../autopilot/run.mjs';
+// @ts-expect-error The worker runs as native Node ESM.
+import { generateCopy, geminiModel, StageError } from '../../autopilot/core.mjs';
 // @ts-expect-error The renderer runs as native Node ESM.
 import { chooseTemplate, contrast, ctaFor, designCopy, designPin, paletteFrom, pickTemplate, readableOn, renderPin } from '../../autopilot/design.mjs';
 
@@ -35,6 +37,29 @@ describe('Autopilot runner isolation', () => {
     await expect(runAutopilot({ AUTOPILOT_MODE: 'publsih' }, { prepare })).rejects.toThrow('must be preview or publish');
     await expect(runAutopilot({ AUTOPILOT_BOARDS_JSON: boards }, { prepare })).rejects.toThrow('PREVIEW_URL');
     expect(prepare).not.toHaveBeenCalled();
+  });
+
+  it('names the failing stage without leaking provider bodies or secrets', async () => {
+    expect(geminiModel(' models/gemini-2.5-flash ')).toBe('gemini-2.5-flash');
+    expect(geminiModel('')).toBe('gemini-2.5-flash-lite');
+    const article = { url: 'https://example.com/a', title: 'Wedding Hair', text: 'Some text', images: [] };
+    const secretBody = 'quota exceeded for key AIzaSECRET';
+    const fetchMock = vi.fn(async () => new Response(secretBody, { status: 429 }));
+    vi.stubGlobal('fetch', fetchMock);
+    try {
+      const error = await generateCopy(article, JSON.parse(boards), '', { GEMINI_API_KEY: 'AIzaSECRET' }).catch((e: unknown) => e);
+      expect(error).toBeInstanceOf(StageError);
+      expect((error as Error).message).toMatch(/^gemini: .*429/);
+      expect((error as Error).message).not.toMatch(/AIza|quota/);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+    const makeFails = vi.fn(async (url: URL | string) =>
+      String(url).includes('make.com') ? new Response('hook https://hook.eu1.make.com/SECRET broke', { status: 500 }) : new Response(JSON.stringify({ ok: true, job: { article_url: 'https://example.com/a', board_id: '123', row: 2 } })),
+    );
+    const prepare = vi.fn(async () => ({ article_url: 'https://example.com/a' }));
+    const failure = await runAutopilot({ AUTOPILOT_BOARDS_JSON: boards, AUTOPILOT_MODE: 'publish', AUTOPILOT_ENABLED: 'true', AUTOPILOT_SHEET_URL: 'https://script.google.com/macros/s/deployment-id/exec', AUTOPILOT_SHEET_SECRET: 'x'.repeat(32), MAKE_WEBHOOK_URL: 'https://hook.eu1.make.com/test' }, { fetch: makeFails, prepare }).catch((e: unknown) => e);
+    expect(String((failure as Error)?.message)).not.toContain('SECRET');
   });
 
   it('rejects lookalike Sheet endpoints before sending its shared secret', async () => {

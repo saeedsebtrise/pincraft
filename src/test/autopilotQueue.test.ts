@@ -66,7 +66,9 @@ describe('Autopilot input and AI boundaries', () => {
     expect(validateCopy(copy, boards)).toMatchObject({ ...copy, cta: 'SEE ALL IDEAS', number: '', script_word: 'Ideas' });
     expect(() => validateCopy({ ...copy, board_id: '999' }, boards)).toThrow();
     expect(() => validateCopy(copy, boards, '999')).toThrow();
-    expect(() => validateCopy({ ...copy, title: 'a'.repeat(101) }, boards)).toThrow();
+    // Over-long copy is shortened instead of failing the run; empty copy still fails.
+    expect(validateCopy({ ...copy, title: 'word '.repeat(40) }, boards).title.length).toBeLessThanOrEqual(100);
+    expect(() => validateCopy({ ...copy, title: '' }, boards)).toThrow();
   });
 
   it('keeps large Pin IDs exact and rejects accepted-but-not-completed Make responses', () => {

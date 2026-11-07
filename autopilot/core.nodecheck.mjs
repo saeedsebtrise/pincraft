@@ -10,7 +10,9 @@ test('copy constrains boards and field lengths', () => {
   assert.equal(validateCopy(copy, [{id:'123'}]).board_id, '123');
   assert.throws(() => validateCopy(copy, [{id:'456'}]));
   assert.throws(() => validateCopy(copy, [{id:'123'}], '456'));
-  assert.throws(() => validateCopy({...copy,title:'x'.repeat(101)}, [{id:'123'}]));
+  // Over-long copy is shortened at a word boundary instead of failing the run.
+  assert.ok(validateCopy({...copy,title:'word '.repeat(40)}, [{id:'123'}]).title.length <= 100);
+  assert.throws(() => validateCopy({...copy,title:''}, [{id:'123'}]));
 });
 test('Make response must identify an actual pin; webhook restricted', () => {
   assert.throws(() => validatePinResponse({ accepted:true }));

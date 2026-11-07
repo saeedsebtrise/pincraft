@@ -1,18 +1,31 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
-import { boardsSchema, readArticle, generateCopy, loadPhotos, validateWebhook, runJob } from './core.mjs';
+import { boardsSchema, readArticle, generateCopy, loadPhotos, validateWebhook, runJob, StageError } from './core.mjs';
 import { renderPin } from './design.mjs';
+
+/** Runs one step; any failure that isn't already categorised becomes `stage` with a safe detail. */
+async function step(stage, work, detail = () => '') {
+  try {
+    return await work();
+  } catch (error) {
+    if (error instanceof StageError) throw error;
+    throw new StageError(stage, detail(error));
+  }
+}
+/** Our own error text (short); anything else reports only its type. */
+const ownMessage = error => (typeof error?.status === 'number' || error?.name === 'FetchError' ? String(error.message).slice(0, 160) : String(error?.name || 'error'));
 
 export async function runAutopilot(env = process.env, dependencies = {}) {
   const mode = env.AUTOPILOT_MODE || 'preview';
-  if (!['preview', 'publish'].includes(mode)) throw new Error('AUTOPILOT_MODE must be preview or publish.');
-  const boards = boardsSchema.parse(JSON.parse(env.AUTOPILOT_BOARDS_JSON || '[]'));
+  if (!['preview', 'publish'].includes(mode)) throw new StageError('config', 'AUTOPILOT_MODE must be preview or publish');
+  const boards = await step('config', () => boardsSchema.parse(JSON.parse(env.AUTOPILOT_BOARDS_JSON || '[]')), () => 'AUTOPILOT_BOARDS_JSON is missing or invalid');
   const request = dependencies.fetch || fetch;
   const prepare = dependencies.prepare || (async (articleUrl, boardId = '') => {
-    const article = await readArticle(articleUrl);
-    const copy = await generateCopy(article, boards, boardId, env);
+    const article = await step('article fetch', () => readArticle(articleUrl), ownMessage);
+    const copy = await step('gemini', () => generateCopy(article, boards, boardId, env), ownMessage);
+    const photos = await step('photos', () => loadPhotos(article), ownMessage);
     // The template follows the article URL, so a preview and the later publish look the same.
-    const pin = await renderPin(await loadPhotos(article), copy, articleUrl, { template: env.AUTOPILOT_TEMPLATE || 'rotate' });
+    const pin = await step('render', () => renderPin(photos, copy, articleUrl, { template: env.AUTOPILOT_TEMPLATE || 'rotate' }), e => String(e?.message || e?.name || 'error').slice(0, 160));
     return {
       ...copy,
       link: articleUrl,
@@ -31,34 +44,37 @@ export async function runAutopilot(env = process.env, dependencies = {}) {
   });
   // Preview never claims a Sheet row, changes quotas, or contacts Make.
   if (mode === 'preview') {
-    if (!env.AUTOPILOT_PREVIEW_URL) throw new Error('Set AUTOPILOT_PREVIEW_URL for a preview.');
+    if (!env.AUTOPILOT_PREVIEW_URL) throw new StageError('config', 'set AUTOPILOT_PREVIEW_URL for a preview');
     const payload = await prepare(env.AUTOPILOT_PREVIEW_URL);
-    await savePreview(payload);
+    await step('save preview', () => savePreview(payload), e => String(e?.code || e?.name || 'error'));
     return { status: 'preview' };
   }
-  if (env.AUTOPILOT_ENABLED !== 'true') throw new Error('Publishing disabled: set AUTOPILOT_ENABLED=true after preview review.');
-  const sheetUrl = new URL(env.AUTOPILOT_SHEET_URL || '');
-  if (sheetUrl.origin !== 'https://script.google.com' || sheetUrl.username || sheetUrl.password || sheetUrl.search || sheetUrl.hash || !/^\/macros\/s\/[\w-]+\/exec$/.test(sheetUrl.pathname)) throw new Error('Use a deployed Apps Script /exec URL.');
-  if ((env.AUTOPILOT_SHEET_SECRET || '').length < 32) throw new Error('Sheet secret must have at least 32 characters.');
-  const webhook = validateWebhook(env.MAKE_WEBHOOK_URL);
+  if (env.AUTOPILOT_ENABLED !== 'true') throw new StageError('config', 'Publishing disabled: set AUTOPILOT_ENABLED=true after preview review');
+  const sheetUrl = await step('config', () => new URL(env.AUTOPILOT_SHEET_URL || ''), () => 'AUTOPILOT_SHEET_URL is missing or invalid');
+  if (sheetUrl.origin !== 'https://script.google.com' || sheetUrl.username || sheetUrl.password || sheetUrl.search || sheetUrl.hash || !/^\/macros\/s\/[\w-]+\/exec$/.test(sheetUrl.pathname)) throw new StageError('config', 'AUTOPILOT_SHEET_URL must be a deployed Apps Script /exec URL');
+  if ((env.AUTOPILOT_SHEET_SECRET || '').length < 32) throw new StageError('config', 'AUTOPILOT_SHEET_SECRET must have at least 32 characters');
+  const webhook = await step('config', () => validateWebhook(env.MAKE_WEBHOOK_URL), () => 'MAKE_WEBHOOK_URL must be an HTTPS Make.com webhook URL');
   const sheet = async (action, fields = {}) => {
-    const response = await request(sheetUrl, { method: 'POST', signal: AbortSignal.timeout(45000), headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, secret: env.AUTOPILOT_SHEET_SECRET, ...fields }) });
-    if (!response.ok) throw new Error(`Sheet request failed (${response.status}).`);
-    const result = await response.json();
-    if (!result.ok) throw new Error('Sheet rejected operation. Check deployment, lease, and configuration.');
+    const response = await step('sheet', () => request(sheetUrl, { method: 'POST', signal: AbortSignal.timeout(45000), headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, secret: env.AUTOPILOT_SHEET_SECRET, ...fields }) }), e => (e?.name === 'TimeoutError' ? `${action}: no answer` : `${action}: network error`));
+    if (!response.ok) throw new StageError('sheet', `${action}: HTTP ${response.status}`);
+    const result = await step('sheet', () => response.json(), () => `${action}: answer was not JSON`);
+    if (!result.ok) throw new StageError('sheet', `${action}: refused (check deployment, secret and lease)`);
     return result;
   };
   const result = await runJob({ sheet, prepare, publish: async payload => {
-    const response = await request(webhook, { method: 'POST', redirect: 'error', signal: AbortSignal.timeout(190000), headers: { 'Content-Type': 'application/json', ...(env.MAKE_WEBHOOK_API_KEY ? { 'x-make-apikey': env.MAKE_WEBHOOK_API_KEY } : {}) }, body: JSON.stringify(payload) });
-    if (!response.ok) throw new Error(`Make request failed (${response.status}).`);
-    return response.json();
+    // Never echo Make's error text or the webhook URL: only the status code.
+    const response = await step('make', () => request(webhook, { method: 'POST', redirect: 'error', signal: AbortSignal.timeout(190000), headers: { 'Content-Type': 'application/json', ...(env.MAKE_WEBHOOK_API_KEY ? { 'x-make-apikey': env.MAKE_WEBHOOK_API_KEY } : {}) }, body: JSON.stringify(payload) }), e => (e?.name === 'TimeoutError' ? 'no answer within 190 s' : 'network error'));
+    if (!response.ok) throw new StageError('make', `HTTP ${response.status}`);
+    return step('make', () => response.json(), () => 'answer was not JSON');
   } });
   return result;
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) runAutopilot().then(result => {
   console.log(result.status === 'preview' ? 'Preview saved to output/autopilot. Nothing was published.' : `Autopilot: ${result.status}.`);
-}).catch(() => {
-  // Provider errors may contain webhook URLs or tokens. Do not print raw errors.
-  console.error('Autopilot failed. Check Sheet status, required secrets, article accessibility, Gemini model, and Make execution history. No automatic publish retry was attempted.');
+}).catch(error => {
+  // Provider errors may contain webhook URLs or tokens: only a safe category is printed.
+  const where = error instanceof StageError ? error.message : `unexpected (${String(error?.name || 'error')})`;
+  console.error(`Autopilot failed at ${where}.`);
+  console.error('Check Sheet status, required secrets, article accessibility, Gemini model, and Make execution history. No automatic publish retry was attempted.');
   process.exitCode = 1;
 });
