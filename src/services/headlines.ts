@@ -109,11 +109,11 @@ export function suggestHeadlines(input: HeadlineInput, max = 8): string[] {
 }
 
 const TOPIC_SUBTITLES: [RegExp, string[]][] = [
-  [/hair|haircut|bob\b|lob\b|braid|bangs|balayage|blonde|bronde|brunette/i, ['For Your Next Salon Appointment', 'Easy Looks to Show Your Stylist', 'Low-Maintenance Styles You’ll Love']],
-  [/decor|room|balcon|patio|home|kitchen|bedroom|living/i, ['To Transform Your Space', 'Easy Ideas for Every Budget', 'Cozy Inspiration to Save Now']],
-  [/outfit|fashion|wear|wardrobe/i, ['Easy Looks to Recreate', 'Effortless Outfits for Every Day']],
-  [/recipe|dinner|meal|food|bake|chicken|pasta/i, ['Easy Recipes Ready in 30 Minutes', 'Simple Weeknight Favorites']],
-  [/makeup|nail|skin|beauty/i, ['Easy Looks to Try This Week', 'Pretty Ideas for Every Occasion']],
+  [/hair|haircut|bob\b|lob\b|braid|bangs|balayage|blonde|bronde|brunette/i, ['For Your Next Salon Appointment', 'Easy Looks to Show Your Stylist', 'Low-Maintenance Styles You’ll Love', 'Fresh Looks for Every Season', 'Effortless Styles That Turn Heads', 'Screenshot These for Your Stylist', 'Soft, Flattering & Easy to Wear', 'From Subtle to Bold']],
+  [/decor|room|balcon|patio|home|kitchen|bedroom|living/i, ['To Transform Your Space', 'Easy Ideas for Every Budget', 'Cozy Inspiration to Save Now', 'Small Changes, Big Impact', 'Style Your Home Like a Pro', 'Warm, Inviting & Easy to Copy', 'Ideas for Every Room']],
+  [/outfit|fashion|wear|wardrobe/i, ['Easy Looks to Recreate', 'Effortless Outfits for Every Day', 'Chic Outfits You Can Copy', 'Wear Them on Repeat', 'Style Ideas for Every Occasion']],
+  [/recipe|dinner|meal|food|bake|chicken|pasta/i, ['Easy Recipes Ready in 30 Minutes', 'Simple Weeknight Favorites', 'Family-Friendly & Delicious', 'Simple Ingredients, Big Flavor', 'Save These for Dinner Tonight']],
+  [/makeup|nail|skin|beauty/i, ['Easy Looks to Try This Week', 'Pretty Ideas for Every Occasion', 'Glam Looks You Can Copy', 'Soft, Pretty & Easy']],
   [/love|relationship|marriage|dating|couple/i, ['Simple Habits for a Stronger Bond', 'Advice Worth Saving']],
 ];
 
@@ -130,7 +130,7 @@ export function suggestSubtitles(input: HeadlineInput, max = 6): string[] {
   if (tail) push(tail);
   const topic = `${title} ${input.keyword ?? ''}`;
   for (const [re, lines] of TOPIC_SUBTITLES) if (re.test(topic)) lines.forEach(push);
-  ['Ideas You’ll Want to Save', 'Everything You Need to Know', 'Simple Ideas You Can Copy'].forEach(push);
+  ['Ideas You’ll Want to Save', 'Everything You Need to Know', 'Simple Ideas You Can Copy', 'Save This for Later', 'Easy Ideas to Try Today', 'Tips That Actually Work', 'Your Ultimate Inspiration List', 'Start With These Favorites'].forEach(push);
   return out.slice(0, max);
 }
 

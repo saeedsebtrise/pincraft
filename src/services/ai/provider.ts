@@ -8,7 +8,9 @@
  * Security: no API key ever reaches the browser; the remote provider calls YOUR
  * proxy (server/ai-proxy.mjs), which holds the key in a server env variable.
  */
+import { ctaOptions, withArrow } from '../autoCta';
 import { suggestCtas, suggestHeadlines, suggestSubtitles, suggestVariations } from '../headlines';
+import { titleVariants } from '../pinVariety';
 import { aiAuthHeaders } from './auth';
 
 export interface TextAssistInput {
@@ -32,15 +34,18 @@ export interface TextAssistProvider {
   suggest(input: TextAssistInput): Promise<TextAssistResult>;
 }
 
+const unique = (list: string[]) => list.filter((v, i) => list.findIndex((o) => o.toLowerCase() === v.toLowerCase()) === i);
+
 export const localProvider: TextAssistProvider = {
   id: 'local',
   label: 'Smart suggestions (on-device)',
   async suggest(input) {
     return {
-      headlines: suggestHeadlines(input),
-      subtitles: suggestSubtitles(input),
-      ctas: suggestCtas(input.website),
-      variations: suggestVariations(input),
+      // Many options: the article's own variants (the same ones Auto Design puts on its Pins).
+      headlines: unique([...suggestHeadlines(input, 10), ...titleVariants(input.articleTitle, input.keyword ?? '', 40)]).slice(0, 30),
+      subtitles: suggestSubtitles(input, 16),
+      ctas: unique([...ctaOptions(`${input.articleTitle} ${input.keyword ?? ''}`).slice(0, 26), ...suggestCtas(input.website)]).slice(0, 30).map((t, k) => withArrow(t, k)),
+      variations: unique([...suggestVariations(input), ...titleVariants(input.articleTitle, input.keyword ?? '', 50).filter((t) => t.split(' ').length >= 6)]).slice(0, 20),
       source: 'local',
     };
   },

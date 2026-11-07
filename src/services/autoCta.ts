@@ -58,6 +58,15 @@ const numberCtas = (n: string, noun: string): string[] => [
   `See All ${n} ${noun}`, `Tap for All ${n} Ideas`, `Get All ${n} ${noun}`, `See the Full ${n}`, `Save All ${n} Ideas`, `View All ${n} ${noun}`,
 ];
 
+/** Arrows that make a call to action look like a button worth tapping. */
+export const CTA_ARROWS = ['→', '➜', '»', '›', '⟶'];
+
+/** Adds an arrow to a CTA (once), cycling through arrow styles by index. */
+export function withArrow(text: string, k = 0): string {
+  const t = text.trim().replace(/\s*[→➜»›⟶]+$/u, '');
+  return `${t} ${CTA_ARROWS[((k % CTA_ARROWS.length) + CTA_ARROWS.length) % CTA_ARROWS.length]}`;
+}
+
 /**
  * CTA wordings for a topic, mixed so neighbouring Pins don't sound alike:
  * topic-specific, numbered (for list posts) and general ones taken in turn, no repeats.
@@ -106,6 +115,19 @@ export function accentColor(doc: PinDocument): string {
 const grow = (r: Rect, by: number): Rect => ({ x: r.x - by, y: r.y - by, width: r.width + 2 * by, height: r.height + 2 * by });
 const hits = (a: Rect, b: Rect) => a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
 
+type CtaLook = Partial<Omit<TextLayer, 'background'>> & { background: Partial<TextLayer['background']> };
+/** Button looks for added CTAs, taken in turn so a batch of Pins doesn't repeat one style. */
+export const CTA_STYLES: ((accent: string, h: number) => CtaLook)[] = [
+  // Solid pill in the design's accent.
+  (a, h) => ({ fontFamily: 'Montserrat', fontWeight: 800, fontSize: Math.round(h * 0.5), letterSpacing: 1, fill: luminance(a) > 0.6 ? '#111111' : '#FFFFFF', background: { color: a } }),
+  // White pill with an accent outline and accent text.
+  (a, h) => ({ fontFamily: 'Montserrat', fontWeight: 800, fontSize: Math.round(h * 0.48), letterSpacing: 1.5, fill: luminance(a) > 0.6 ? '#111111' : a, background: { color: '#FFFFFF', borderWidth: Math.max(2, Math.round(h * 0.06)), borderColor: luminance(a) > 0.6 ? '#111111' : a } }),
+  // Black pill, wide letter spacing.
+  (_a, h) => ({ fontFamily: 'Poppins', fontWeight: 700, fontSize: Math.round(h * 0.46), letterSpacing: 2.5, fill: '#FFFFFF', background: { color: '#111111' } }),
+  // Bold square-cornered button.
+  (a, h) => ({ fontFamily: 'Archivo Black', fontWeight: 400, fontSize: Math.round(h * 0.46), letterSpacing: 1, fill: luminance(a) > 0.6 ? '#111111' : '#FFFFFF', background: { color: a, shape: 'rect', radius: Math.round(h * 0.16) } }),
+];
+
 /** Fallback when no canvas is available: the text layer's own box. */
 const boxInk = (l: TextLayer): Rect => ({ x: l.x, y: l.y, width: l.width, height: l.height });
 
@@ -113,9 +135,10 @@ const boxInk = (l: TextLayer): Rect => ({ x: l.x, y: l.y, width: l.width, height
  * Sets the design's CTA to `text`: an existing CTA layer is reworded; otherwise a
  * pill button is added in the first free spot (above the website footer, below
  * the headline, or near the bottom). Returns the design unchanged when there is
- * no free spot, so a CTA never covers the text.
+ * no free spot, so a CTA never covers the text. `style` picks one of the button
+ * looks (CTA_STYLES) for added buttons; existing ones keep the template's look.
  */
-export function applyCta(doc: PinDocument, text: string, ink: (l: TextLayer) => Rect | null = boxInk): PinDocument {
+export function applyCta(doc: PinDocument, text: string, ink: (l: TextLayer) => Rect | null = boxInk, style = 0): PinDocument {
   const existing = doc.layers.find((l): l is TextLayer => isText(l) && l.role === 'cta');
   if (existing) return { ...doc, layers: doc.layers.map((l) => (l === existing ? { ...existing, text } : l)) };
 
@@ -144,31 +167,16 @@ export function applyCta(doc: PinDocument, text: string, ink: (l: TextLayer) => 
   const spot = candidates.map((y) => ({ x, y: Math.round(y), width: w, height: h })).find((r) => r.y >= H * 0.02 && r.y + r.height <= H * 0.98 && !blocked.some((b) => hits(r, b)));
   if (!spot) return doc;
 
-  const bg = accentColor(doc);
+  const look = CTA_STYLES[((style % CTA_STYLES.length) + CTA_STYLES.length) % CTA_STYLES.length](accentColor(doc), h);
   const cta = createText({
     name: 'Call to action',
     role: 'cta',
     ...spot,
     text,
-    fontFamily: 'Montserrat',
-    fontWeight: 800,
-    fontSize: Math.round(h * 0.5),
     minFontSize: 10,
-    letterSpacing: 1,
     textTransform: 'uppercase',
-    fill: luminance(bg) > 0.6 ? '#111111' : '#FFFFFF',
-    background: {
-      enabled: true,
-      shape: 'pill',
-      color: bg,
-      opacity: 1,
-      paddingX: Math.round(h * 0.6),
-      paddingY: Math.round(h * 0.18),
-      radius: 0,
-      borderWidth: 0,
-      borderColor: '#111111',
-      hug: true,
-    },
+    ...look,
+    background: { enabled: true, shape: 'pill', color: '#111111', opacity: 1, paddingX: Math.round(h * 0.6), paddingY: Math.round(h * 0.18), radius: 0, borderWidth: 0, borderColor: '#111111', hug: true, ...look.background },
   });
   return { ...doc, layers: [...doc.layers, cta] };
 }

@@ -8,7 +8,7 @@
 import { BLANK_TEMPLATE_ID } from '../templates/builtins';
 import { applyHeadline, assignImages, instantiateTemplate, isText } from '../model/docOps';
 import type { AssetMeta, Id, PinDocument, Rect, Template, TextLayer } from '../model/types';
-import { applyCta, ctaOptions } from './autoCta';
+import { applyCta, ctaOptions, withArrow } from './autoCta';
 import { parseTitle, suggestSubtitles, titleCase } from './headlines';
 import { designTraits, researchBoost, type ResearchReport } from './pinResearch';
 import { paletteFor, recolorDoc, titleVariants } from './pinVariety';
@@ -258,7 +258,8 @@ export function autoDesign(
   // A call to action on every Pin, worded differently from one Pin to the next.
   const ctas = ctaOptions(topic);
   const offset = input.ctaOffset ?? 0;
-  return varied.map((r, k) => ({ ...r, doc: applyCta(r.doc, ctas[(k + offset) % ctas.length], opts.ink ?? undefined) }));
+  // …with an arrow and, where the design has no button of its own, a different button style each Pin.
+  return varied.map((r, k) => ({ ...r, doc: applyCta(r.doc, withArrow(ctas[(k + offset) % ctas.length], k + offset), opts.ink ?? undefined, k + offset) }));
 }
 
 /**

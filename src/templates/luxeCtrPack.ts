@@ -184,4 +184,156 @@ export const LUXE_CTR_TEMPLATES = [
       ];
     },
   }),
+  tpl({
+    id: 'lx-top-block-3photos',
+    name: 'High CTR — Color Block Headline, 3 Photos',
+    description: 'A terracotta block on top with a big white number, a script word, a two-line white keyword and a benefit line, a large photo and two smaller ones below with a CTA pill.',
+    family: 7,
+    categories: ['Hair', 'Home Decor', 'Listicle'],
+    designTypes: ['image-text-panel', 'script-bold', 'number-badge'],
+    ...size,
+    collage: { layoutId: 'three-hero-top', gap: 6, region: { x: 0, y: 0.34, width: 1, height: 0.66 } },
+    layers: () => {
+      const y = (f: number) => H * 0.34 * f;
+      return [
+        rect(0, 0, W, H * 0.34, '#8C4A32', 'Headline block'),
+        bigNum(W * 0.05, y(0.08), W * 0.3, y(0.42), '#FFFFFF'),
+        ln(W * 0.37, y(0.07), W * 0.58, y(0.2), 'Gorgeous', script('#FFE2C6')),
+        ln(W * 0.37, y(0.29), W * 0.58, y(0.2), 'Balayage', anton('#FFFFFF', { wordCount: 1 })),
+        ln(W * 0.05, y(0.56), W * 0.9, y(0.2), 'Hair Color Ideas', anton('#FFFFFF', { wordCount: 3 })),
+        ln(W * 0.06, y(0.8), W * 0.88, y(0.13), 'For Long Layered Hair', { fontFamily: 'Montserrat', fontWeight: 800, fill: '#FFE2C6', letterSpacing: 2 }),
+        cta(H * 0.9, '#FFFFFF', '#8C4A32', 'See All the Looks', W * 0.46, H * 0.028),
+        web(),
+      ];
+    },
+  }),
+  tpl({
+    id: 'lx-photo-bottom-card',
+    name: 'High CTR — Full Photo, Rounded Headline Card',
+    description: 'One full-bleed photo with a white rounded card low on the Pin: a pink number circle on its edge, a script word, a bold two-line keyword, a benefit line and a pink CTA button.',
+    family: 3,
+    categories: ['Hair', 'Beauty', 'Fashion', 'Listicle'],
+    designTypes: ['image-text-overlay', 'script-bold', 'number-badge'],
+    ...size,
+    collage: { layoutId: 'single', gap: 0 },
+    layers: () => {
+      const cy = H * 0.56;
+      const ch = H * 0.36;
+      const y = (f: number) => cy + ch * f;
+      const h = (f: number) => ch * f;
+      return [
+        createShape({ name: 'Headline card', role: 'band', x: W * 0.06, y: cy, width: W * 0.88, height: ch, fill: '#FFFFFF', cornerRadius: W * 0.05 }),
+        circleNum(W * 0.5, cy, H * 0.075, PINK, '#FFFFFF'),
+        ln(W * 0.12, y(0.12), W * 0.76, h(0.15), 'Stunning', script(PINK)),
+        ln(W * 0.1, y(0.29), W * 0.8, h(0.17), 'Balayage Hair', anton('#1A1A1A', { wordCount: 2 })),
+        ln(W * 0.1, y(0.47), W * 0.8, h(0.15), 'Color Ideas', anton('#1A1A1A', { wordCount: 2 })),
+        ln(W * 0.1, y(0.64), W * 0.8, h(0.1), 'For Long Layered Hair', { fontFamily: 'Montserrat', fontWeight: 700, fill: '#555555', letterSpacing: 1.5 }),
+        cta(y(0.79), PINK, '#FFFFFF', 'Get the Ideas', W * 0.44, h(0.13)),
+        web(),
+      ];
+    },
+  }),
+  tpl({
+    id: 'lx-magazine-cover',
+    name: 'High CTR — Magazine Cover, Yellow Script',
+    description: 'One full photo darkened at the bottom: a yellow number circle, a yellow script word, a huge white keyword and a white CTA pill.',
+    family: 3,
+    categories: ['Hair', 'Beauty', 'Fashion', 'Lifestyle'],
+    designTypes: ['image-text-overlay', 'script-bold', 'number-badge'],
+    ...size,
+    collage: { layoutId: 'single', gap: 0 },
+    layers: () => {
+      const glow = { enabled: true, color: '#000000', blur: 12, offsetX: 0, offsetY: 3, opacity: 0.5 };
+      return [
+        createShape({ name: 'Dark fade', role: 'decor', x: 0, y: H * 0.42, width: W, height: H * 0.58, fill: '#000000', opacity: 0.5 }),
+        circleNum(W * 0.16, H * 0.08, H * 0.09, '#FFD21F', '#111111'),
+        ln(W * 0.08, H * 0.47, W * 0.84, H * 0.07, 'Dreamy', script('#FFD21F')),
+        ln(W * 0.05, H * 0.55, W * 0.9, H * 0.095, 'Balayage', anton('#FFFFFF', { wordCount: 1, shadow: glow })),
+        ln(W * 0.05, H * 0.655, W * 0.9, H * 0.085, 'Hair Color Ideas', anton('#FFFFFF', { wordCount: 3, shadow: glow })),
+        ln(W * 0.08, H * 0.75, W * 0.84, H * 0.04, 'For Long Layered Hair', { fontFamily: 'Montserrat', fontWeight: 800, fill: '#FFD21F', letterSpacing: 2 }),
+        cta(H * 0.84, '#FFFFFF', '#111111', 'See All the Looks', W * 0.46, H * 0.03),
+        web(),
+      ];
+    },
+  }),
+  tpl({
+    id: 'lx-left-panel-2photos',
+    name: 'High CTR — Left Headline Panel, 2 Photos',
+    description: 'A blush panel down the left with a big number, a script word, a stacked keyword and a CTA button; two photos stacked on the right.',
+    family: 7,
+    categories: ['Hair', 'Beauty', 'Home Decor', 'Listicle'],
+    designTypes: ['split', 'script-bold', 'number-badge'],
+    ...size,
+    collage: { layoutId: 'two-stack', gap: 6, region: { x: 0.44, y: 0, width: 0.56, height: 1 } },
+    layers: () => {
+      const PW = W * 0.44;
+      const x = PW * 0.08;
+      const w = PW * 0.84;
+      return [
+        rect(0, 0, PW, H, '#F6DCDC', 'Headline panel'),
+        bigNum(x, H * 0.12, w, H * 0.14, '#C2185B'),
+        ln(x, H * 0.29, w, H * 0.06, 'Trendy', script('#111111')),
+        ln(x, H * 0.37, w, H * 0.07, 'Balayage', anton('#111111', { wordCount: 1 })),
+        ln(x, H * 0.45, w, H * 0.06, 'Hair Color', anton('#C2185B', { wordCount: 2 })),
+        ln(x, H * 0.52, w, H * 0.06, 'Ideas', anton('#111111', { wordCount: 1 })),
+        ln(x, H * 0.6, w, H * 0.07, 'For Long Layered Hair', { fontFamily: 'Montserrat', fontWeight: 800, fill: '#333333', lineHeight: 1.1, fontSize: H * 0.017 }),
+        createText({
+          name: 'Call to action', role: 'cta', x, y: H * 0.72, width: w, height: H * 0.04, text: 'Get the Ideas',
+          fontFamily: 'Montserrat', fontWeight: 800, fontSize: H * 0.016, minFontSize: 10, letterSpacing: 1, textTransform: 'uppercase', fill: '#FFFFFF',
+          background: bgOn('#C2185B', { hug: true, shape: 'pill', paddingX: H * 0.02, paddingY: H * 0.008 }),
+        }),
+        footer(W, H, 'plain-dark', { x, width: w, y: H * 0.93, height: H * 0.026, fontFamily: 'Montserrat', fontWeight: 800, fontSize: H * 0.011, letterSpacing: 2, fill: '#C2185B' }),
+      ];
+    },
+  }),
+  tpl({
+    id: 'lx-grid6-circle',
+    name: 'High CTR — 6-Photo Grid, Center Circle',
+    description: 'Six photos in a 2×3 grid with a big white circle in the middle holding the number, a script word and a two-line keyword, and a CTA pill below.',
+    family: 1,
+    categories: ['Hair', 'Home Decor', 'Fashion', 'Listicle'],
+    designTypes: ['number-badge', 'listicle'],
+    ...size,
+    collage: { layoutId: 'grid-2x3', gap: 6 },
+    layers: () => {
+      const d = W * 0.7;
+      const cx = W / 2;
+      const top = H * 0.47 - d / 2;
+      const y = (f: number) => top + d * f;
+      return [
+        createShape({ name: 'Center circle', role: 'band', shape: 'ellipse', x: cx - d / 2, y: top, width: d, height: d, fill: '#FFFFFF', stroke: PINK, strokeWidth: 6 }),
+        bigNum(cx - d * 0.2, y(0.12), d * 0.4, d * 0.22, PINK, { fontFamily: 'Archivo Black', fontSize: d * 0.2 }),
+        ln(cx - d * 0.38, y(0.34), d * 0.76, d * 0.13, 'Pretty', script('#111111')),
+        ln(cx - d * 0.4, y(0.48), d * 0.8, d * 0.14, 'Balayage', anton('#111111', { wordCount: 1 })),
+        ln(cx - d * 0.36, y(0.63), d * 0.72, d * 0.12, 'Hair Ideas', anton(PINK, { wordCount: 2 })),
+        ln(cx - d * 0.3, y(0.77), d * 0.6, d * 0.07, 'To Save Now', { fontFamily: 'Montserrat', fontWeight: 800, fill: '#333333', letterSpacing: 1.5 }),
+        cta(H * 0.88, PINK, '#FFFFFF', 'See All the Ideas', W * 0.5, H * 0.03),
+        web(),
+      ];
+    },
+  }),
+  tpl({
+    id: 'lx-ribbon-band',
+    name: 'High CTR — Tilted Ribbon, Cream Band, 4 Photos',
+    description: '2 photos above and below a cream band: a tilted red ribbon with the lead word, a big number, a bold two-line keyword and a dark CTA pill.',
+    family: 5,
+    categories: ['Hair', 'Food / Recipe', 'Home Decor', 'Listicle'],
+    designTypes: ['split', 'number-badge', 'listicle'],
+    ...size,
+    collage: { layoutId: 'band-2-2', gap: 6, band: 0.3 },
+    layers: ({ band }) => {
+      const y = (f: number) => band.y + band.height * f;
+      const h = (f: number) => band.height * f;
+      return [
+        bandShape('#FBF3E6'),
+        ln(W * 0.06, y(-0.08), W * 0.46, h(0.2), 'Must-Try', { fontFamily: 'Montserrat', fontWeight: 900, fill: '#FFFFFF', wordCount: 1, rotation: -5, letterSpacing: 2, background: bgOn(RED, { paddingX: h(0.05), paddingY: h(0.02) }) }),
+        bigNum(W * 0.05, y(0.18), W * 0.3, h(0.5), '#111111', { fontFamily: 'Archivo Black', fontSize: h(0.46) }),
+        ln(W * 0.37, y(0.2), W * 0.58, h(0.24), 'Balayage', anton(RED, { wordCount: 1 })),
+        ln(W * 0.37, y(0.45), W * 0.58, h(0.22), 'Hair Ideas', anton('#111111', { wordCount: 2 })),
+        ln(W * 0.06, y(0.73), W * 0.88, h(0.12), 'For Long Layered Hair', { fontFamily: 'Montserrat', fontWeight: 800, fill: '#333333', letterSpacing: 1.5 }),
+        cta(H * 0.9, '#111111', '#FFFFFF', 'Get the Ideas', W * 0.42, H * 0.028),
+        web(),
+      ];
+    },
+  }),
 ].map((t) => ({ ...t, highCtr: true }));

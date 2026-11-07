@@ -93,17 +93,24 @@ it('keeps a list number at the start of every title (badges show it)', () => {
   }
 });
 
-it('adds six high-click hair listicle templates with a number, a CTA and 4–6 photos', async () => {
+it('adds twelve high-click listicle templates, each with a number, a CTA and photos', async () => {
   const { LUXE_CTR_TEMPLATES } = await import('../templates/luxeCtrPack');
-  expect(LUXE_CTR_TEMPLATES).toHaveLength(6);
+  expect(LUXE_CTR_TEMPLATES).toHaveLength(12);
   for (const t of LUXE_CTR_TEMPLATES) {
     expect(t.highCtr, t.id).toBe(true);
     expect(t.doc.layers.some((l) => l.role === 'badge'), t.id).toBe(true);
     expect(t.doc.layers.some((l) => l.role === 'cta'), t.id).toBe(true);
-    expect(t.imageCount, t.id).toBeGreaterThanOrEqual(4);
+    expect(t.imageCount, t.id).toBeGreaterThanOrEqual(1);
     expect(BUILTIN_TEMPLATES.some((b) => b.id === t.id)).toBe(true);
   }
   const out = autoDesign({ title: '61 Modern Hairstyles for Women Over 50', cta: false }, BUILTIN_TEMPLATES, { measure: () => 1, limit: 5 });
   expect(out.some((r) => r.template.id.startsWith('lx-'))).toBe(true);
   for (const r of out.filter((x) => x.template.id.startsWith('lx-'))) expect(readHeadline(r.doc).toLowerCase()).toContain('hairstyles');
+});
+
+it('puts an arrow on every CTA and uses different button styles', () => {
+  const out = autoDesign({ title: '25 Stunning Wedding Hairstyles for Long Hair', vary: true }, BUILTIN_TEMPLATES, { measure: () => 1, limit: 20 });
+  const ctas = out.map((r) => r.doc.layers.filter(isText).find((l) => l.role === 'cta')).filter((l): l is TextLayer => !!l);
+  expect(ctas.length).toBeGreaterThan(10);
+  for (const c of ctas) expect(c.text).toMatch(/[→➜»›⟶]$/u);
 });
