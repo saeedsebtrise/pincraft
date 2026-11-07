@@ -2,95 +2,80 @@ import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
 
 /**
- * Autopilot Pin designs (1000 × 1500), drawn with Sharp from the article's own photos:
- *   split   — photos · title panel · photos, with a number badge (list posts)
- *   framed  — a photo collage behind a framed title card (list posts)
- *   guide   — title panel on top, one or two big photos below (how-to posts)
- * Fonts are bundled open-licensed files (autopilot/fonts), so the cloud worker
- * renders the same as a local preview. Colors come from the photos.
+ * Autopilot Pin designs: 1000 × 1500 PNGs drawn with Sharp from the article's own photos.
+ *   A "sandwich"     2 photos · cream panel · 2 photos (octagon number badge)
+ *   B "top-card"     panel with a stamp-framed headline · 2×2 photo grid
+ *   C "pastel-band"  3 photos · pastel panel · 3 photos (round badge)
+ *   D "bold-banner"  3 photos · white panel with an accent banner · 3 photos
+ * Every text line is fitted to its box (never overflows); fonts are bundled
+ * OFL files in autopilot/fonts, so cloud runs render like local previews.
  */
-const W = 1000;
-const H = 1500;
-const fontFile = name => fileURLToPath(new URL(`./fonts/${name}`, import.meta.url));
-export const FONTS = {
-  display: { font: 'Anton', fontfile: fontFile('Anton-Regular.ttf') },
-  bold: { font: 'Archivo Black', fontfile: fontFile('ArchivoBlack-Regular.ttf') },
-  script: { font: 'Lobster', fontfile: fontFile('Lobster-Regular.ttf') },
+export const W = 1000;
+export const H = 1500;
+const GUTTER = 4;
+const INK = '#2B1D16';
+export const TEMPLATES = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+const PHOTOS_NEEDED = { A: 4, B: 4, C: 6, D: 6, E: 6, F: 4, G: 6, H: 4 };
+/** Copy fields a template can't do without; when one is empty the next template in rotation is used. */
+export const REQUIRED_FIELDS = { A: [], B: [], C: [], D: ['banner', 'script_line'], E: [], F: ['script_line'], G: ['banner', 'script_line'], H: ['script_line'] };
+export const TEMPLATE_CTA = { A: 'SEE ALL IDEAS', B: 'GET THE IDEAS', C: 'SAVE FOR LATER', D: 'READ MORE', E: 'SEE ALL IDEAS', F: 'GET THE IDEAS', G: 'READ MORE', H: 'SAVE FOR LATER' };
+/** "SEE ALL IDEAS" becomes "SEE ALL 19 IDEAS" when the Pin shows a list count. */
+export const ctaFor = (template, number) => (TEMPLATE_CTA[template] === 'SEE ALL IDEAS' && number ? `SEE ALL ${number} IDEAS` : TEMPLATE_CTA[template]);
+const MIN_PHOTO_SIDE = 300;
+
+const fontPath = file => fileURLToPath(new URL(`./fonts/${file}`, import.meta.url));
+const FONTS = {
+  lilita: { name: 'Lilita One', file: fontPath('LilitaOne-Regular.ttf') },
+  archivo: { name: 'Archivo Black', file: fontPath('ArchivoBlack-Regular.ttf') },
+  montserrat: { name: 'Montserrat Ultra-Bold', file: fontPath('Montserrat-ExtraBold.ttf') },
+  kalam: { name: 'Kalam Bold', file: fontPath('Kalam-Bold.ttf') },
+  anton: { name: 'Anton', file: fontPath('Anton-Regular.ttf') },
 };
 
 const escape = value => String(value).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' })[c]);
-
-/**
- * Text as a transparent PNG that fits inside width × height. With wrap (the default)
- * long titles break over lines; without it the text stays on one line and scales down.
- */
-export async function fittedText(text, { width, height, size, color, bold = false, font, wrap = true, spacing = 0 }) {
-  const face = font ? FONTS[font] : bold ? FONTS.bold : null;
-  const span = `<span foreground="${color}"${spacing ? ` letter_spacing="${Math.round(spacing * 1024)}"` : ''}>${escape(text)}</span>`;
-  const rendered = await sharp({ text: {
-    text: span,
-    font: `${face ? face.font : 'DejaVu Sans'} ${size}`,
-    ...(face ? { fontfile: face.fontfile } : {}),
-    ...(wrap ? { width, wrap: 'word-char' } : {}),
-    align: 'center', rgba: true,
-  } }).png().toBuffer();
-  return sharp(rendered).resize({ width, height, fit: 'inside', withoutEnlargement: true }).png().toBuffer({ resolveWithObject: true });
-}
-
-// ---------------------------------------------------------------- title & colors
-
-const SCRIPT_WORDS = ['Ideas', 'Looks', 'Tips', 'Ways', 'Hacks', 'Designs', 'Inspo', 'Styles', 'Recipes', 'Projects', 'Outfits', 'Tricks', 'Steps'];
-
-/**
- * "19 Cozy Fall Kitchen Counter Decor Ideas" → number 19, lines ["Cozy Fall Kitchen", "Counter Decor"],
- * script word "Ideas". Titles without a leading number are guides.
- */
-export function splitTitle(title) {
-  let words = String(title).replace(/\s+/g, ' ').trim().split(' ').filter(Boolean);
-  const number = /^\d{1,3}$/.test(words[0] ?? '') && words.length > 1 ? words.shift() : null;
-  let script = '';
-  const last = words[words.length - 1]?.replace(/[^\w]/g, '');
-  const match = SCRIPT_WORDS.find(w => w.toLowerCase() === last?.toLowerCase());
-  if (match && words.length > 2) {
-    words = words.slice(0, -1);
-    script = match;
-  }
-  // Short titles take two lines; long ones up to four, so the words stay big.
-  const n = words.length <= 2 ? 1 : clamp(Math.ceil(words.join(' ').length / LINE_CHARS), 2, Math.min(4, words.length));
-  return { number, lines: balanceLines(words, n), script };
-}
-
-/** About this many characters of Anton fit one 860px line at a readable size. */
-const LINE_CHARS = 17;
-
-/** Small words a headline line shouldn't end on ("…for / Long Hair"). */
-const DANGLING = new Set(['a', 'an', 'the', 'to', 'for', 'and', 'or', 'of', 'in', 'on', 'with', 'your', 'my', 'that', 'by', 'at', '&']);
-
-/** Splits words into n evenly sized lines, avoiding lines that end on a small word. */
-export function balanceLines(words, n) {
-  const cost = (a, b) => {
-    const len = words.slice(a, b).join(' ').length;
-    return len * len + (b < words.length && DANGLING.has(words[b - 1].toLowerCase()) ? 400 : 0);
-  };
-  // best[k][i]: lowest cost when the first i words make k lines (sum of squared lengths keeps lines even).
-  const best = Array.from({ length: n + 1 }, () => Array(words.length + 1).fill(Infinity));
-  const cut = Array.from({ length: n + 1 }, () => Array(words.length + 1).fill(0));
-  best[0][0] = 0;
-  for (let k = 1; k <= n; k++) {
-    for (let i = k; i <= words.length; i++) {
-      for (let j = k - 1; j < i; j++) {
-        const v = best[k - 1][j] + cost(j, i);
-        if (v < best[k][i]) [best[k][i], cut[k][i]] = [v, j];
-      }
-    }
-  }
-  const lines = [];
-  for (let k = n, i = words.length; k > 0; i = cut[k][i], k--) lines.unshift(words.slice(cut[k][i], i).join(' '));
-  return lines;
-}
-
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
-function hsl(r, g, b) {
+
+// ---------------------------------------------------------------- text
+
+/** Text at an exact pixel size (dpi 72: 1pt = 1px), as a transparent PNG cropped to the text. */
+async function textAt(text, font, size, color, { spacing = 0, opacity = 1 } = {}) {
+  const f = FONTS[font];
+  const attrs = [`foreground="${color}"`, spacing ? `letter_spacing="${Math.round(spacing * 1024)}"` : '', opacity < 1 ? `fgalpha="${Math.round(opacity * 100)}%"` : ''].filter(Boolean).join(' ');
+  return sharp({ text: { text: `<span ${attrs}>${escape(text)}</span>`, font: `${f.name} ${Math.round(size)}`, fontfile: f.file, dpi: 72, rgba: true } })
+    .png()
+    .toBuffer({ resolveWithObject: true });
+}
+
+/** A text outline: the dark copy stamped around a ring, the fill on top. */
+async function outlined(text, font, size, fill, stroke, radius, spacing) {
+  const front = await textAt(text, font, size, fill, { spacing });
+  const back = await textAt(text, font, size, stroke, { spacing });
+  const steps = [];
+  for (const r of [radius, radius * 0.55]) for (let k = 0; k < 16; k++) steps.push([r * Math.cos((k * Math.PI) / 8), r * Math.sin((k * Math.PI) / 8)]);
+  const pad = Math.ceil(radius);
+  return sharp({ create: { width: front.info.width + pad * 2, height: front.info.height + pad * 2, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } })
+    .composite([...steps.map(([dx, dy]) => ({ input: back.data, left: Math.round(pad + dx), top: Math.round(pad + dy) })), { input: front.data, left: pad, top: pad }])
+    .png()
+    .toBuffer({ resolveWithObject: true });
+}
+
+/**
+ * One line sized to fill maxWidth, between min and max px. If it is still too wide at
+ * the minimum size, the image is scaled down: text never overflows its box.
+ */
+export async function fitLine(text, { font, color, maxWidth, min, max, spacing = 0, outline = 0, outlineColor = INK, opacity = 1 }) {
+  const probe = await textAt(text, font, 100, color, { spacing });
+  const size = clamp(Math.floor((100 * (maxWidth - outline * 2)) / Math.max(1, probe.info.width)), min, max);
+  let out = outline ? await outlined(text, font, size, color, outlineColor, outline, spacing) : await textAt(text, font, size, color, { spacing, opacity });
+  if (out.info.width > maxWidth) out = await sharp(out.data).resize({ width: maxWidth }).png().toBuffer({ resolveWithObject: true });
+  return { ...out, size };
+}
+
+// ---------------------------------------------------------------- color
+
+const hexRgb = hex => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16));
+const rgbHex = rgb => `#${rgb.map(v => clamp(Math.round(v), 0, 255).toString(16).padStart(2, '0')).join('')}`;
+function toHsl([r, g, b]) {
   [r, g, b] = [r / 255, g / 255, b / 255];
   const max = Math.max(r, g, b);
   const min = Math.min(r, g, b);
@@ -101,195 +86,586 @@ function hsl(r, g, b) {
   const h = max === r ? (g - b) / d + (g < b ? 6 : 0) : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
   return [h * 60, s, l];
 }
-function toHex(h, s, l) {
+function fromHsl(h, s, l) {
   const a = s * Math.min(l, 1 - l);
   const f = n => {
     const k = (n + h / 30) % 12;
-    return Math.round(255 * (l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1)))).toString(16).padStart(2, '0');
+    return 255 * (l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1)));
   };
-  return `#${f(0)}${f(8)}${f(4)}`;
+  return rgbHex([f(0), f(8), f(4)]);
 }
-
-/** Accent, panel and ink colors taken from the photos' dominant color (warm brown when the photos are grey). */
-export async function paletteFrom(photos) {
-  const hues = [];
-  for (const p of photos.slice(0, 3)) {
-    const { dominant } = await sharp(p).stats();
-    const [h, s, l] = hsl(dominant.r, dominant.g, dominant.b);
-    if (s > 0.12 && l > 0.08 && l < 0.92) hues.push(h);
+function luminance(hex) {
+  const [r, g, b] = hexRgb(hex).map(v => {
+    const c = v / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+export function contrast(a, b) {
+  const [x, y] = [luminance(a), luminance(b)].sort((p, q) => q - p);
+  return (x + 0.05) / (y + 0.05);
+}
+/** Darkens a color (same hue) until it reaches the contrast ratio against bg. */
+export function readableOn(color, bg, ratio = 4.5) {
+  let [h, s, l] = toHsl(hexRgb(color));
+  let out = color;
+  while (contrast(out, bg) < ratio && l > 0.04) {
+    l -= 0.02;
+    out = fromHsl(h, s, l);
   }
-  const h = hues.length ? hues[0] : 28;
-  return { accent: toHex(h, clamp(0.55, 0.45, 0.7), 0.34), panel: toHex(h, 0.4, 0.95), ink: '#1d1714', soft: toHex(h, 0.25, 0.86) };
+  return out;
 }
+const mix = (a, b, t) => rgbHex(hexRgb(a).map((v, i) => v * (1 - t) + hexRgb(b)[i] * t));
 
-// ---------------------------------------------------------------- building blocks
+const FALLBACK_PALETTES = [
+  { accent: '#B8862F', secondary: '#4A3226' },
+  { accent: '#C2577A', secondary: '#4B2233' },
+  { accent: '#6E8B5E', secondary: '#2F3B28' },
+];
 
-const svg = body => Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">${body}</svg>`);
-
-async function photoTile(photo, width, height) {
-  return sharp(photo).resize(width, height, { fit: 'cover', position: 'attention' }).png().toBuffer();
-}
-
-/** Places rendered text centered horizontally at y. */
-const at = (rendered, y, x = null) => ({ input: rendered.data, left: x ?? Math.round((W - rendered.info.width) / 2), top: Math.round(y) });
-
-/** Renders the stacked title block and returns its layers and height, ready to center in a panel. */
-async function titleBlock(title, colors, opts) {
-  const { number, lines, script } = title;
-  const { width, subtitle, scriptStyle, numberStyle, maxHeight, scale = 1 } = opts;
-  const z = v => Math.round(v * scale);
-  const parts = [];
-  if (number && numberStyle === 'inline') parts.push({ kind: 'text', r: await fittedText(number, { width: 260, height: z(150), size: 160, color: colors.ink, font: 'display', wrap: false }), gap: 6 });
-  // Line heights shrink a little as lines are added; the second half of the lines takes the accent color.
-  const sizes = { 1: [170], 2: [150, 132], 3: [128, 128, 128], 4: [112, 112, 112, 112] }[lines.length].map(z);
-  const accentFrom = Math.max(1, Math.ceil(lines.length / 2));
-  for (const [i, line] of lines.entries()) {
-    parts.push({ kind: 'text', r: await fittedText(line.toUpperCase(), { width, height: sizes[i], size: 200, color: i >= accentFrom ? colors.accent : colors.ink, font: 'display', wrap: false }), gap: 10 });
+/** Small k-means over downsampled photo pixels: returns cluster colors, biggest first. */
+async function dominantColors(photos, k = 3) {
+  const pixels = [];
+  for (const p of photos.slice(0, 4)) {
+    const { data } = await sharp(p).resize(24, 24, { fit: 'cover' }).removeAlpha().raw().toBuffer({ resolveWithObject: true });
+    for (let i = 0; i < data.length; i += 3) pixels.push([data[i], data[i + 1], data[i + 2]]);
   }
-  if (script) {
-    if (scriptStyle === 'ribbon') {
-      const r = await fittedText(script, { width: 420, height: z(74), size: 84, color: '#ffffff', font: 'script', wrap: false });
-      parts.push({ kind: 'ribbon', r, gap: 12, height: z(96) });
-    } else {
-      parts.push({ kind: 'text', r: await fittedText(script, { width: 520, height: z(96), size: 110, color: colors.ink, font: 'script', wrap: false }), gap: 8 });
-    }
-  }
-  if (subtitle) parts.push({ kind: 'text', r: await fittedText(subtitle.toUpperCase(), { width: width - 40, height: z(40), size: 34, color: colors.ink, font: 'bold', wrap: false, spacing: 0.5 }), gap: 14 });
-  const height = parts.reduce((n, p, i) => n + (p.height ?? p.r.info.height) + (i ? p.gap : 0), 0);
-  // Too tall for its panel (long titles): render once more with everything scaled to fit.
-  if (maxHeight && height > maxHeight && scale === 1) return titleBlock(title, colors, { ...opts, scale: (maxHeight / height) * 0.97 });
-  return { parts, height };
-}
-
-function placeBlock(block, top, colors) {
-  const layers = [];
-  let y = top;
-  for (const [i, p] of block.parts.entries()) {
-    if (i) y += p.gap;
-    if (p.kind === 'ribbon') {
-      const w = p.r.info.width + 130;
-      const x = (W - w) / 2;
-      const h = p.height;
-      const tail = 34;
-      // Notched ribbon: darker tails behind a band.
-      layers.push({
-        input: svg(`<polygon points="${x - tail},${y + 14} ${x + 20},${y + 14} ${x + 20},${y + h + 10} ${x - tail},${y + h + 10} ${x - tail + 18},${y + h / 2 + 12}" fill="${colors.ink}" opacity="0.85"/>
-          <polygon points="${x + w + tail},${y + 14} ${x + w - 20},${y + 14} ${x + w - 20},${y + h + 10} ${x + w + tail},${y + h + 10} ${x + w + tail - 18},${y + h / 2 + 12}" fill="${colors.ink}" opacity="0.85"/>
-          <rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${colors.accent}"/>`),
-        left: 0,
-        top: 0,
+  if (!pixels.length) return [];
+  const byLight = [...pixels].sort((a, b) => a[0] + a[1] + a[2] - (b[0] + b[1] + b[2]));
+  let centers = Array.from({ length: k }, (_, i) => byLight[Math.floor(((i + 0.5) / k) * byLight.length)]);
+  let groups = [];
+  for (let iter = 0; iter < 8; iter++) {
+    groups = centers.map(() => []);
+    for (const px of pixels) {
+      let best = 0;
+      let bestD = Infinity;
+      centers.forEach((c, j) => {
+        const d = (px[0] - c[0]) ** 2 + (px[1] - c[1]) ** 2 + (px[2] - c[2]) ** 2;
+        if (d < bestD) [best, bestD] = [j, d];
       });
-      layers.push(at(p.r, y + (h - p.r.info.height) / 2));
-      y += h;
-    } else {
-      layers.push(at(p.r, y));
-      y += p.r.info.height;
+      groups[best].push(px);
     }
+    centers = groups.map((g, j) => (g.length ? [0, 1, 2].map(c => g.reduce((n, px) => n + px[c], 0) / g.length) : centers[j]));
   }
-  return layers;
+  return centers.map((c, j) => ({ hex: rgbHex(c), size: groups[j].length })).sort((a, b) => b.size - a.size);
 }
 
-async function footer(cta, site, colors) {
-  const pill = await fittedText(cta, { width: 560, height: 30, size: 30, color: colors.ink, font: 'bold', wrap: false, spacing: 0.6 });
-  const pw = pill.info.width + 70;
-  const host = await fittedText(site.toUpperCase(), { width: 600, height: 26, size: 26, color: '#ffffff', font: 'bold', wrap: false, spacing: 2 });
-  return [
-    { input: svg(`<defs><linearGradient id="f" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity="0.62"/></linearGradient></defs>
-      <rect x="0" y="${H - 230}" width="${W}" height="230" fill="url(#f)"/>
-      <rect x="${(W - pw) / 2}" y="${H - 168}" width="${pw}" height="62" rx="31" fill="#ffffff"/>`), left: 0, top: 0 },
-    at(pill, H - 168 + (62 - pill.info.height) / 2),
-    at(host, H - 74),
-  ];
+/**
+ * Accent = the most saturated photo color, secondary = a darker one; both fall back to a
+ * brand-safe palette when the photos are grey. Text colors are darkened to 4.5:1 on the panel.
+ */
+export async function paletteFrom(photos, key = '') {
+  let accent;
+  let secondary;
+  try {
+    const colors = await dominantColors(photos);
+    const usable = colors.map(c => ({ ...c, hsl: toHsl(hexRgb(c.hex)) })).filter(c => c.hsl[1] > 0.18 && c.hsl[2] > 0.18 && c.hsl[2] < 0.82);
+    if (usable.length) {
+      const a = usable.reduce((best, c) => (c.hsl[1] > best.hsl[1] ? c : best));
+      // Push the accent to a confident, print-like tone.
+      accent = fromHsl(a.hsl[0], clamp(a.hsl[1], 0.45, 0.75), clamp(a.hsl[2], 0.38, 0.5));
+      const darker = colors.map(c => ({ ...c, hsl: toHsl(hexRgb(c.hex)) })).filter(c => c.hex !== a.hex).sort((x, y) => x.hsl[2] - y.hsl[2])[0];
+      secondary = darker ? fromHsl(darker.hsl[1] > 0.12 ? darker.hsl[0] : a.hsl[0], clamp(darker.hsl[1], 0.25, 0.6), clamp(darker.hsl[2], 0.16, 0.3)) : fromHsl(a.hsl[0], 0.45, 0.22);
+    }
+  } catch {
+    /* fall back below */
+  }
+  if (!accent) ({ accent, secondary } = FALLBACK_PALETTES[hash(key) % FALLBACK_PALETTES.length]);
+  return { accent, secondary };
 }
 
-// ---------------------------------------------------------------- layouts
+// ---------------------------------------------------------------- shapes
 
-async function splitLayout(photos, title, copy, site, colors) {
-  const top = photos.slice(0, 3);
-  const bottom = photos.length >= 6 ? photos.slice(3, 6) : photos.length >= 4 ? photos.slice(2, 4) : photos.slice(0, 3);
-  const layers = [];
-  const row = async (list, y, h) => {
-    const w = Math.ceil(W / list.length);
-    for (const [i, p] of list.entries()) layers.push({ input: await photoTile(p, i === list.length - 1 ? W - w * i : w, h), left: w * i, top: y });
+const svg = (body, w = W, h = H) => Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}">${body}</svg>`);
+
+function octagon(cx, cy, size) {
+  const r = size / 2 / Math.cos(Math.PI / 8);
+  return Array.from({ length: 8 }, (_, k) => {
+    const a = Math.PI / 8 + (k * Math.PI) / 4;
+    return `${(cx + r * Math.cos(a)).toFixed(1)},${(cy + r * Math.sin(a)).toFixed(1)}`;
+  }).join(' ');
+}
+
+/** A rectangle with scalloped (stamp) edges. */
+function stampPath(x, y, w, h, bump = 11) {
+  const nx = Math.max(4, Math.round(w / (2 * bump)));
+  const ny = Math.max(4, Math.round(h / (2 * bump)));
+  const rx = w / (2 * nx);
+  const ry = h / (2 * ny);
+  let d = `M${x},${y}`;
+  for (let i = 0; i < nx; i++) d += ` a${rx},${rx} 0 0 1 ${2 * rx},0`;
+  for (let i = 0; i < ny; i++) d += ` a${ry},${ry} 0 0 1 0,${2 * ry}`;
+  for (let i = 0; i < nx; i++) d += ` a${rx},${rx} 0 0 1 ${-2 * rx},0`;
+  for (let i = 0; i < ny; i++) d += ` a${ry},${ry} 0 0 1 0,${-2 * ry}`;
+  return `${d} Z`;
+}
+
+/** A small hand-drawn squiggle doodle for a panel corner. */
+function squiggle(x, y, color) {
+  return `<path d="M${x},${y + 20} q12,-26 24,0 t24,0 t24,0 t24,0" fill="none" stroke="${color}" stroke-opacity="0.6" stroke-width="3" stroke-linecap="round"/>
+    <path d="M${x + 14},${y + 44} q10,-18 20,0 t20,0 t20,0" fill="none" stroke="${color}" stroke-opacity="0.6" stroke-width="3" stroke-linecap="round"/>`;
+}
+
+/** A swallowtail ribbon band from x to x + w at y (height h). */
+function swallowtail(x, y, w, h, fill) {
+  const n = h * 0.45;
+  return `<polygon points="${x - 34},${y + 10} ${x + 10},${y + 10} ${x + 10},${y + h + 12} ${x - 34},${y + h + 12} ${x - 34 + n * 0.55},${y + h / 2 + 11}" fill="${fill}" opacity="0.75"/>
+    <polygon points="${x + w + 34},${y + 10} ${x + w - 10},${y + 10} ${x + w - 10},${y + h + 12} ${x + w + 34},${y + h + 12} ${x + w + 34 - n * 0.55},${y + h / 2 + 11}" fill="${fill}" opacity="0.75"/>
+    <rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${fill}"/>`;
+}
+
+/** A hand-drawn style curved arrow from (x1, y1) to (x2, y2). */
+function arrow(x1, y1, x2, y2, color, bend = -60) {
+  const cx = (x1 + x2) / 2;
+  const cy = (y1 + y2) / 2 + bend;
+  const ang = Math.atan2(y2 - cy, x2 - cx);
+  const head = a => `${(x2 - 26 * Math.cos(ang + a)).toFixed(1)},${(y2 - 26 * Math.sin(ang + a)).toFixed(1)}`;
+  return `<path d="M${x1},${y1} Q${cx},${cy} ${x2},${y2}" fill="none" stroke="${color}" stroke-width="5" stroke-linecap="round"/>
+    <path d="M${head(0.5)} L${x2},${y2} L${head(-0.5)}" fill="none" stroke="${color}" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>`;
+}
+
+// ---------------------------------------------------------------- canvas helper
+
+/** Collects layers plus the box of every text element (used by tests to check fitting). */
+class Canvas {
+  constructor() {
+    this.layers = [];
+    this.boxes = [];
+  }
+  shape(body) {
+    this.layers.push({ input: svg(body), left: 0, top: 0 });
+  }
+  image(input, left, top) {
+    this.layers.push({ input, left: Math.round(left), top: Math.round(top) });
+  }
+  text(name, r, left, top, region) {
+    this.image(r.data, left, top);
+    this.boxes.push({ name, left: Math.round(left), top: Math.round(top), width: r.info.width, height: r.info.height, region });
+  }
+}
+
+async function photoCell(photo, w, h) {
+  return sharp(photo).resize(Math.round(w), Math.round(h), { fit: 'cover', position: 'attention' }).png().toBuffer();
+}
+
+/** A row of photos with white gutters between cells. */
+async function photoRow(c, photos, top, height) {
+  const n = photos.length;
+  const w = (W - GUTTER * (n - 1)) / n;
+  c.shape(`<rect x="0" y="${top}" width="${W}" height="${height}" fill="#ffffff"/>`);
+  for (const [i, p] of photos.entries()) c.image(await photoCell(p, i === n - 1 ? W - Math.round((w + GUTTER) * i) : w, height), Math.round((w + GUTTER) * i), top);
+}
+
+/** Stacks rendered items in a panel region, centered vertically and horizontally. */
+function stack(c, items, top, bottom, region) {
+  const total = items.reduce((n, it, i) => n + it.h + (i ? it.gap : 0), 0);
+  let y = top + Math.max(0, (bottom - top - total) / 2);
+  for (const [i, it] of items.entries()) {
+    if (i) y += it.gap;
+    it.draw(c, y, region);
+    y += it.h;
+  }
+  return total;
+}
+const textItem = (name, r, gap = 14) => ({ h: r.info.height, gap, draw: (c, y, region) => c.text(name, r, (W - r.info.width) / 2, y, region) });
+
+async function ctaAndDomain(c, cta, site) {
+  c.shape(`<defs><linearGradient id="fade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity="0.55"/></linearGradient></defs>
+    <rect x="0" y="${H - 200}" width="${W}" height="200" fill="url(#fade)"/>`);
+  const label = await fitLine(`${cta} →`, { font: 'montserrat', color: INK, maxWidth: 520, min: 18, max: 24, spacing: 1 });
+  const pw = label.info.width + 64;
+  const top = H - 70 - 52;
+  c.shape(`<rect x="${(W - pw) / 2}" y="${top}" width="${pw}" height="52" rx="26" fill="#ffffff"/>`);
+  c.text('cta', label, (W - label.info.width) / 2, top + (52 - label.info.height) / 2, [top, top + 52]);
+  const domain = await fitLine(site.toUpperCase(), { font: 'montserrat', color: '#ffffff', maxWidth: 600, min: 14, max: 18, spacing: 2, opacity: 0.7 });
+  c.text('domain', domain, (W - domain.info.width) / 2, top + 52 + 12, [top + 52, H]);
+}
+
+/** The headline's two lines, shrinking the size cap until the whole block fits the panel. */
+async function fitBlock(build, avail) {
+  for (let max = 130; max >= 70; max -= 10) {
+    const items = await build(max);
+    const total = items.reduce((n, it, i) => n + it.h + (i ? it.gap : 0), 0);
+    if (total <= avail) return items;
+  }
+  // Still too tall at the minimum size: tighten the gaps.
+  const items = await build(70);
+  return items.map((it, i) => ({ ...it, gap: i ? Math.round(it.gap / 2) : 0 }));
+}
+
+// ---------------------------------------------------------------- templates
+
+async function templateA(c, photos, copy, pal) {
+  const panel = '#F6F1E7';
+  const [top, bottom] = photos.length >= 4 ? [photos.slice(0, 2), photos.slice(2, 4)] : [[photos[0]], [photos[1] ?? photos[0]]];
+  await photoRow(c, top, 0, 450);
+  c.shape(`<rect x="0" y="450" width="${W}" height="600" fill="${panel}"/>`);
+  c.shape(squiggle(840, 474, INK));
+  await photoRow(c, bottom, 1050, 450);
+  const accentText = readableOn(pal.accent, panel);
+  const secondary = readableOn(pal.secondary, panel);
+  const hasBadge = !!copy.number;
+  const items = await fitBlock(async max => {
+    const out = [];
+    if (copy.hook) out.push(textItem('hook', await fitLine(copy.hook, { font: 'montserrat', color: accentText, maxWidth: 880, min: 28, max: 40, spacing: 2 }), 0));
+    for (const [i, line] of [copy.headline_line1, copy.headline_line2].filter(Boolean).entries()) {
+      out.push(textItem(`headline${i + 1}`, await fitLine(line, { font: 'lilita', color: pal.accent, maxWidth: 880, min: 70, max, outline: 6, outlineColor: INK }), i ? 2 : 12));
+    }
+    if (copy.category) out.push(textItem('category', await fitLine(copy.category, { font: 'montserrat', color: secondary, maxWidth: 880, min: 30, max: 48 })));
+    if (copy.script_word) out.push(textItem('script', await fitLine(copy.script_word, { font: 'kalam', color: INK, maxWidth: 600, min: 54, max: 64 }), 6));
+    if (copy.tagline) {
+      const t = await fitLine(copy.tagline, { font: 'montserrat', color: '#ffffff', maxWidth: 760, min: 22, max: 26, spacing: 1 });
+      const pw = t.info.width + 56;
+      const ph = t.info.height + 28;
+      out.push({ h: ph, gap: 14, draw: (cv, y, region) => {
+        cv.shape(`<rect x="${(W - pw) / 2}" y="${y}" width="${pw}" height="${ph}" rx="${ph / 2}" fill="${INK}"/>`);
+        cv.text('tagline', t, (W - t.info.width) / 2, y + 14, region);
+      } });
+    }
+    return out;
+  }, 600 - (hasBadge ? 96 : 40));
+  stack(c, items, 450 + (hasBadge ? 80 : 20), 1050 - 16, [450, 1050]);
+  if (hasBadge) {
+    c.shape(`<polygon points="${octagon(500, 450, 140)}" fill="#3A2418" stroke="#ffffff" stroke-width="4"/>${arrow(290, 560, 415, 470, INK, -70)}`);
+    const n = await fitLine(copy.number, { font: 'lilita', color: '#ffffff', maxWidth: 96, min: 30, max: 84 });
+    c.text('number', n, 500 - n.info.width / 2, 450 - n.info.height / 2, [380, 520]);
+  }
+}
+
+async function templateB(c, photos, copy, pal) {
+  const panel = '#FBF7F2';
+  c.shape(`<rect x="0" y="0" width="${W}" height="620" fill="${panel}"/>`);
+  c.shape(squiggle(840, 30, INK));
+  // 2×2 grid below the panel.
+  const cw = (W - GUTTER) / 2;
+  const ch = (880 - GUTTER) / 2;
+  c.shape(`<rect x="0" y="620" width="${W}" height="880" fill="#ffffff"/>`);
+  for (let i = 0; i < 4; i++) c.image(await photoCell(photos[i % photos.length], cw, ch), (i % 2) * (cw + GUTTER), 620 + Math.floor(i / 2) * (ch + GUTTER));
+  const accentText = readableOn(pal.accent, '#ffffff');
+  const secondary = readableOn(pal.secondary, '#ffffff');
+  const hasBadge = !!copy.number;
+  const frameTop = hasBadge ? 150 : 50;
+  // Frame content (headline + category), shrinking until the whole panel fits.
+  let frame;
+  let below;
+  for (let max = 130; max >= 70; max -= 10) {
+    frame = [];
+    for (const [i, line] of [copy.headline_line1, copy.headline_line2].filter(Boolean).entries()) frame.push(textItem(`headline${i + 1}`, await fitLine(line, { font: 'lilita', color: accentText, maxWidth: 760, min: 70, max }), i ? 2 : 0));
+    if (copy.category) frame.push(textItem('category', await fitLine(copy.category, { font: 'montserrat', color: secondary, maxWidth: 760, min: 26, max: 44 }), 12));
+    below = [];
+    if (copy.script_word) below.push(textItem('script', await fitLine(copy.script_word, { font: 'kalam', color: INK, maxWidth: 600, min: 54, max: 64 }), 0));
+    if (copy.tagline) below.push(textItem('tagline', await fitLine(copy.tagline, { font: 'montserrat', color: INK, maxWidth: 860, min: 22, max: 26, spacing: 1 }), 8));
+    const frameH = frame.reduce((n, it, i) => n + it.h + (i ? it.gap : 0), 0) + 64;
+    const belowH = below.reduce((n, it, i) => n + it.h + (i ? it.gap : 0), 0);
+    if (frameTop + frameH + 18 + belowH <= 600 || max === 70) break;
+  }
+  const frameH = frame.reduce((n, it, i) => n + it.h + (i ? it.gap : 0), 0) + 64;
+  c.shape(`<path d="${stampPath(70, frameTop, 860, frameH)}" fill="#ffffff" stroke="${INK}" stroke-width="4"/>`);
+  stack(c, frame, frameTop + 32, frameTop + frameH - 32, [frameTop, frameTop + frameH]);
+  stack(c, below, frameTop + frameH + 18, 610, [frameTop + frameH, 620]);
+  if (hasBadge) {
+    c.shape(`<rect x="445" y="26" width="110" height="110" fill="#111111"/>${arrow(210, 40, 425, 96, INK, -50)}`);
+    const n = await fitLine(copy.number, { font: 'lilita', color: '#ffffff', maxWidth: 84, min: 30, max: 76 });
+    c.text('number', n, 500 - n.info.width / 2, 81 - n.info.height / 2, [26, 136]);
+  }
+}
+
+async function templateC(c, photos, copy, pal) {
+  const panel = mix(pal.accent, '#ffffff', 0.85);
+  await photoRow(c, photos.slice(0, 3), 0, 430);
+  c.shape(`<rect x="0" y="430" width="${W}" height="560" fill="${panel}"/>`);
+  c.shape(squiggle(840, 452, INK));
+  await photoRow(c, photos.slice(3, 6), 990, 510);
+  const darkAccent = fromHsl(toHsl(hexRgb(pal.accent))[0], 0.5, 0.2);
+  const ink = readableOn(INK, panel);
+  const hasBadge = !!copy.number;
+  const items = await fitBlock(async max => {
+    const out = [];
+    for (const [i, line] of [copy.headline_line1, copy.headline_line2].filter(Boolean).entries()) {
+      out.push(textItem(`headline${i + 1}`, await fitLine(line, { font: 'lilita', color: pal.accent, maxWidth: 880, min: 70, max, outline: 5, outlineColor: darkAccent }), i ? 2 : 0));
+    }
+    if (copy.category) {
+      const t = await fitLine(copy.category, { font: 'montserrat', color: readableOn(pal.secondary, panel), maxWidth: 840, min: 26, max: 40 });
+      const sh = t.info.height + 22;
+      out.push({ h: sh, gap: 14, draw: (cv, y, region) => {
+        cv.shape(`<rect x="${(W - t.info.width) / 2 - 40}" y="${y}" width="${t.info.width + 80}" height="${sh}" fill="${pal.accent}" fill-opacity="0.35"/>`);
+        cv.text('category', t, (W - t.info.width) / 2, y + 11, region);
+      } });
+    }
+    out.push(textItem('script', copy.script_word
+      ? await fitLine(copy.script_word, { font: 'kalam', color: ink, maxWidth: 600, min: 54, max: 64 })
+      : await fitLine('IDEAS', { font: 'montserrat', color: ink, maxWidth: 600, min: 34, max: 44, spacing: 3 }), 6));
+    if (copy.tagline) out.push(textItem('tagline', await fitLine(copy.tagline, { font: 'montserrat', color: ink, maxWidth: 860, min: 22, max: 24, spacing: 1 }), 6));
+    return out;
+  }, 560 - (hasBadge ? 96 : 40));
+  stack(c, items, 430 + (hasBadge ? 80 : 20), 990 - 16, [430, 990]);
+  if (hasBadge) {
+    c.shape(`<circle cx="500" cy="430" r="65" fill="${pal.accent}" stroke="#ffffff" stroke-width="6"/>${arrow(290, 540, 420, 455, ink, -70)}`);
+    const n = await fitLine(copy.number, { font: 'lilita', color: '#ffffff', maxWidth: 84, min: 30, max: 76 });
+    c.text('number', n, 500 - n.info.width / 2, 430 - n.info.height / 2, [365, 495]);
+  }
+}
+
+async function templateD(c, photos, copy, pal) {
+  await photoRow(c, photos.slice(0, 3), 0, 430);
+  c.shape(`<rect x="0" y="430" width="${W}" height="600" fill="#ffffff"/>`);
+  c.shape(squiggle(840, 452, INK));
+  await photoRow(c, photos.slice(3, 6), 1030, 470);
+  const band = readableOn(pal.accent, '#ffffff');
+  const hasBadge = !!copy.number;
+  const bannerText = copy.banner || copy.category;
+  const items = await fitBlock(async max => {
+    const out = [];
+    for (const [i, line] of [copy.headline_line1, copy.headline_line2].filter(Boolean).entries()) {
+      out.push(textItem(`headline${i + 1}`, await fitLine(line, { font: 'archivo', color: '#111111', maxWidth: 880, min: 70, max }), i ? 4 : 0));
+    }
+    if (bannerText) {
+      const t = await fitLine(bannerText, { font: 'montserrat', color: '#ffffff', maxWidth: 920, min: 28, max: 48, spacing: 1 });
+      out.push({ h: 80, gap: 18, draw: (cv, y, region) => {
+        cv.shape(`<rect x="0" y="${y}" width="${W}" height="80" fill="${band}"/>`);
+        cv.text('banner', t, (W - t.info.width) / 2, y + (80 - t.info.height) / 2, region);
+      } });
+    }
+    const script = copy.script_line || copy.script_word;
+    if (script) out.push(textItem('script', await fitLine(script, { font: 'kalam', color: INK, maxWidth: 860, min: 54, max: 64 }), 12));
+    if (copy.tagline) out.push(textItem('tagline', await fitLine(copy.tagline, { font: 'montserrat', color: INK, maxWidth: 860, min: 22, max: 24, spacing: 1 }), 6));
+    return out;
+  }, 600 - (hasBadge ? 96 : 40));
+  stack(c, items, 430 + (hasBadge ? 80 : 20), 1030 - 16, [430, 1030]);
+  if (hasBadge) {
+    c.shape(`<rect x="440" y="370" width="120" height="120" fill="#111111" stroke="#ffffff" stroke-width="4"/>${arrow(280, 545, 420, 455, INK, -70)}`);
+    const n = await fitLine(copy.number, { font: 'archivo', color: '#ffffff', maxWidth: 92, min: 30, max: 72 });
+    c.text('number', n, 500 - n.info.width / 2, 430 - n.info.height / 2, [370, 490]);
+  }
+}
+
+async function templateE(c, photos, copy, pal) {
+  await photoRow(c, photos.slice(0, 3), 0, 420);
+  c.shape(`<rect x="0" y="420" width="${W}" height="640" fill="#ffffff"/>`);
+  c.shape(squiggle(840, 444, INK));
+  await photoRow(c, photos.slice(3, 6), 1060, 440);
+  const accentText = readableOn(pal.accent, '#ffffff');
+  const ribbonFill = readableOn(pal.accent, '#ffffff');
+  const items = await fitBlock(async max => {
+    const out = [];
+    if (copy.number) {
+      const n = await fitLine(copy.number, { font: 'archivo', color: '#2B2B2B', maxWidth: 360, min: 90, max: 150 });
+      out.push({ h: n.info.height, gap: 0, draw: (cv, y, region) => {
+        cv.text('number', n, (W - n.info.width) / 2, y, region);
+        cv.shape(arrow((W - n.info.width) / 2 - 190, y + n.info.height + 6, (W - n.info.width) / 2 - 24, y + n.info.height / 2, INK, -60));
+      } });
+    }
+    if (copy.hook) out.push(textItem('hook', await fitLine(copy.hook, { font: 'montserrat', color: INK, maxWidth: 880, min: 24, max: 32, spacing: 3 }), 10));
+    if (copy.headline_line1) out.push(textItem('headline1', await fitLine(copy.headline_line1, { font: 'anton', color: '#2B2B2B', maxWidth: 880, min: 70, max }), 12));
+    if (copy.headline_line2) out.push(textItem('headline2', await fitLine(copy.headline_line2, { font: 'anton', color: accentText, maxWidth: 880, min: 70, max }), 4));
+    if (copy.script_word) {
+      const t = await fitLine(copy.script_word, { font: 'kalam', color: '#ffffff', maxWidth: 480, min: 54, max: 64 });
+      const rw = 550;
+      const rh = t.info.height + 24;
+      out.push({ h: rh + 12, gap: 14, draw: (cv, y, region) => {
+        cv.shape(swallowtail((W - rw) / 2, y, rw, rh, ribbonFill));
+        cv.text('script', t, (W - t.info.width) / 2, y + 12, region);
+      } });
+    }
+    if (copy.tagline) out.push(textItem('tagline', await fitLine(copy.tagline, { font: 'montserrat', color: INK, maxWidth: 860, min: 22, max: 24, spacing: 1 }), 10));
+    return out;
+  }, 600);
+  stack(c, items, 440, 1060 - 18, [420, 1060]);
+}
+
+async function templateF(c, photos, copy, pal) {
+  const panel = '#FBF7F2';
+  const three = photos.length >= 6;
+  await photoRow(c, three ? photos.slice(0, 3) : photos.slice(0, 2), 0, 460);
+  c.shape(`<rect x="0" y="460" width="${W}" height="600" fill="${panel}"/>`);
+  c.shape(squiggle(840, 484, INK));
+  await photoRow(c, three ? photos.slice(3, 6) : photos.slice(2, 4), 1060, 440);
+  const accentText = readableOn(pal.accent, panel);
+  const secondary = readableOn(pal.secondary, panel);
+  const hasBadge = !!copy.number;
+  const items = await fitBlock(async max => {
+    const box = [];
+    for (const [i, line] of [copy.headline_line1, copy.headline_line2].filter(Boolean).entries()) box.push(textItem(`headline${i + 1}`, await fitLine(line, { font: 'lilita', color: accentText, maxWidth: 780, min: 70, max }), i ? 2 : 0));
+    if (copy.category) box.push(textItem('category', await fitLine(copy.category, { font: 'montserrat', color: secondary, maxWidth: 780, min: 26, max: 40 }), 10));
+    const boxH = box.reduce((n, it, i) => n + it.h + (i ? it.gap : 0), 0) + 40;
+    const out = [{ h: boxH, gap: 0, draw: (cv, y) => {
+      cv.shape(`<rect x="90" y="${y}" width="820" height="${boxH}" fill="none" stroke="${INK}" stroke-width="3"/>`);
+      stack(cv, box, y + 20, y + boxH - 20, [y, y + boxH]);
+    } }];
+    if (copy.script_line) out.push(textItem('script', await fitLine(copy.script_line, { font: 'kalam', color: INK, maxWidth: 820, min: 54, max: 64 }), 14));
+    if (copy.tagline) out.push(textItem('tagline', await fitLine(copy.tagline, { font: 'montserrat', color: INK, maxWidth: 860, min: 22, max: 24, spacing: 1 }), 8));
+    return out;
+  }, 600 - (hasBadge ? 96 : 40));
+  stack(c, items, 460 + (hasBadge ? 80 : 20), 1060 - 16, [460, 1060]);
+  if (hasBadge) {
+    c.shape(`<rect x="445" y="405" width="110" height="110" fill="#111111" stroke="#ffffff" stroke-width="4"/>${arrow(290, 560, 425, 470, INK, -70)}`);
+    const n = await fitLine(copy.number, { font: 'lilita', color: '#ffffff', maxWidth: 84, min: 30, max: 76 });
+    c.text('number', n, 500 - n.info.width / 2, 460 - n.info.height / 2, [405, 515]);
+  }
+}
+
+async function templateG(c, photos, copy, pal) {
+  await photoRow(c, photos.slice(0, 3), 0, 430);
+  c.shape(`<rect x="0" y="430" width="${W}" height="600" fill="#ffffff"/>`);
+  c.shape(squiggle(840, 452, INK));
+  await photoRow(c, photos.slice(3, 6), 1030, 470);
+  const band = readableOn(pal.accent, '#ffffff');
+  const items = await fitBlock(async max => {
+    const out = [];
+    if (copy.hook) out.push(textItem('hook', await fitLine(copy.hook, { font: 'montserrat', color: band, maxWidth: 880, min: 30, max: 44, spacing: 2 }), 0));
+    for (const [i, line] of [copy.headline_line1, copy.headline_line2].filter(Boolean).entries()) out.push(textItem(`headline${i + 1}`, await fitLine(line, { font: 'archivo', color: '#111111', maxWidth: 880, min: 70, max }), i ? 4 : 10));
+    if (copy.banner) {
+      const t = await fitLine(copy.banner, { font: 'montserrat', color: '#ffffff', maxWidth: 920, min: 28, max: 48, spacing: 1 });
+      out.push({ h: 80, gap: 18, draw: (cv, y, region) => {
+        cv.shape(`<rect x="0" y="${y}" width="${W}" height="80" fill="${band}"/>`);
+        cv.text('banner', t, (W - t.info.width) / 2, y + (80 - t.info.height) / 2, region);
+      } });
+    }
+    if (copy.script_line) out.push(textItem('script', await fitLine(copy.script_line, { font: 'kalam', color: INK, maxWidth: 860, min: 54, max: 64 }), 12));
+    if (copy.tagline) out.push(textItem('tagline', await fitLine(copy.tagline, { font: 'montserrat', color: INK, maxWidth: 860, min: 22, max: 24, spacing: 1 }), 6));
+    return out;
+  }, 600 - 48);
+  stack(c, items, 430 + 28, 1030 - 16, [430, 1030]);
+  // The number is optional here: small, top-left of the panel, with its arrow.
+  if (copy.number) {
+    const n = await fitLine(`#${copy.number}`, { font: 'archivo', color: '#111111', maxWidth: 120, min: 30, max: 44 });
+    c.text('number', n, 36, 446, [430, 1030]);
+    c.shape(arrow(60 + n.info.width + 70, 520, 46 + n.info.width + 10, 470, INK, 30));
+  }
+}
+
+async function templateH(c, photos, copy, pal) {
+  const panel = mix(pal.accent, '#ffffff', 0.88);
+  c.shape(`<rect x="0" y="0" width="${W}" height="640" fill="${panel}"/>`);
+  c.shape(squiggle(40, 34, INK));
+  // Two rows of photos below: 2 + 2, or 3 + 2 with five or more.
+  const rh = (860 - GUTTER) / 2;
+  c.shape(`<rect x="0" y="640" width="${W}" height="860" fill="#ffffff"/>`);
+  await photoRow(c, photos.length >= 5 ? photos.slice(0, 3) : photos.slice(0, 2), 640, rh);
+  await photoRow(c, photos.length >= 5 ? photos.slice(3, 5) : photos.slice(2, 4), 640 + rh + GUTTER, 860 - rh - GUTTER);
+  const bannerFill = readableOn(pal.accent, '#ffffff');
+  const ink = readableOn(INK, panel);
+  const hasBadge = !!copy.number;
+  const items = await fitBlock(async max => {
+    const out = [];
+    if (copy.hook) {
+      const t = await fitLine(copy.hook, { font: 'montserrat', color: '#ffffff', maxWidth: 600, min: 22, max: 28, spacing: 2 });
+      const pw = t.info.width + 50;
+      const ph = t.info.height + 22;
+      out.push({ h: ph, gap: 0, draw: (cv, y, region) => {
+        cv.shape(`<rect x="${(W - pw) / 2}" y="${y}" width="${pw}" height="${ph}" rx="${ph / 2}" fill="${INK}"/>`);
+        cv.text('hook', t, (W - t.info.width) / 2, y + 11, region);
+      } });
+    }
+    for (const [i, line] of [copy.headline_line1, copy.headline_line2].filter(Boolean).entries()) out.push(textItem(`headline${i + 1}`, await fitLine(line, { font: 'lilita', color: pal.accent, maxWidth: 880, min: 70, max, outline: 5, outlineColor: INK }), i ? 2 : 12));
+    if (copy.category) out.push(textItem('category', await fitLine(copy.category, { font: 'montserrat', color: readableOn(pal.secondary, panel), maxWidth: 860, min: 26, max: 40 }), 10));
+    if (copy.script_line) out.push(textItem('script', await fitLine(copy.script_line, { font: 'kalam', color: ink, maxWidth: 820, min: 54, max: 64 }), 12));
+    if (copy.tagline) {
+      const t = await fitLine(copy.tagline, { font: 'montserrat', color: '#ffffff', maxWidth: 800, min: 22, max: 24, spacing: 1 });
+      const bw = t.info.width + 80;
+      const bh = t.info.height + 22;
+      out.push({ h: bh, gap: 10, draw: (cv, y, region) => {
+        cv.shape(`<rect x="${(W - bw) / 2}" y="${y}" width="${bw}" height="${bh}" fill="${bannerFill}"/>`);
+        cv.text('tagline', t, (W - t.info.width) / 2, y + 11, region);
+      } });
+    }
+    return out;
+  }, 640 - (hasBadge ? 150 : 50));
+  stack(c, items, hasBadge ? 136 : 40, 640 - 16, [0, 640]);
+  if (hasBadge) {
+    c.shape(`<circle cx="500" cy="70" r="52" fill="${pal.accent}" stroke="#ffffff" stroke-width="5"/>${arrow(250, 52, 432, 80, INK, -40)}`);
+    const n = await fitLine(copy.number, { font: 'lilita', color: '#ffffff', maxWidth: 76, min: 28, max: 64 });
+    c.text('number', n, 500 - n.info.width / 2, 70 - n.info.height / 2, [18, 122]);
+  }
+}
+
+const RENDER = { A: templateA, B: templateB, C: templateC, D: templateD, E: templateE, F: templateF, G: templateG, H: templateH };
+
+// ---------------------------------------------------------------- choosing & rendering
+
+function hash(s) {
+  let h = 2166136261;
+  for (const ch of String(s)) h = Math.imul(h ^ ch.charCodeAt(0), 16777619) >>> 0;
+  return h;
+}
+
+/** A → H by a stable hash of the key (the article URL); AUTOPILOT_TEMPLATE "A".."H" overrides it ("rotate" or empty = rotate). */
+export function chooseTemplate(key, override = '') {
+  const o = String(override).trim().toUpperCase();
+  if (TEMPLATES.includes(o)) return o;
+  return TEMPLATES[hash(key) % TEMPLATES.length];
+}
+
+/** Copy fields the templates need, filled in from the title when the AI left them out. */
+export function designCopy(copy) {
+  const title = String(copy.title ?? '').trim();
+  const m = /^(\d{1,3})\s+(.*)$/.exec(title);
+  const words = (m ? m[2] : title).replace(/\s+/g, ' ').split(' ').filter(Boolean);
+  const half = Math.ceil(words.length / 2);
+  const caps = v => String(v ?? '').trim().toUpperCase();
+  return {
+    number: /^\d{1,3}$/.test(String(copy.number ?? '')) ? String(copy.number) : copy.number === undefined && m ? m[1] : '',
+    hook: caps(copy.hook),
+    headline_line1: caps(copy.headline_line1) || caps(words.slice(0, half).join(' ')),
+    headline_line2: copy.headline_line1 ? caps(copy.headline_line2) : caps(words.slice(half).join(' ')),
+    category: caps(copy.category),
+    script_word: copy.script_word === undefined ? 'Ideas' : String(copy.script_word).trim(),
+    script_line: String(copy.script_line ?? '').trim(),
+    banner: caps(copy.banner),
+    tagline: caps(copy.tagline ?? copy.subtitle),
   };
-  await row(top, 0, 440);
-  await row(bottom, 1060, 440);
-  layers.push({ input: svg(`<rect x="0" y="440" width="${W}" height="620" fill="${colors.panel}"/><rect x="0" y="440" width="${W}" height="6" fill="${colors.accent}"/><rect x="0" y="1054" width="${W}" height="6" fill="${colors.accent}"/>`), left: 0, top: 0 });
-  const block = await titleBlock(title, colors, { width: 860, subtitle: copy.subtitle, scriptStyle: 'ribbon', numberStyle: 'none', maxHeight: 480 });
-  const panelTop = title.number ? 540 : 470;
-  layers.push(...placeBlock(block, panelTop + Math.max(0, (1040 - panelTop - block.height) / 2), colors));
-  if (title.number) {
-    const n = await fittedText(title.number, { width: 150, height: 130, size: 150, color: colors.ink, font: 'display', wrap: false });
-    layers.push({ input: svg(`<rect x="${W / 2 - 95}" y="360" width="190" height="170" rx="22" fill="#ffffff" stroke="${colors.ink}" stroke-width="5"/>`), left: 0, top: 0 });
-    layers.push(at(n, 360 + (170 - n.info.height) / 2));
-  }
-  return layers;
 }
 
-async function framedLayout(photos, title, copy, site, colors) {
-  const layers = [];
-  const tiles = [0, 1, 2, 3, 4, 5].map(i => photos[i % photos.length]);
-  for (const [i, p] of tiles.entries()) layers.push({ input: await photoTile(p, 500, 500), left: (i % 2) * 500, top: Math.floor(i / 2) * 500 });
-  const block = await titleBlock(title, colors, { width: 720, subtitle: copy.subtitle, scriptStyle: 'plain', numberStyle: 'none', maxHeight: 700 });
-  const boxH = Math.max(560, block.height + 200);
-  const boxY = (H - boxH) / 2 - 40;
-  layers.push({ input: svg(`<rect x="80" y="${boxY}" width="840" height="${boxH}" fill="${colors.panel}"/>
-    <rect x="80" y="${boxY}" width="840" height="${boxH}" fill="none" stroke="#ffffff" stroke-width="14"/>
-    <rect x="104" y="${boxY + 24}" width="792" height="${boxH - 48}" fill="none" stroke="${colors.ink}" stroke-width="4"/>`), left: 0, top: 0 });
-  if (title.number) {
-    const n = await fittedText(title.number, { width: 130, height: 110, size: 130, color: '#ffffff', font: 'display', wrap: false });
-    layers.push({ input: svg(`<rect x="${W / 2 - 80}" y="${boxY - 80}" width="160" height="150" fill="${colors.ink}"/>`), left: 0, top: 0 });
-    layers.push(at(n, boxY - 80 + (150 - n.info.height) / 2));
-  }
-  layers.push(...placeBlock(block, boxY + (boxH - block.height) / 2 + (title.number ? 30 : 0), colors));
-  return layers;
-}
-
-async function guideLayout(photos, title, copy, site, colors) {
-  const layers = [];
-  const panelH = 690;
-  layers.push({ input: svg(`<rect x="0" y="0" width="${W}" height="${panelH}" fill="${colors.panel}"/><rect x="0" y="${panelH - 6}" width="${W}" height="6" fill="${colors.accent}"/>`), left: 0, top: 0 });
-  const tagText = (copy.keyword ? 'Step-by-step guide' : 'Guide').toUpperCase();
-  const tag = await fittedText(tagText, { width: 420, height: 26, size: 26, color: '#ffffff', font: 'bold', wrap: false, spacing: 1.5 });
-  layers.push({ input: svg(`<rect x="${(W - tag.info.width - 50) / 2}" y="52" width="${tag.info.width + 50}" height="48" rx="6" fill="${colors.ink}"/>`), left: 0, top: 0 });
-  layers.push(at(tag, 52 + (48 - tag.info.height) / 2));
-  const block = await titleBlock(title, colors, { width: 880, subtitle: copy.subtitle, scriptStyle: 'ribbon', numberStyle: 'inline', maxHeight: 520 });
-  layers.push(...placeBlock(block, 120 + Math.max(0, (panelH - 150 - block.height) / 2), colors));
-  const list = photos.slice(0, 2);
-  const h = Math.floor((H - panelH) / list.length);
-  for (const [i, p] of list.entries()) layers.push({ input: await photoTile(p, W, i === list.length - 1 ? H - panelH - h * i : h), left: 0, top: panelH + h * i });
-  if (list.length === 2) layers.push({ input: svg(`<rect x="0" y="${panelH + h - 3}" width="${W}" height="6" fill="${colors.panel}"/>`), left: 0, top: 0 });
-  return layers;
-}
-
-/** Which layout an article gets: list posts alternate split/framed (stable per URL); the rest are guides. */
-export function chooseLayout(title, photoCount, articleUrl) {
-  const { number } = splitTitle(title);
-  if (!number || photoCount < 3) return 'guide';
-  let hash = 0;
-  for (const c of articleUrl) hash = (hash * 31 + c.charCodeAt(0)) >>> 0;
-  return hash % 2 ? 'framed' : 'split';
-}
-
-export async function designPin(photos, copy, articleUrl) {
-  const valid = [];
-  for (const photo of photos.slice(0, 10)) {
+/** Decodable photos with a short side of at least 300px, at most 6. */
+async function usablePhotos(photos) {
+  const out = [];
+  for (const photo of photos.slice(0, 12)) {
     try {
-      const normalized = await sharp(photo, { limitInputPixels: 40000000 }).rotate().toBuffer();
-      valid.push(normalized);
-      if (valid.length === 6) break;
+      const img = sharp(photo, { limitInputPixels: 40000000 }).rotate();
+      const { width = 0, height = 0, orientation = 1 } = await img.metadata();
+      const short = orientation >= 5 ? Math.min(height, width) : Math.min(width, height);
+      if (short < MIN_PHOTO_SIDE) continue;
+      out.push(await img.toBuffer());
+      if (out.length === 6) break;
     } catch { /* Ignore malformed or oversized images. */ }
   }
+  return out;
+}
+
+/**
+ * Renders a Pin and reports how: { png, template, palette, photos, boxes }.
+ * Too few photos for the chosen template falls back to A (4 photos, or 1 top + 1 bottom).
+ */
+/**
+ * The template actually used: too few photos for the chosen one falls back to A; a missing
+ * required field (banner, script_line) moves on to the next template in rotation that has
+ * everything it needs, so no template ever renders a blank element.
+ */
+export function pickTemplate(chosen, photoCount, fields) {
+  const ready = t => photoCount >= PHOTOS_NEEDED[t] && REQUIRED_FIELDS[t].every(k => String(fields[k] ?? '').trim());
+  if (photoCount < PHOTOS_NEEDED[chosen]) return 'A';
+  const start = TEMPLATES.indexOf(chosen);
+  for (let i = 0; i < TEMPLATES.length; i++) {
+    const t = TEMPLATES[(start + i) % TEMPLATES.length];
+    if (ready(t)) return t;
+  }
+  return 'A';
+}
+
+export async function renderPin(photos, copy, articleUrl, { template: override = '', key = articleUrl } = {}) {
+  const valid = await usablePhotos(photos);
   if (!valid.length) throw new Error('No decodable photos.');
-  const title = splitTitle(copy.title);
-  const colors = await paletteFrom(valid);
+  const fields = designCopy(copy);
+  const template = pickTemplate(chooseTemplate(key, override), valid.length, fields);
+  const palette = await paletteFrom(valid, key);
+  const c = new Canvas();
+  await RENDER[template](c, valid, fields, palette);
   const site = new URL(articleUrl).hostname.replace(/^www\./, '');
-  const layout = chooseLayout(copy.title, valid.length, articleUrl);
-  const noun = (title.script || 'Ideas').toUpperCase();
-  const cta = title.number && layout !== 'guide' ? `SEE ALL ${title.number} ${noun} →` : `${String(copy.cta || 'Get the tips').toUpperCase()} →`;
-  const body = layout === 'split' ? await splitLayout(valid, title, copy, site, colors) : layout === 'framed' ? await framedLayout(valid, title, copy, site, colors) : await guideLayout(valid, title, copy, site, colors);
-  return sharp({ create: { width: W, height: H, channels: 3, background: colors.panel } })
-    .composite([...body, ...(await footer(cta, site, colors))])
-    .png({ compressionLevel: 9 })
-    .toBuffer();
+  await ctaAndDomain(c, ctaFor(template, fields.number), site);
+  const png = await sharp({ create: { width: W, height: H, channels: 3, background: '#ffffff' } }).composite(c.layers).png({ compressionLevel: 9 }).toBuffer();
+  return { png, template, palette, photos: Math.min(valid.length, template === 'A' && valid.length < 4 ? 2 : PHOTOS_NEEDED[template]), boxes: c.boxes };
+}
+
+export async function designPin(photos, copy, articleUrl, options = {}) {
+  return (await renderPin(photos, copy, articleUrl, options)).png;
 }

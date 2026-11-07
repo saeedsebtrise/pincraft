@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import { boardsSchema, readArticle, generateCopy, loadPhotos, validateWebhook, runJob } from './core.mjs';
-import { designPin } from './design.mjs';
+import { renderPin } from './design.mjs';
 
 export async function runAutopilot(env = process.env, dependencies = {}) {
   const mode = env.AUTOPILOT_MODE || 'preview';
@@ -11,8 +11,17 @@ export async function runAutopilot(env = process.env, dependencies = {}) {
   const prepare = dependencies.prepare || (async (articleUrl, boardId = '') => {
     const article = await readArticle(articleUrl);
     const copy = await generateCopy(article, boards, boardId, env);
-    const image = await designPin(await loadPhotos(article), copy, articleUrl);
-    return { ...copy, link: articleUrl, image_base64: image.toString('base64'), image_mime: 'image/png', filename: 'pincraft-pin.png' };
+    // The template follows the article URL, so a preview and the later publish look the same.
+    const pin = await renderPin(await loadPhotos(article), copy, articleUrl, { template: env.AUTOPILOT_TEMPLATE || 'rotate' });
+    return {
+      ...copy,
+      link: articleUrl,
+      image_base64: pin.png.toString('base64'),
+      image_mime: 'image/png',
+      filename: 'pincraft-pin.png',
+      // For preview.json only; the worker strips it before calling Make.
+      design: { template: pin.template, palette: pin.palette, photos: pin.photos },
+    };
   });
   const savePreview = dependencies.savePreview || (async payload => {
     await mkdir('output/autopilot', { recursive: true });

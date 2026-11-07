@@ -37,6 +37,7 @@ jobs:
           AUTOPILOT_PREVIEW_URL: ${{ inputs.article_url }}
           AUTOPILOT_ENABLED: ${{ vars.AUTOPILOT_ENABLED }}
           AUTOPILOT_BOARDS_JSON: ${{ vars.AUTOPILOT_BOARDS_JSON }}
+          AUTOPILOT_TEMPLATE: ${{ vars.AUTOPILOT_TEMPLATE }}
           GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           AUTOPILOT_SHEET_URL: ${{ secrets.AUTOPILOT_SHEET_URL }}

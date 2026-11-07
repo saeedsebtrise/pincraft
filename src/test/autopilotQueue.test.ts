@@ -63,7 +63,7 @@ describe('Autopilot input and AI boundaries', () => {
     expect(boardsSchema.parse(boards)).toEqual(boards);
     expect(() => boardsSchema.parse([...boards, ...boards])).toThrow();
     expect(() => boardsSchema.parse([{ id: 123, name: 'Bad numeric ID' }])).toThrow();
-    expect(validateCopy(copy, boards)).toEqual(copy);
+    expect(validateCopy(copy, boards)).toMatchObject({ ...copy, cta: 'SEE ALL IDEAS', number: '', script_word: 'Ideas' });
     expect(() => validateCopy({ ...copy, board_id: '999' }, boards)).toThrow();
     expect(() => validateCopy(copy, boards, '999')).toThrow();
     expect(() => validateCopy({ ...copy, title: 'a'.repeat(101) }, boards)).toThrow();
@@ -85,7 +85,7 @@ describe('Autopilot input and AI boundaries', () => {
     const fetcher = vi.fn(async () => ({ ok: true, json: async () => ({ candidates: [{ content: { parts: [{ thought: true, text: 'hidden thought' }, { text: JSON.stringify(copy) }] } }] }) }));
     vi.stubGlobal('fetch', fetcher);
     const result = await generateCopy({ title: copy.title, text: 'Article content', images: [{ alt: 'Room', url: 'https://example.com/photo.jpg' }] }, boards, '', { GEMINI_API_KEY: 'test-secret', GEMINI_MODEL: 'test-model' });
-    expect(result).toEqual(copy);
+    expect(result).toMatchObject({ ...copy, cta: 'SEE ALL IDEAS', number: '' });
     const options = fetcher.mock.calls[0] as unknown as [string, { headers: Record<string, string>; body: string }];
     expect(options[1].headers['x-goog-api-key']).toBe('test-secret');
     expect(options[1].body).not.toContain('test-secret');

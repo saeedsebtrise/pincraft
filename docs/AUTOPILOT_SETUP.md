@@ -47,6 +47,7 @@ Create a GitHub Actions environment named **autopilot**. Add the secrets and var
 | `AUTOPILOT_ENABLED` | `false` initially; `true` only when ready to publish |
 | `AUTOPILOT_BOARDS_JSON` | JSON array of board IDs and names; IDs must be strings |
 | `GEMINI_MODEL` | A model ID available to your account that supports `generateContent` and JSON output |
+| `AUTOPILOT_TEMPLATE` | Optional. `A` sandwich, `B` top-card, `C` pastel-band, `D` bold-banner, `E` split-title, `F` frame-box, `G` hook-banner or `H` top-card-pill to use one design; empty or `rotate` rotates A–H per article. C, D, E and G need 6 usable photos (300px+ short side), the others 4; with fewer the Pin uses A (2 photos when only 1–3 are usable). D and G need a banner and script line, F and H a script line; without them the next template in rotation is used. Preview `preview.json` shows the template and palette used. |
 
 Board configuration example (replace the example ID):
 
