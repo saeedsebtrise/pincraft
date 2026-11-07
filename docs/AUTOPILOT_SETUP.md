@@ -188,6 +188,21 @@ The timer checks whether work is due, then dispatches GitHub Actions. It does no
 
 To pause, set Script Property `ENABLED=false` and GitHub's `AUTOPILOT_ENABLED=false`. Remove the `tick` trigger if no future checks should run. A request already sent to Make may still publish; inspect active GitHub and Make runs before changing rows.
 
+## 6. Optional: run Autopilot from PinCraft
+
+The **Autopilot** page has a control panel: see the queue, add article links, turn publishing on or off in the Sheet, set the daily limit (1–10), start a preview or a publish run, Retry/Skip rows and follow recent runs. It talks only to PinCraft's own server, which forwards to the Sheet web app; the Sheet starts GitHub runs with its `GITHUB_TOKEN`. The browser never sees the Sheet secret or any token.
+
+1. Paste the latest `google-sheet-script.gs` over the old script and deploy a **new version** of the same web app (Deploy → Manage deployments → Edit → New version). The URL does not change.
+2. In Vercel (Project → Settings → Environment Variables) add:
+   - `AUTOPILOT_SHEET_URL` — the same `/exec` URL as the GitHub secret
+   - `AUTOPILOT_SHEET_SECRET` — the same value as the GitHub secret and the Sheet's `SHARED_SECRET`
+   - `AUTOPILOT_ADMIN_KEY` — a password only you know, 16+ characters. Anyone with it can control the queue, so keep it private.
+3. Redeploy, open the Autopilot page and enter the admin key (kept for that browser tab only).
+
+The panel only allows safe status changes (Error → Retry, Pending/Retry/Error → Skip, Skip → Pending). **Needs review** rows still have to be checked against Pinterest and Make and fixed in the Sheet. Turning publishing on in the panel sets the Sheet's `ENABLED`; GitHub's `AUTOPILOT_ENABLED` must also be `true`.
+
+For local testing put the three values in `.env` and run `npm run ai-proxy`.
+
 ## Recovery and duplicate handling
 
 | Sheet state | Meaning and operator action |

@@ -65,6 +65,13 @@ function doPost(e) {
     locked = lock.tryLock(10000);
     if (!locked) return json_({ ok:false });
     const s = sheet_(), rows = rows_();
+    // Control panel (the PinCraft Autopilot page, through its server). Same secret, same lock.
+    if (data.action === 'overview') return json_(overview_(rows));
+    if (data.action === 'add') return json_(addRows_(s, rows, data));
+    if (data.action === 'settings') return json_(settings_(data));
+    if (data.action === 'setStatus') return json_(setStatus_(s, rows, data));
+    if (data.action === 'dispatch') return json_(dispatch_(data.mode === 'preview' ? 'preview' : 'publish', data.articleUrl));
+    if (data.action === 'runs') return json_(runs_());
     if (data.action === 'claim') {
       recoverStale_(s, rows);
       // An interrupted publish requires manual reconciliation before any more publishing.
@@ -123,6 +130,107 @@ function doPost(e) {
   } catch (_) { return json_({ ok:false }); }
   finally { if (locked) lock.releaseLock(); }
 }
+// ---------------------------------------------------------------- control panel actions
+
+const URL_RE_ = /^https?:\/\/[^/?#@\s]+(?:[/?#][^\s]*)?$/i;
+
+/** Queue rows, settings and when the next publishing slot opens. */
+function overview_(rows) {
+  const p = props_(), history = history_();
+  const limit = Number(p.getProperty('DAILY_LIMIT') || 10), gap = Number(p.getProperty('INTERVAL_MINUTES') || 120);
+  const recent = history.filter(t => t > Date.now() - 86400000);
+  const last = history.length ? Math.max.apply(null, history) : 0;
+  const nextSlotAt = Math.max(last ? last + gap * 60000 : 0, recent.length >= limit ? Math.min.apply(null, recent) + 86400000 : 0);
+  return {
+    ok: true,
+    settings: { enabled: p.getProperty('ENABLED') === 'true', dailyLimit: limit, intervalMinutes: gap },
+    postedLast24h: recent.length,
+    nextSlotAt: nextSlotAt,
+    lastDispatchAt: Number(p.getProperty('LAST_DISPATCH') || 0),
+    total: rows.length,
+    rows: rows.slice(0, 500).map((r, i) => ({ row: i + 2, url: String(r[0]), boardId: String(r[1]), status: String(r[2] || 'Pending'), pinUrl: String(r[3]), error: String(r[4]), updatedAt: String(r[7]) })),
+  };
+}
+
+/** Appends article links as Pending rows; invalid links and ones already in the Sheet are skipped. */
+function addRows_(s, rows, data) {
+  const urls = Array.isArray(data.urls) ? data.urls.slice(0, 200) : [];
+  const board = String(data.boardId || '').trim();
+  if (board && !/^\d{1,40}$/.test(board)) return { ok: false, error: 'Board ID must be digits.' };
+  const seen = {};
+  rows.forEach(r => { seen[canonical_(r[0])] = true; });
+  const added = [];
+  urls.forEach(u => {
+    const url = String(u).trim();
+    if (url.length > 4096 || !URL_RE_.test(url) || seen[canonical_(url)]) return;
+    seen[canonical_(url)] = true;
+    added.push([url, board, 'Pending', '', '', '', '', new Date().toISOString()]);
+  });
+  if (added.length) s.getRange(rows.length + 2, 1, added.length, 8).setValues(added);
+  SpreadsheetApp.flush();
+  return { ok: true, added: added.length, skipped: urls.length - added.length };
+}
+
+/** Turns publishing on/off and sets the daily limit (1–10). The interval stays a Script Property. */
+function settings_(data) {
+  const p = props_();
+  if (data.dailyLimit !== undefined) {
+    const n = Number(data.dailyLimit);
+    if (!Number.isInteger(n) || n < 1 || n > 10) return { ok: false, error: 'Daily limit must be 1–10.' };
+    p.setProperty('DAILY_LIMIT', String(n));
+  }
+  if (typeof data.enabled === 'boolean') p.setProperty('ENABLED', data.enabled ? 'true' : 'false');
+  return { ok: true };
+}
+
+/**
+ * Safe status changes only: Error → Retry, Pending/Retry/Error → Skip, Skip → Pending.
+ * Needs review is never changed here: check Pinterest and Make in the Sheet first.
+ */
+function setStatus_(s, rows, data) {
+  const i = Number(data.row) - 2, row = rows[i];
+  if (!Number.isInteger(i) || !row) return { ok: false, error: 'Row not found.' };
+  const from = String(row[2] || 'Pending'), to = String(data.status);
+  const allowed = { Retry: ['Error'], Skip: ['Pending', 'Retry', 'Error'], Pending: ['Skip'] };
+  if (!allowed[to] || allowed[to].indexOf(from) < 0) return { ok: false, error: 'That status change is not allowed here.' };
+  s.getRange(i + 2, 3).setValue(to);
+  s.getRange(i + 2, 8).setValue(new Date().toISOString());
+  SpreadsheetApp.flush();
+  return { ok: true };
+}
+
+function ghHeaders_() {
+  return { Authorization: 'Bearer ' + props_().getProperty('GITHUB_TOKEN'), Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2026-03-10' };
+}
+
+/** Starts the worker now: a preview for one article, or a publish run (which still obeys the limit and interval). */
+function dispatch_(mode, articleUrl) {
+  const p = props_(), repo = p.getProperty('GITHUB_REPO'), ref = p.getProperty('GITHUB_REF') || 'main';
+  if (!/^[\w.-]+\/[\w.-]+$/.test(repo || '')) return { ok: false, error: 'Set GITHUB_REPO in Script Properties.' };
+  const inputs = { mode: mode };
+  if (mode === 'preview') {
+    const url = String(articleUrl || '').trim();
+    if (url.length > 2000 || !URL_RE_.test(url)) return { ok: false, error: 'Enter a public article URL.' };
+    inputs.article_url = url;
+  }
+  const response = UrlFetchApp.fetch('https://api.github.com/repos/' + repo + '/actions/workflows/pinterest-autopilot.yml/dispatches', {
+    method: 'post', contentType: 'application/json', muteHttpExceptions: true, headers: ghHeaders_(), payload: JSON.stringify({ ref: ref, inputs: inputs }),
+  });
+  if (response.getResponseCode() < 200 || response.getResponseCode() >= 300) return { ok: false, error: 'GitHub did not start the run (' + response.getResponseCode() + '). Check GITHUB_TOKEN.' };
+  if (mode === 'publish') p.setProperty('LAST_DISPATCH', String(Date.now()));
+  return { ok: true };
+}
+
+/** The last ten worker runs, with links to their GitHub pages (previews are downloaded there). */
+function runs_() {
+  const repo = props_().getProperty('GITHUB_REPO');
+  if (!/^[\w.-]+\/[\w.-]+$/.test(repo || '')) return { ok: true, runs: [] };
+  const response = UrlFetchApp.fetch('https://api.github.com/repos/' + repo + '/actions/workflows/pinterest-autopilot.yml/runs?per_page=10', { muteHttpExceptions: true, headers: ghHeaders_() });
+  if (response.getResponseCode() !== 200) return { ok: true, runs: [], error: 'GitHub runs could not be read (' + response.getResponseCode() + ').' };
+  const list = JSON.parse(response.getContentText()).workflow_runs || [];
+  return { ok: true, runs: list.map(w => ({ id: w.id, number: w.run_number, event: w.event, status: w.status, conclusion: w.conclusion, createdAt: w.created_at, url: w.html_url })) };
+}
+
 function tick() {
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(1000)) return;

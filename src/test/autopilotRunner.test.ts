@@ -1,6 +1,9 @@
 // @vitest-environment node
 import { describe, expect, it, vi } from 'vitest';
 import sharp from 'sharp';
+
+// Runs in its own Vitest process (see "test" in package.json): a test process that has
+// loaded sharp's native libvips could crash later while running another file.
 // @ts-expect-error The worker runs as native Node ESM.
 import { runAutopilot } from '../../autopilot/run.mjs';
 // @ts-expect-error The renderer runs as native Node ESM.

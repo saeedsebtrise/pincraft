@@ -28,6 +28,8 @@ export default defineConfig({
       // Pinterest connection (server/pinterest.mjs). The Host header stays localhost:5173, so the
       // sign-in comes back to http://localhost:5173/api/pinterest/callback.
       '/api/pinterest': { target: 'http://localhost:8787', changeOrigin: false },
+      // Autopilot control panel (server/autopilotControl.mjs).
+      '/api/autopilot': 'http://localhost:8787',
     },
   },
   test: {

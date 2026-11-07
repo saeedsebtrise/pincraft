@@ -28,9 +28,11 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run lint
-      - run: npm test
+      # Only the worker's own checks gate a run; the whole app suite runs in Quality checks
+      # on every push, so an unrelated app test can't hold up publishing.
+      - run: npx vitest run src/test/autopilotQueue.test.ts
+      - run: npx vitest run src/test/autopilotRunner.test.ts
       - run: npm run test:autopilot
-      - run: npm run build
       - run: node autopilot/run.mjs
         env:
           AUTOPILOT_MODE: ${{ inputs.mode }}

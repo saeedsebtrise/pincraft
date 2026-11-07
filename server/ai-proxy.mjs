@@ -17,6 +17,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { AI_TEXT_MODEL, MAX_BODY, handleAi } from './aiRoutes.mjs';
 import { pageMiddleware } from './pageFetch.mjs';
 import { MAX_PIN_BODY, handlePinterest, pinterestConfigured, sendPinterest } from './pinterest.mjs';
+import { MAX_CONTROL_BODY, controlConfig, handleAutopilotControl } from './autopilotControl.mjs';
 
 const PORT = Number(process.env.AI_PROXY_PORT || 8787);
 
@@ -44,6 +45,27 @@ const server = http.createServer((req, res) => {
         /* not JSON */
       }
       sendPinterest(res, await handlePinterest(pin[1], req, body));
+    });
+    return;
+  }
+  // Autopilot control panel (server/autopilotControl.mjs).
+  const auto = /^\/api\/autopilot\/([a-z]+)/.exec(req.url || '');
+  if (auto) {
+    let raw = '';
+    req.on('data', (chunk) => {
+      raw += chunk;
+      if (raw.length > MAX_CONTROL_BODY) req.destroy();
+    });
+    req.on('end', async () => {
+      let body = {};
+      try {
+        body = raw ? JSON.parse(raw) : {};
+      } catch {
+        /* not JSON */
+      }
+      const out = await handleAutopilotControl(auto[1], req, body);
+      res.writeHead(out.status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+      res.end(JSON.stringify(out.body));
     });
     return;
   }
@@ -75,5 +97,6 @@ const server = http.createServer((req, res) => {
 server.listen(PORT, () => {
   console.log(`PinCraft server on http://localhost:${PORT} (AI model ${AI_TEXT_MODEL})`);
   console.log(`  Claude AI:  ${process.env.ANTHROPIC_API_KEY ? 'ready' : 'no ANTHROPIC_API_KEY — AI features off'}`);
+  console.log(`  Autopilot:  ${controlConfig().missing.length ? 'control panel not set up (AUTOPILOT_SHEET_URL, AUTOPILOT_SHEET_SECRET, AUTOPILOT_ADMIN_KEY)' : 'control panel ready'}`);
   console.log(`  Pinterest:  ${pinterestConfigured() ? 'ready' : 'not set up — add PINTEREST_APP_ID, PINTEREST_APP_SECRET, PINTEREST_TOKEN_SECRET (docs/PINTEREST_SETUP.md)'}`);
 });

@@ -2,6 +2,7 @@ import { CalendarClock, CheckCircle2, Download, ExternalLink, FileSpreadsheet, G
 import { useRef, useState } from 'react';
 import sheetScript from '../../autopilot/google-sheet-script.gs?raw';
 import setupGuide from '../../docs/AUTOPILOT_SETUP.md?raw';
+import { AutopilotControl } from './AutopilotControl';
 import './autopilot.css';
 
 const STORAGE_KEY = 'pincraft:autopilot:shortcuts';
@@ -98,7 +99,7 @@ export function AutopilotPage() {
             <button type="button" className="btn btn-pink" onClick={() => { setupRef.current?.scrollIntoView({ block: 'start' }); setupRef.current?.focus({ preventScroll: true }); }}><Play size={16} aria-hidden="true" /> Set up Autopilot</button>
             <button type="button" className="btn" onClick={() => downloadText('PinCraft-Autopilot-Setup.md', setupGuide, 'text/markdown')}><Download size={16} aria-hidden="true" /> Download full guide</button>
           </div>
-          <span className="autopilot-hint">Setup guide · Live queue and publishing controls stay in your connected services.</span>
+          <span className="autopilot-hint">Set up once, then run everything from the control panel below.</span>
         </div>
         <ol className="autopilot-flow" aria-label="Autopilot workflow">
           <li><span className="autopilot-flow-icon"><FileSpreadsheet size={22} aria-hidden="true" /></span><div><strong>Queue your articles</strong><span>Google Sheets</span></div></li>
@@ -112,6 +113,8 @@ export function AutopilotPage() {
         <div><CalendarClock size={19} aria-hidden="true" /><span><strong>At least 2 hours apart</strong><small>queue checks every 15 minutes</small></span></div>
         <div><CheckCircle2 size={19} aria-hidden="true" /><span><strong>Preview before publishing</strong><small>1000 × 1500 PNG + copy</small></span></div>
       </div>
+
+      <AutopilotControl />
 
       <section className="card autopilot-card" aria-labelledby="autopilot-links-title">
         <div className="autopilot-section-heading"><div><h2 id="autopilot-links-title">Your workspace shortcuts</h2><p>Save your Sheet and repository links for quick access. These links do not connect or enable Autopilot.</p></div></div>

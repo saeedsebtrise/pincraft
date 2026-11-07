@@ -51,12 +51,13 @@ function scriptHarness() {
   const rows=[['https://example.com/post','','Pending','','','','','']];
   const sheet={getLastRow:()=>rows.length+1,getRange:(r,c,n=1,w=1)=>({
     getValues:()=>rows.slice(r-2,r-2+n).map(row=>row.slice(c-1,c-1+w)),
-    setValue:v=>{rows[r-2][c-1]=v;},setValues:vv=>{vv.forEach((row,i)=>row.forEach((v,j)=>{rows[r-2+i][c-1+j]=v;}));}
+    setValue:v=>{rows[r-2][c-1]=v;},setValues:vv=>{vv.forEach((row,i)=>{rows[r-2+i]??=Array(8).fill('');row.forEach((v,j)=>{rows[r-2+i][c-1+j]=v;});});}
   })};
-  const context=vm.createContext({PropertiesService:{getScriptProperties:()=>({getProperty:k=>values[k],setProperty:(k,v)=>{values[k]=v;}})}, SpreadsheetApp:{openById:()=>({getSheetByName:()=>sheet}),flush:()=>{}}, LockService:{getScriptLock:()=>({tryLock:()=>true,releaseLock:()=>{}})}, Utilities:{getUuid:()=>crypto.randomUUID()},ContentService:{MimeType:{JSON:'json'},createTextOutput:text=>({setMimeType:()=>JSON.parse(text)})}});
+  const fetches=[];
+  const context=vm.createContext({UrlFetchApp:{fetch:(url,opts={})=>{fetches.push({url,opts});return {getResponseCode:()=>url.includes('/runs')?200:204,getContentText:()=>JSON.stringify({workflow_runs:[{id:1,run_number:7,event:'workflow_dispatch',status:'completed',conclusion:'success',created_at:'2026-11-07T10:00:00Z',html_url:'https://github.com/o/r/actions/runs/1'}]})};}},PropertiesService:{getScriptProperties:()=>({getProperty:k=>values[k],setProperty:(k,v)=>{values[k]=v;}})}, SpreadsheetApp:{openById:()=>({getSheetByName:()=>sheet}),flush:()=>{}}, LockService:{getScriptLock:()=>({tryLock:()=>true,releaseLock:()=>{}})}, Utilities:{getUuid:()=>crypto.randomUUID()},ContentService:{MimeType:{JSON:'json'},createTextOutput:text=>({setMimeType:()=>JSON.parse(text)})}});
   vm.runInContext(readFileSync(new URL('./google-sheet-script.gs',import.meta.url),'utf8'),context);
   const call=(action,data={})=>context.doPost({postData:{contents:JSON.stringify({secret:values.SHARED_SECRET,action,...data})}});
-  return {values,rows,call};
+  return {values,rows,call,fetches};
 }
 test('Sheet authenticates, leases, serializes and enforces spacing',()=>{
   const h=scriptHarness();
@@ -83,4 +84,30 @@ test('rolling daily limit and pause prevent claims',()=>{
   const h=scriptHarness();h.values.ENABLED='false';assert.equal(h.call('claim').job,null);
   h.values.ENABLED='true';h.values.ATTEMPTS=JSON.stringify(Array(10).fill(Date.now()-3*3600000));
   assert.equal(h.call('claim').job,null);
+});
+
+test('control panel: overview, add, settings and safe status changes',()=>{
+  const h=scriptHarness();
+  const o=h.call('overview');
+  assert.equal(o.ok,true); assert.equal(o.total,1); assert.equal(o.rows[0].status,'Pending'); assert.equal(o.settings.dailyLimit,10);
+  const a=h.call('add',{urls:['https://example.com/post/','https://example.com/new','not a url','javascript:alert(1)']});
+  assert.deepEqual([a.added,a.skipped],[1,3]); assert.equal(h.rows[1][0],'https://example.com/new'); assert.equal(h.rows[1][2],'Pending');
+  assert.equal(h.call('add',{urls:['https://example.com/x'],boardId:'abc'}).ok,false);
+  assert.equal(h.call('settings',{dailyLimit:11}).ok,false);
+  assert.equal(h.call('settings',{dailyLimit:3,enabled:false}).ok,true); assert.equal(h.values.DAILY_LIMIT,'3'); assert.equal(h.values.ENABLED,'false');
+  assert.equal(h.call('setStatus',{row:2,status:'Skip'}).ok,true); assert.equal(h.rows[0][2],'Skip');
+  assert.equal(h.call('setStatus',{row:2,status:'Pending'}).ok,true);
+  assert.equal(h.call('setStatus',{row:2,status:'Retry'}).ok,false);
+  h.rows[0][2]='Needs review';
+  assert.equal(h.call('setStatus',{row:2,status:'Skip'}).ok,false);
+  assert.equal(h.call('overview',{secret:'wrong'}).ok,false);
+});
+test('control panel: starts a preview run and lists runs through GitHub',()=>{
+  const h=scriptHarness(); h.values.GITHUB_REPO='o/r'; h.values.GITHUB_TOKEN='t';
+  assert.equal(h.call('dispatch',{mode:'preview',articleUrl:'ftp://x'}).ok,false);
+  assert.equal(h.call('dispatch',{mode:'preview',articleUrl:'https://example.com/post'}).ok,true);
+  const body=JSON.parse(h.fetches[0].opts.payload); assert.deepEqual(body.inputs,{mode:'preview',article_url:'https://example.com/post'});
+  assert.equal(h.values.LAST_DISPATCH,undefined);
+  assert.equal(h.call('dispatch',{mode:'publish'}).ok,true); assert.ok(h.values.LAST_DISPATCH);
+  assert.equal(h.call('runs').runs[0].number,7);
 });

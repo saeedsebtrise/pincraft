@@ -1,6 +1,6 @@
 /**
  * Local server only: reads keys from `.env.local` / `.env` in the project folder
- * (both are git-ignored), so ANTHROPIC_API_KEY and the PINTEREST_* keys don't
+ * (both are git-ignored), so ANTHROPIC_API_KEY, the PINTEREST_* and AUTOPILOT_* keys don't
  * have to be typed before every `npm run ai-proxy`. Values already set in the
  * terminal win. On Vercel the keys come from the project's Environment Variables.
  */

@@ -8,7 +8,7 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
+    "test": "vitest run --exclude src/test/autopilotRunner.test.ts && vitest run src/test/autopilotRunner.test.ts",
     "ai-proxy": "node server/ai-proxy.mjs",
     "autopilot": "node --env-file-if-exists=.env autopilot/run.mjs",
     "lint": "eslint autopilot src/dashboard/AutopilotPage.tsx src/test/autopilot*.test.{ts,tsx} --max-warnings 0",

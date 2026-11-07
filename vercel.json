@@ -24,6 +24,9 @@
     },
     "api/pinterest/[op].mjs": {
       "maxDuration": 60
+    },
+    "api/autopilot/[op].mjs": {
+      "maxDuration": 60
     }
   }
 }
