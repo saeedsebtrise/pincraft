@@ -21,6 +21,16 @@ export function currentTaste(): Taste | null {
   return cache.taste;
 }
 
+/**
+ * Keeps only the favorites: every other built-in template leaves the gallery and Auto Design.
+ * Nothing is deleted — "Restore removed templates" brings them all back. The user's own
+ * templates stay. Returns how many were removed.
+ */
+export function keepOnlyFavorites(): number {
+  const { favoriteTemplateIds, hideAllExcept } = useLibrary.getState();
+  return hideAllExcept(favoriteTemplateIds, BUILTIN_TEMPLATES.map((t) => t.id));
+}
+
 /** Hearts or un-hearts a template and says what that does. */
 export function toggleFavorite(t: Template) {
   const on = useLibrary.getState().toggleFavorite(t.id);

@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { autoDesign } from '../services/autoDesign';
 import { buildTaste, tasteBoost, tasteSummary, tasteTraits } from '../services/tasteProfile';
-import { currentTaste, favoriteTemplates } from '../store/favorites';
+import { currentTaste, favoriteTemplates, keepOnlyFavorites } from '../store/favorites';
+import { allTemplates } from '../store/projectActions';
 import { useLibrary } from '../store/libraryStore';
 import { BUILTIN_TEMPLATES } from '../templates/builtins';
 
@@ -44,7 +45,7 @@ describe('learned taste from favorites', () => {
 describe('favorites list', () => {
   beforeEach(() => {
     localStorage.clear();
-    useLibrary.setState({ favoriteTemplateIds: [], userTemplates: [] });
+    useLibrary.setState({ favoriteTemplateIds: [], userTemplates: [], hiddenTemplateIds: [] });
   });
 
   it('hearts and un-hearts, newest first, and remembers across reloads', () => {
@@ -64,5 +65,16 @@ describe('favorites list', () => {
     expect(currentTaste()?.favoriteIds.has(t.id)).toBe(true);
     await useLibrary.getState().deleteTemplate(t.id);
     expect(useLibrary.getState().favoriteTemplateIds).not.toContain(t.id);
+  });
+
+  it('keeps only the favorites, and Restore brings the rest back', () => {
+    const [a, b] = photoTemplates;
+    useLibrary.getState().toggleFavorite(a.id);
+    useLibrary.getState().toggleFavorite(b.id);
+    expect(keepOnlyFavorites()).toBe(BUILTIN_TEMPLATES.length - 2);
+    expect(allTemplates().map((t) => t.id).sort()).toEqual([a.id, b.id].sort());
+    expect(autoDesign({ title: 'Wedding Hairstyles', cta: false }, allTemplates(), { measure: () => 1 }).every((r) => [a.id, b.id].includes(r.template.id))).toBe(true);
+    useLibrary.getState().restoreHiddenTemplates();
+    expect(allTemplates()).toHaveLength(BUILTIN_TEMPLATES.length);
   });
 });

@@ -66,6 +66,8 @@ interface LibraryState {
   hideTemplate: (id: string) => void;
   /** Brings every removed built-in template back. */
   restoreHiddenTemplates: () => void;
+  /** Removes every built-in template except `keepIds` (restorable like any removed template). */
+  hideAllExcept: (keepIds: string[], builtinIds: string[]) => number;
   /** Hearts or un-hearts a template; returns whether it is now a favorite. */
   toggleFavorite: (id: string) => boolean;
   saveBrandKit: (kit: BrandKit) => Promise<void>;
@@ -159,6 +161,14 @@ export const useLibrary = create<LibraryState>((set, get) => ({
     } catch {
       /* storage unavailable: hidden for this session only */
     }
+  },
+  hideAllExcept: (keepIds, builtinIds) => {
+    const keep = new Set(keepIds);
+    const next = builtinIds.filter((id) => !keep.has(id));
+    logActivity({ area: 'Templates', outcome: 'update', title: 'Kept only favorite templates', detail: `${next.length} built-in template(s) hidden from the gallery and Auto Design.`, link: { href: '#/templates', label: 'Restore them' } });
+    set({ hiddenTemplateIds: next });
+    writeJson(HIDDEN_KEY, next);
+    return next.length;
   },
   restoreHiddenTemplates: () => {
     if (get().hiddenTemplateIds.length) logActivity({ area: 'Templates', outcome: 'update', title: 'Removed templates restored', detail: `${get().hiddenTemplateIds.length} built-in template(s) are back.` });

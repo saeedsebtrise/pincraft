@@ -5,7 +5,7 @@ import { simplifyRatio } from '../config/canvasPresets';
 import { DESIGN_TYPES, TEMPLATE_FAMILIES, templateDesignTypes, type DesignType, type TemplateFamilyId } from '../config/designTypes';
 import type { Template, TemplateCategory } from '../model/types';
 import { useLibrary } from '../store/libraryStore';
-import { useIsFavorite } from '../store/favorites';
+import { keepOnlyFavorites, useIsFavorite } from '../store/favorites';
 import { FavoriteButton, TasteNote } from '../templates/FavoriteButton';
 import { allTemplates } from '../store/projectActions';
 import { useUi } from '../store/uiStore';
@@ -157,6 +157,22 @@ export function TemplateGallery({ onUse, initialType = 'all', initialQuery = '',
           <button className="btn btn-pink btn-sm" onClick={() => setFromImage(true)}>
             <ImagePlus size={15} /> Create template from a Pin image
           </button>
+          {favIds.length > 0 && templates.some((t) => t.source === 'builtin' && !favIds.includes(t.id)) && (
+            <button
+              className="btn btn-sm"
+              onClick={() => {
+                const others = templates.filter((t) => t.source === 'builtin' && !favIds.includes(t.id)).length;
+                if (!confirm(`Keep only your ${favIds.length} favorite template${favIds.length === 1 ? '' : 's'}?
+
+${others} other templates will be removed from the gallery and Auto Design. Your own saved templates stay. You can bring them all back any time with “Restore removed templates”.`)) return;
+                const n = keepOnlyFavorites();
+                setFavOnly(false);
+                useUi.getState().toast(`Kept your favorites — ${n} other templates removed. “Restore removed templates” brings them back.`, 'success');
+              }}
+            >
+              <Heart size={14} fill="currentColor" style={{ color: '#e60023' }} /> Keep only my Favorites
+            </button>
+          )}
           {hidden.length > 0 && (
             <button className="btn btn-sm" onClick={() => useLibrary.getState().restoreHiddenTemplates()}>
               <RotateCcw size={14} /> Restore removed templates ({hidden.length})
