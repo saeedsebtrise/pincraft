@@ -72,6 +72,14 @@ describe('Autopilot real image renderer', () => {
     expect(splitTitle('Lob Ideas')).toEqual({ number: null, lines: ['Lob Ideas'], script: '' });
   });
 
+  it('gives long titles up to four even lines that never end on a small word', () => {
+    const { lines } = splitTitle('25 Stunning Wedding Hairstyles for Long Hair to Show Your Stylist');
+    expect(lines).toHaveLength(4);
+    expect(lines.join(' ')).toBe('Stunning Wedding Hairstyles for Long Hair to Show Your Stylist');
+    expect(lines.every((l: string) => l.length <= 20)).toBe(true);
+    expect(lines.slice(0, -1).some((l: string) => /\b(to|for|and|of|with|your)$/i.test(l))).toBe(false);
+  });
+
   it('uses list layouts only for numbered titles with enough photos, stable per article', () => {
     expect(chooseLayout('How to Hang Garland', 6, 'https://a.com/x')).toBe('guide');
     expect(chooseLayout('19 Fall Ideas', 2, 'https://a.com/x')).toBe('guide');

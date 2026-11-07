@@ -55,15 +55,38 @@ export function splitTitle(title) {
     words = words.slice(0, -1);
     script = match;
   }
-  // Two balanced lines by characters; the second line takes the accent color.
-  let best = 1;
-  let bestDiff = Infinity;
-  for (let i = 1; i < words.length; i++) {
-    const diff = Math.abs(words.slice(0, i).join(' ').length - words.slice(i).join(' ').length);
-    if (diff < bestDiff) [best, bestDiff] = [i, diff];
+  // Short titles take two lines; long ones up to four, so the words stay big.
+  const n = words.length <= 2 ? 1 : clamp(Math.ceil(words.join(' ').length / LINE_CHARS), 2, Math.min(4, words.length));
+  return { number, lines: balanceLines(words, n), script };
+}
+
+/** About this many characters of Anton fit one 860px line at a readable size. */
+const LINE_CHARS = 17;
+
+/** Small words a headline line shouldn't end on ("…for / Long Hair"). */
+const DANGLING = new Set(['a', 'an', 'the', 'to', 'for', 'and', 'or', 'of', 'in', 'on', 'with', 'your', 'my', 'that', 'by', 'at', '&']);
+
+/** Splits words into n evenly sized lines, avoiding lines that end on a small word. */
+export function balanceLines(words, n) {
+  const cost = (a, b) => {
+    const len = words.slice(a, b).join(' ').length;
+    return len * len + (b < words.length && DANGLING.has(words[b - 1].toLowerCase()) ? 400 : 0);
+  };
+  // best[k][i]: lowest cost when the first i words make k lines (sum of squared lengths keeps lines even).
+  const best = Array.from({ length: n + 1 }, () => Array(words.length + 1).fill(Infinity));
+  const cut = Array.from({ length: n + 1 }, () => Array(words.length + 1).fill(0));
+  best[0][0] = 0;
+  for (let k = 1; k <= n; k++) {
+    for (let i = k; i <= words.length; i++) {
+      for (let j = k - 1; j < i; j++) {
+        const v = best[k - 1][j] + cost(j, i);
+        if (v < best[k][i]) [best[k][i], cut[k][i]] = [v, j];
+      }
+    }
   }
-  const lines = words.length > 2 ? [words.slice(0, best).join(' '), words.slice(best).join(' ')] : [words.join(' ')];
-  return { number, lines, script };
+  const lines = [];
+  for (let k = n, i = words.length; k > 0; i = cut[k][i], k--) lines.unshift(words.slice(cut[k][i], i).join(' '));
+  return lines;
 }
 
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
@@ -111,23 +134,30 @@ async function photoTile(photo, width, height) {
 const at = (rendered, y, x = null) => ({ input: rendered.data, left: x ?? Math.round((W - rendered.info.width) / 2), top: Math.round(y) });
 
 /** Renders the stacked title block and returns its layers and height, ready to center in a panel. */
-async function titleBlock({ number, lines, script }, colors, { width, subtitle, scriptStyle, numberStyle }) {
+async function titleBlock(title, colors, opts) {
+  const { number, lines, script } = title;
+  const { width, subtitle, scriptStyle, numberStyle, maxHeight, scale = 1 } = opts;
+  const z = v => Math.round(v * scale);
   const parts = [];
-  if (number && numberStyle === 'inline') parts.push({ kind: 'text', r: await fittedText(number, { width: 260, height: 150, size: 160, color: colors.ink, font: 'display', wrap: false }), gap: 6 });
-  const sizes = lines.length > 1 ? [150, 128] : [170];
+  if (number && numberStyle === 'inline') parts.push({ kind: 'text', r: await fittedText(number, { width: 260, height: z(150), size: 160, color: colors.ink, font: 'display', wrap: false }), gap: 6 });
+  // Line heights shrink a little as lines are added; the second half of the lines takes the accent color.
+  const sizes = { 1: [170], 2: [150, 132], 3: [128, 128, 128], 4: [112, 112, 112, 112] }[lines.length].map(z);
+  const accentFrom = Math.max(1, Math.ceil(lines.length / 2));
   for (const [i, line] of lines.entries()) {
-    parts.push({ kind: 'text', r: await fittedText(line.toUpperCase(), { width, height: sizes[i], size: 200, color: i === 1 ? colors.accent : colors.ink, font: 'display', wrap: false }), gap: 10 });
+    parts.push({ kind: 'text', r: await fittedText(line.toUpperCase(), { width, height: sizes[i], size: 200, color: i >= accentFrom ? colors.accent : colors.ink, font: 'display', wrap: false }), gap: 10 });
   }
   if (script) {
     if (scriptStyle === 'ribbon') {
-      const r = await fittedText(script, { width: 420, height: 74, size: 84, color: '#ffffff', font: 'script', wrap: false });
-      parts.push({ kind: 'ribbon', r, gap: 12, height: 96 });
+      const r = await fittedText(script, { width: 420, height: z(74), size: 84, color: '#ffffff', font: 'script', wrap: false });
+      parts.push({ kind: 'ribbon', r, gap: 12, height: z(96) });
     } else {
-      parts.push({ kind: 'text', r: await fittedText(script, { width: 520, height: 96, size: 110, color: colors.ink, font: 'script', wrap: false }), gap: 8 });
+      parts.push({ kind: 'text', r: await fittedText(script, { width: 520, height: z(96), size: 110, color: colors.ink, font: 'script', wrap: false }), gap: 8 });
     }
   }
-  if (subtitle) parts.push({ kind: 'text', r: await fittedText(subtitle.toUpperCase(), { width: width - 40, height: 40, size: 34, color: colors.ink, font: 'bold', wrap: false, spacing: 0.5 }), gap: 14 });
+  if (subtitle) parts.push({ kind: 'text', r: await fittedText(subtitle.toUpperCase(), { width: width - 40, height: z(40), size: 34, color: colors.ink, font: 'bold', wrap: false, spacing: 0.5 }), gap: 14 });
   const height = parts.reduce((n, p, i) => n + (p.height ?? p.r.info.height) + (i ? p.gap : 0), 0);
+  // Too tall for its panel (long titles): render once more with everything scaled to fit.
+  if (maxHeight && height > maxHeight && scale === 1) return titleBlock(title, colors, { ...opts, scale: (maxHeight / height) * 0.97 });
   return { parts, height };
 }
 
@@ -185,7 +215,7 @@ async function splitLayout(photos, title, copy, site, colors) {
   await row(top, 0, 440);
   await row(bottom, 1060, 440);
   layers.push({ input: svg(`<rect x="0" y="440" width="${W}" height="620" fill="${colors.panel}"/><rect x="0" y="440" width="${W}" height="6" fill="${colors.accent}"/><rect x="0" y="1054" width="${W}" height="6" fill="${colors.accent}"/>`), left: 0, top: 0 });
-  const block = await titleBlock(title, colors, { width: 860, subtitle: copy.subtitle, scriptStyle: 'ribbon', numberStyle: 'none' });
+  const block = await titleBlock(title, colors, { width: 860, subtitle: copy.subtitle, scriptStyle: 'ribbon', numberStyle: 'none', maxHeight: 480 });
   const panelTop = title.number ? 540 : 470;
   layers.push(...placeBlock(block, panelTop + Math.max(0, (1040 - panelTop - block.height) / 2), colors));
   if (title.number) {
@@ -200,7 +230,7 @@ async function framedLayout(photos, title, copy, site, colors) {
   const layers = [];
   const tiles = [0, 1, 2, 3, 4, 5].map(i => photos[i % photos.length]);
   for (const [i, p] of tiles.entries()) layers.push({ input: await photoTile(p, 500, 500), left: (i % 2) * 500, top: Math.floor(i / 2) * 500 });
-  const block = await titleBlock(title, colors, { width: 720, subtitle: copy.subtitle, scriptStyle: 'plain', numberStyle: 'none' });
+  const block = await titleBlock(title, colors, { width: 720, subtitle: copy.subtitle, scriptStyle: 'plain', numberStyle: 'none', maxHeight: 700 });
   const boxH = Math.max(560, block.height + 200);
   const boxY = (H - boxH) / 2 - 40;
   layers.push({ input: svg(`<rect x="80" y="${boxY}" width="840" height="${boxH}" fill="${colors.panel}"/>
@@ -223,7 +253,7 @@ async function guideLayout(photos, title, copy, site, colors) {
   const tag = await fittedText(tagText, { width: 420, height: 26, size: 26, color: '#ffffff', font: 'bold', wrap: false, spacing: 1.5 });
   layers.push({ input: svg(`<rect x="${(W - tag.info.width - 50) / 2}" y="52" width="${tag.info.width + 50}" height="48" rx="6" fill="${colors.ink}"/>`), left: 0, top: 0 });
   layers.push(at(tag, 52 + (48 - tag.info.height) / 2));
-  const block = await titleBlock(title, colors, { width: 880, subtitle: copy.subtitle, scriptStyle: 'ribbon', numberStyle: 'inline' });
+  const block = await titleBlock(title, colors, { width: 880, subtitle: copy.subtitle, scriptStyle: 'ribbon', numberStyle: 'inline', maxHeight: 520 });
   layers.push(...placeBlock(block, 120 + Math.max(0, (panelH - 150 - block.height) / 2), colors));
   const list = photos.slice(0, 2);
   const h = Math.floor((H - panelH) / list.length);
