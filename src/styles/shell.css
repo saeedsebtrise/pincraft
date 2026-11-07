@@ -1602,3 +1602,59 @@ details > summary { cursor: pointer; font-weight: 600; }
 .copy-box pre { margin: 0; flex: 1; min-width: 0; overflow-x: auto; color: #e2e8f0; font-size: 13px; line-height: 1.5; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 .copy-box .btn { flex: none; }
 @media (max-width: 700px) { .guide-checklist { grid-template-columns: 1fr; } }
+
+/* Favorites: a heart in a template thumbnail's corner (shown on hover, always when on). */
+.tpl-tile-wrap {
+  position: relative;
+}
+
+.tpl-tile-wrap > .tpl-tile {
+  width: 100%;
+}
+
+.tpl-fav {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 6;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #3f3f46;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s, transform 0.15s var(--ease-spring);
+}
+
+.tpl-fav[data-on='true'] {
+  color: #e60023;
+  opacity: 1;
+}
+
+.tpl-fav:hover {
+  transform: scale(1.12);
+}
+
+.tpl-fav:focus-visible {
+  opacity: 1;
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.tpl-card:hover .tpl-fav,
+.tpl-tile-wrap:hover .tpl-fav {
+  opacity: 1;
+}
+
+/* Touch screens have no hover: keep the heart reachable. */
+@media (hover: none) {
+  .tpl-fav {
+    opacity: 0.85;
+  }
+}

@@ -13,6 +13,15 @@ import { logActivity } from '../services/activity';
 const PRESET_KEY = 'pinforge.presets';
 const ACTIVE_KIT_KEY = 'pinforge.activeKit';
 const HIDDEN_KEY = 'pinforge.hiddenTemplates';
+const FAVORITES_KEY = 'pinforge.favoriteTemplates';
+
+function writeJson(key: string, value: unknown) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    /* storage unavailable: kept for this session only */
+  }
+}
 
 export const DEFAULT_BRAND_KIT: BrandKit = {
   id: 'kit_default',
@@ -45,6 +54,8 @@ interface LibraryState {
   customPresets: CanvasPreset[];
   /** Built-in templates this user removed from their library (kept so old projects still open). */
   hiddenTemplateIds: string[];
+  /** Templates the user hearted, newest first. Auto Design learns their style from these. */
+  favoriteTemplateIds: string[];
 
   load: () => Promise<void>;
   saveTemplate: (name: string, doc: PinDocument, categories?: TemplateCategory[]) => Promise<Template>;
@@ -55,6 +66,8 @@ interface LibraryState {
   hideTemplate: (id: string) => void;
   /** Brings every removed built-in template back. */
   restoreHiddenTemplates: () => void;
+  /** Hearts or un-hearts a template; returns whether it is now a favorite. */
+  toggleFavorite: (id: string) => boolean;
   saveBrandKit: (kit: BrandKit) => Promise<void>;
   deleteBrandKit: (id: string) => Promise<void>;
   setActiveKit: (id: string) => void;
@@ -70,6 +83,7 @@ export const useLibrary = create<LibraryState>((set, get) => ({
   activeKitId: readJson(ACTIVE_KIT_KEY, DEFAULT_BRAND_KIT.id),
   customPresets: readJson<CanvasPreset[]>(PRESET_KEY, []),
   hiddenTemplateIds: readJson<string[]>(HIDDEN_KEY, []),
+  favoriteTemplateIds: readJson<string[]>(FAVORITES_KEY, []),
 
   load: async () => {
     try {
@@ -101,7 +115,9 @@ export const useLibrary = create<LibraryState>((set, get) => ({
       createdAt: Date.now(),
     };
     await repos.templates.put(t);
-    set({ userTemplates: [t, ...get().userTemplates] });
+    const favoriteTemplateIds = [t.id, ...get().favoriteTemplateIds];
+    writeJson(FAVORITES_KEY, favoriteTemplateIds);
+    set({ userTemplates: [t, ...get().userTemplates], favoriteTemplateIds });
     logActivity({ area: 'Templates', outcome: 'update', title: 'Template saved', detail: `“${t.name}” added to My Templates.`, link: { href: '#/templates', label: 'Open templates' } });
     return t;
   },
@@ -123,7 +139,16 @@ export const useLibrary = create<LibraryState>((set, get) => ({
     const name = get().userTemplates.find((x) => x.id === id)?.name ?? 'Template';
     await repos.templates.remove(id);
     logActivity({ area: 'Templates', outcome: 'update', title: 'Template deleted', detail: `“${name}” removed from My Templates.` });
-    set({ userTemplates: get().userTemplates.filter((x) => x.id !== id) });
+    const favoriteTemplateIds = get().favoriteTemplateIds.filter((x) => x !== id);
+    writeJson(FAVORITES_KEY, favoriteTemplateIds);
+    set({ userTemplates: get().userTemplates.filter((x) => x.id !== id), favoriteTemplateIds });
+  },
+  toggleFavorite: (id) => {
+    const on = !get().favoriteTemplateIds.includes(id);
+    const next = on ? [id, ...get().favoriteTemplateIds] : get().favoriteTemplateIds.filter((x) => x !== id);
+    writeJson(FAVORITES_KEY, next);
+    set({ favoriteTemplateIds: next });
+    return on;
   },
   hideTemplate: (id) => {
     const next = [...new Set([...get().hiddenTemplateIds, id])];

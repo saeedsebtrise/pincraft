@@ -1,25 +1,29 @@
-import { Copy, Eye, ImagePlus, Pencil, RotateCcw, Search, Trash2 } from 'lucide-react';
+import { Copy, Eye, Heart, ImagePlus, Pencil, RotateCcw, Search, Trash2 } from 'lucide-react';
 import { matchesQuery } from '../templates/search';
 import { useMemo, useState } from 'react';
 import { simplifyRatio } from '../config/canvasPresets';
 import { DESIGN_TYPES, TEMPLATE_FAMILIES, templateDesignTypes, type DesignType, type TemplateFamilyId } from '../config/designTypes';
 import type { Template, TemplateCategory } from '../model/types';
 import { useLibrary } from '../store/libraryStore';
+import { useIsFavorite } from '../store/favorites';
+import { FavoriteButton, TasteNote } from '../templates/FavoriteButton';
 import { allTemplates } from '../store/projectActions';
 import { useUi } from '../store/uiStore';
-import { useTemplateThumb } from '../templates/useThumb';
+import { useLazyTemplateThumb } from '../templates/useThumb';
 import { IconButton, Modal } from '../ui/controls';
 import { CATEGORY_FILTERS } from '../editor/panels/TemplatesPanel';
 import { ReferenceTemplateModal } from './ReferenceTemplateModal';
 
 export function TemplateCard({ t, onUse, selected, compact }: { t: Template; onUse: (t: Template) => void; selected?: boolean; compact?: boolean }) {
-  const src = useTemplateThumb(t, 300);
+  const [thumbRef, src] = useLazyTemplateThumb(t, 300);
   const [preview, setPreview] = useState(false);
   const lib = useLibrary();
+  const fav = useIsFavorite(t.id);
   return (
     <div className="tpl-card card" style={{ borderColor: selected ? 'var(--text)' : undefined, boxShadow: selected ? '0 0 0 1px var(--text)' : undefined }}>
-      <div className="tpl-thumb">
+      <div className="tpl-thumb" ref={thumbRef}>
         {src ? <img src={src} alt={`${t.name} template preview`} /> : null}
+        <FavoriteButton t={t} on={fav} />
         <div className="tpl-actions">
           <button className="btn btn-primary btn-sm grow" onClick={() => onUse(t)}>
             Use template
@@ -117,24 +121,30 @@ export function TemplateCard({ t, onUse, selected, compact }: { t: Template; onU
 export function TemplateGallery({ onUse, initialType = 'all', initialQuery = '', compact, selectedId }: { onUse: (t: Template) => void; initialType?: DesignType | 'all'; initialQuery?: string; compact?: boolean; selectedId?: string }) {
   useLibrary((s) => s.userTemplates);
   const hidden = useLibrary((s) => s.hiddenTemplateIds); // re-render when templates are removed or restored
+  const favIds = useLibrary((s) => s.favoriteTemplateIds);
+  const [favOnly, setFavOnly] = useState(false);
   const [fromImage, setFromImage] = useState(false);
   const [type, setType] = useState<DesignType | 'all'>(initialType);
   const [cat, setCat] = useState<TemplateCategory | 'all'>('all');
   const [query, setQuery] = useState(initialQuery);
   const templates = allTemplates();
   const filtered = useMemo(
-    () => templates.filter((t) => (type === 'all' || templateDesignTypes(t).includes(type)) && (cat === 'all' || t.categories.includes(cat)) && matchesQuery(t, query)),
-    [templates, type, cat, query],
+    () => templates.filter((t) => (type === 'all' || templateDesignTypes(t).includes(type)) && (cat === 'all' || t.categories.includes(cat)) && (!favOnly || favIds.includes(t.id)) && matchesQuery(t, query)),
+    [templates, type, cat, query, favOnly, favIds],
   );
   const families = ([1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as TemplateFamilyId[]).map((f) => ({ f, list: filtered.filter((t) => t.family === f && t.source === 'builtin') }));
   const mine = filtered.filter((t) => t.source === 'user');
+  const favorites = favIds.map((id) => filtered.find((t) => t.id === id)).filter((t): t is Template => !!t);
   const counts = (d: DesignType) => templates.filter((t) => templateDesignTypes(t).includes(d)).length;
 
   return (
     <div className="gallery">
       <nav className="gallery-side" aria-label="Design types">
-        <button type="button" aria-pressed={type === 'all'} onClick={() => setType('all')}>
+        <button type="button" aria-pressed={type === 'all' && !favOnly} onClick={() => { setType('all'); setFavOnly(false); }}>
           All designs <span>{templates.length}</span>
+        </button>
+        <button type="button" aria-pressed={favOnly} onClick={() => setFavOnly((v) => !v)}>
+          <span className="row" style={{ gap: 6 }}><Heart size={14} fill={favOnly ? 'currentColor' : 'none'} /> Favorites</span> <span>{templates.filter((t) => favIds.includes(t.id)).length}</span>
         </button>
         {DESIGN_TYPES.map((d) => (
           <button key={d.id} type="button" aria-pressed={type === d.id} onClick={() => setType(d.id)}>
@@ -176,8 +186,24 @@ export function TemplateGallery({ onUse, initialType = 'all', initialQuery = '',
             </button>
           ))}
         </div>
-        {filtered.length === 0 && <p className="muted">No templates match. Try another design type or category.</p>}
-        {mine.length > 0 && (
+        {filtered.length === 0 && <p className="muted">{favOnly ? 'No favorites yet — tap the heart on any design you like.' : 'No templates match. Try another design type or category.'}</p>}
+        {(favorites.length > 0 || favOnly) && (
+          <section>
+            <div className="family-title">
+              <h3>
+                <Heart size={16} fill="currentColor" style={{ color: 'var(--pink, #e60023)', verticalAlign: -2 }} /> Your Favorites
+              </h3>
+              <TasteNote />
+            </div>
+            <div className="tpl-grid">
+              {favorites.map((t) => (
+                <TemplateCard key={`fav-${t.id}`} t={t} onUse={onUse} compact={compact} selected={selectedId === t.id} />
+              ))}
+            </div>
+          </section>
+        )}
+        {favorites.length === 0 && !favOnly && <TasteNote />}
+        {mine.length > 0 && !favOnly && (
           <section>
             <div className="family-title">
               <h3>My Templates</h3>
@@ -190,7 +216,7 @@ export function TemplateGallery({ onUse, initialType = 'all', initialQuery = '',
             </div>
           </section>
         )}
-        {families
+        {!favOnly && families
           .filter((x) => x.list.length)
           .map(({ f, list }) => (
             <section key={f}>

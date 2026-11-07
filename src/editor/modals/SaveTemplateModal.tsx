@@ -30,7 +30,7 @@ export function SaveTemplateModal() {
               setBusy(true);
               try {
                 await useLibrary.getState().saveTemplate(name, project.doc, cats);
-                useUi.getState().toast(`Saved “${name}” to My Templates`, 'success');
+                useUi.getState().toast(`Saved “${name}” to My Templates and Favorites — Auto Design will learn this style`, 'success');
                 close();
               } catch {
                 useUi.getState().toast("Couldn't save the template.", 'error');
@@ -45,6 +45,7 @@ export function SaveTemplateModal() {
     >
       <div className="stack">
         <p className="muted">Layout, typography, colors, bands, badges and spacing are saved. Your photos are not — frames become empty slots to fill next time.</p>
+        <p className="subtle">It also goes into your Favorites, so Auto Design learns your style and makes more Pins like it.</p>
         <Field label="Template name">
           <input className="input" value={name} onChange={(e) => setName(e.target.value)} />
         </Field>

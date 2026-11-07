@@ -64,12 +64,28 @@ function fillFrames(doc: PinDocument, photos?: PreviewPhotos): { doc: PinDocumen
 
 const cache = new Map<string, Promise<string>>();
 
+/** At most this many previews render at once; each starts after a yield so clicks and scrolling stay smooth. */
+const MAX_RENDERS = 2;
+let active = 0;
+const waiting: (() => void)[] = [];
+async function inTurn<T>(job: () => Promise<T>): Promise<T> {
+  if (active >= MAX_RENDERS) await new Promise<void>((resolve) => waiting.push(resolve));
+  active++;
+  try {
+    await new Promise((resolve) => setTimeout(resolve));
+    return await job();
+  } finally {
+    active--;
+    waiting.shift()?.();
+  }
+}
+
 export function templateThumbnail(t: Template, width = 260, photos?: PreviewPhotos): Promise<string> {
   const key = `${t.id}:${t.source === 'user' ? t.createdAt : 0}:${width}:${photos?.sources.length ? photos.key : ''}`;
   if (!cache.has(key)) {
     if (cache.size > 400) cache.clear();
     const { doc, images } = fillFrames(t.doc, photos);
-    cache.set(key, renderThumbnail(doc, width, images).catch(() => ''));
+    cache.set(key, inTurn(() => renderThumbnail(doc, width, images)).catch(() => ''));
   }
   return cache.get(key)!;
 }
@@ -83,6 +99,6 @@ export function docThumbnail(doc: PinDocument, width = 260, photos: ImageMap = {
   const { doc: placeholderDoc, images } = fillFrames(empty);
   const filledIds = new Map(placeholderDoc.layers.map((l) => [l.id, l]));
   const merged = { ...doc, layers: doc.layers.map((l) => filledIds.get(l.id) ?? l) };
-  return renderThumbnail(merged, width, { ...images, ...photos }).catch(() => '');
+  return inTurn(() => renderThumbnail(merged, width, { ...images, ...photos })).catch(() => '');
 }
 

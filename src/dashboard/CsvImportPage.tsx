@@ -15,6 +15,7 @@ import { siteHost } from '../services/blogImport';
 import { useAssets } from '../store/assetStore';
 import { useLibrary } from '../store/libraryStore';
 import { allTemplates } from '../store/projectActions';
+import { currentTaste } from '../store/favorites';
 import { useUi } from '../store/uiStore';
 import { inkWithCanvas, measureWithCanvas, saveAsProject } from './autoShared';
 
@@ -74,7 +75,7 @@ export function CsvImportPage() {
       if (!t) return null;
       return instantiateTemplate(t, { ...SIZE, headline: pin.title, website: siteFor(pin), assetIds: ids, assetMetas: metas, brand: null });
     }
-    const results = autoDesign({ title: pin.title, keyword: pin.keyword, website: siteFor(pin), size: SIZE, assetIds: ids, assetMetas: metas, ctaOffset: i }, templates, { limit: 6, measure: measureWithCanvas, ink: inkWithCanvas });
+    const results = autoDesign({ title: pin.title, keyword: pin.keyword, website: siteFor(pin), size: SIZE, assetIds: ids, assetMetas: metas, ctaOffset: i }, templates, { limit: 6, measure: measureWithCanvas, ink: inkWithCanvas, taste: currentTaste() });
     return results.length ? results[i % results.length].doc : null;
   };
 

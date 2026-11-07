@@ -10,6 +10,8 @@ import { useAssets } from '../store/assetStore';
 import { thumbUrl } from '../ui/imageUrl';
 import { useLibrary } from '../store/libraryStore';
 import { allTemplates } from '../store/projectActions';
+import { currentTaste, useIsFavorite } from '../store/favorites';
+import { FavoriteButton } from '../templates/FavoriteButton';
 import { useUi } from '../store/uiStore';
 import { docThumbnail } from '../templates/thumbnails';
 import { inkWithCanvas, measureWithCanvas, saveAsProject, SIZES } from './autoShared';
@@ -29,6 +31,7 @@ function PhotoChip({ id, off, onToggle }: { id: Id; off: boolean; onToggle: () =
 
 function ResultCard({ r, checked, onToggle, onEdit, photos }: { r: AutoDesignResult; checked: boolean; onToggle: () => void; onEdit: () => void; photos: ImageMap }) {
   const [src, setSrc] = useState('');
+  const fav = useIsFavorite(r.template.id);
   useEffect(() => {
     let alive = true;
     setSrc('');
@@ -41,6 +44,8 @@ function ResultCard({ r, checked, onToggle, onEdit, photos }: { r: AutoDesignRes
     <div className="card tpl-card auto-card" data-checked={checked}>
       <div className="tpl-thumb" style={{ aspectRatio: '1 / 1.6' }}>
         {src ? <img src={src} alt={r.template.name} /> : <Loader2 className="subtle" />}
+        {/* AI-made designs aren't library templates, so only template designs can be hearted. */}
+        {!r.template.id.startsWith('ai-') && <FavoriteButton t={r.template} on={fav} />}
         <div className="tpl-actions">
           <button className="btn btn-dark btn-sm grow" onClick={onEdit}>
             <Pencil size={14} /> Edit this Pin
@@ -169,7 +174,7 @@ export function AutoDesign({ initialTitle = '', initialMode = 'one' }: { initial
     let alive = true;
     setDesigning(true);
     const id = setTimeout(() => {
-      const out = autoDesign(input, allTemplates(), { limit, measure: measureWithCanvas, ink: inkWithCanvas });
+      const out = autoDesign(input, allTemplates(), { limit, measure: measureWithCanvas, ink: inkWithCanvas, taste: currentTaste() });
       if (!alive) return;
       setTemplateResults(out);
       setDesigning(false);

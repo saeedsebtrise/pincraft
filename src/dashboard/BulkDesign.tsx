@@ -24,6 +24,7 @@ import { parseLinks, pickForPost } from '../services/bulkDesign';
 import { useAssets } from '../store/assetStore';
 import { useLibrary } from '../store/libraryStore';
 import { allTemplates } from '../store/projectActions';
+import { currentTaste } from '../store/favorites';
 import { useUi } from '../store/uiStore';
 import { docThumbnail } from '../templates/thumbnails';
 import { inkWithCanvas, measureWithCanvas, saveAsProject, SIZES } from './autoShared';
@@ -126,7 +127,7 @@ export function BulkDesign() {
         const ranked = autoDesign(
           { title: page.title, website, size, assetIds: photos.map((p) => p.id), assetMetas: useAssets.getState().metas, cta, ctaOffset: i * perPost },
           strategy === 'studio' && studioTemplates.length ? studioTemplates : allTemplates(),
-          { limit: Math.max(perPost * 2, perPost + 4), measure: measureWithCanvas, ink: inkWithCanvas },
+          { limit: Math.max(perPost * 2, perPost + 4), measure: measureWithCanvas, ink: inkWithCanvas, taste: currentTaste() },
         ).map((r) => ({ ...r, doc: fillVariables(r.doc, { title: page.title, description: page.description, website }) }));
         // Optional: brand-new AI designs first (up to 4 per post), then the best template designs.
         let aiMade: AutoDesignResult[] = [];

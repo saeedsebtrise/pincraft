@@ -11,6 +11,7 @@ import type { AssetMeta, Id, PinDocument, Rect, Template, TextLayer } from '../m
 import { applyCta, ctaOptions, withArrow } from './autoCta';
 import { parseTitle, suggestSubtitles, titleCase } from './headlines';
 import { designTraits, researchBoost, type ResearchReport } from './pinResearch';
+import { tasteBoost, type Taste } from './tasteProfile';
 import { paletteFor, recolorDoc, titleVariants } from './pinVariety';
 import { recommendTemplates } from './recommend';
 
@@ -206,7 +207,7 @@ function candidates(title: string, templates: Template[]): { template: Template;
 export function autoDesign(
   input: AutoInput,
   templates: Template[],
-  opts: { limit?: number; measure?: FitMeasure; ink?: InkMeasure } = {},
+  opts: { limit?: number; measure?: FitMeasure; ink?: InkMeasure; taste?: Taste | null } = {},
 ): AutoDesignResult[] {
   const { headline, subtitle } = autoText(input.title, input.keyword);
   if (!headline) return [];
@@ -229,7 +230,9 @@ export function autoDesign(
     // recreated from real high-performing Pins; the topic match keeps the results on-theme.
     const impact = opts.ink ? headlineImpact(doc, opts.ink) : 0.5;
     const matches = input.research ? researchBoost(designTraits(template, doc), input.research) : 0;
-    return { template, doc, fit, score: fit * 2 + impact * 1.2 + (template.premium || template.highCtr ? premiumBoost : 0) + (template.reference ? 0.8 : 0) + matches + rank };
+    // The user's favorites (and look-alikes) lead: their taste outweighs the general premium boost.
+    const liked = tasteBoost(template, opts.taste) * 2.5;
+    return { template, doc, fit, score: fit * 2 + impact * 1.2 + (template.premium || template.highCtr ? premiumBoost : 0) + (template.reference ? 0.8 : 0) + matches + rank + liked };
   });
   const pool = scored.sort((a, b) => b.score - a.score);
   // Variety: no two look-alike designs, and no more than three from one family, in the first results.
