@@ -4,7 +4,7 @@ import sharp from 'sharp';
 // @ts-expect-error The worker runs as native Node ESM.
 import { runAutopilot } from '../../autopilot/run.mjs';
 // @ts-expect-error The renderer runs as native Node ESM.
-import { designPin, fittedText } from '../../autopilot/design.mjs';
+import { chooseLayout, designPin, fittedText, paletteFrom, splitTitle } from '../../autopilot/design.mjs';
 
 const boards = JSON.stringify([{ id: '123456789012345678', name: 'Ideas' }]);
 const metadata = { title: '12 Room Ideas', cta: 'See the ideas', image_base64: 'cG5n' };
@@ -64,6 +64,31 @@ describe('Autopilot real image renderer', () => {
     const info = await sharp(rendered).metadata();
     expect(info).toMatchObject({ format: 'png', width: 1000, height: 1500 });
     expect(rendered.length).toBeGreaterThan(1000);
+  });
+
+  it('splits a list title into number, two lines and a script word', () => {
+    expect(splitTitle('19 Cozy Fall Kitchen Counter Decor Ideas')).toEqual({ number: '19', lines: ['Cozy Fall Kitchen', 'Counter Decor'], script: 'Ideas' });
+    expect(splitTitle('How to Hang Garland on Stairs')).toMatchObject({ number: null, script: '' });
+    expect(splitTitle('Lob Ideas')).toEqual({ number: null, lines: ['Lob Ideas'], script: '' });
+  });
+
+  it('uses list layouts only for numbered titles with enough photos, stable per article', () => {
+    expect(chooseLayout('How to Hang Garland', 6, 'https://a.com/x')).toBe('guide');
+    expect(chooseLayout('19 Fall Ideas', 2, 'https://a.com/x')).toBe('guide');
+    const list = ['https://a.com/1', 'https://a.com/2', 'https://a.com/3', 'https://a.com/4'].map(u => chooseLayout('19 Fall Ideas', 6, u));
+    expect(list.every(l => l === 'split' || l === 'framed')).toBe(true);
+    expect(new Set(list).size).toBe(2);
+    expect(chooseLayout('19 Fall Ideas', 6, 'https://a.com/1')).toBe(list[0]);
+  });
+
+  it('renders every layout at exact size with photo colors', async () => {
+    const photo = await sharp({ create: { width: 600, height: 800, channels: 3, background: '#2f6f8f' } }).png().toBuffer();
+    const colors = await paletteFrom([photo]);
+    expect(colors.accent).toMatch(/^#[0-9a-f]{6}$/);
+    for (const url of ['https://a.com/1', 'https://a.com/2']) {
+      const png = await designPin([photo, photo, photo, photo, photo, photo], { ...metadata, title: '19 Cozy Fall Kitchen Counter Decor Ideas', subtitle: 'Pretty & practical tips' }, url);
+      expect(await sharp(png).metadata()).toMatchObject({ width: 1000, height: 1500, format: 'png' });
+    }
   });
 
   it('fails before publishing when no photo is decodable', async () => {
