@@ -2,7 +2,7 @@ import { Activity as ActivityIcon, ArrowRight, FileSpreadsheet, PenTool, Video, 
 import { AutoDesign } from './AutoDesign';
 import { ensureCanCreateProject, handleLimitError } from '../saas/gates';
 import { AccountPage, PricingPage, UpgradeButton, UserCard } from '../saas/ui/PlanViews';
-import { useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { DESIGN_TYPES, type DesignType } from '../config/designTypes';
 import type { Project } from '../model/types';
 import { allTemplates, duplicateProject } from '../store/projectActions';
@@ -20,7 +20,9 @@ import { BrandKitPage, StudioHome } from './StudioPages';
 import { CsvImportPage } from './CsvImportPage';
 import { VideoPinsPage } from './VideoPinsPage';
 
-export type DashTab = 'home' | 'auto' | 'projects' | 'templates' | 'brand' | 'new' | 'account' | 'pricing' | 'activity' | 'billing' | 'settings' | 'boards' | 'analytics' | 'studio' | 'csv' | 'video';
+const AutopilotPage = lazy(() => import('./AutopilotPage').then((module) => ({ default: module.AutopilotPage })));
+
+export type DashTab = 'home' | 'auto' | 'projects' | 'templates' | 'brand' | 'new' | 'account' | 'pricing' | 'activity' | 'billing' | 'settings' | 'boards' | 'analytics' | 'studio' | 'csv' | 'video' | 'autopilot';
 
 const NAV: { id: DashTab; label: string; href: string; icon: React.ReactNode }[] = [
   { id: 'home', label: 'Home', href: '#/', icon: <Home size={18} /> },
@@ -37,6 +39,7 @@ const NAV: { id: DashTab; label: string; href: string; icon: React.ReactNode }[]
 
 /** Publish & grow section of the sidebar (Pinterest). */
 const GROW_NAV: { id: DashTab; label: string; href: string; icon: React.ReactNode }[] = [
+  { id: 'autopilot', label: 'Autopilot', href: '#/autopilot', icon: <Wand2 size={18} /> },
   { id: 'boards', label: 'Boards', href: '#/boards', icon: <LayoutGrid size={18} /> },
   { id: 'analytics', label: 'Analytics', href: '#/analytics', icon: <BarChart3 size={18} /> },
 ];
@@ -115,6 +118,7 @@ export function Dashboard({ tab, params }: { tab: DashTab; params: URLSearchPara
             <Plus size={18} /> Create New Pin
           </a>
         </header>
+        {tab === 'autopilot' && <Suspense fallback={<div className="dash-main" role="status">Loading Autopilot setup…</div>}><AutopilotPage /></Suspense>}
         {tab === 'home' && <HomeScreen />}
         {tab === 'auto' && (
           <AutoDesign key={`${params.get('mode')}:${params.get('q') ?? ''}`} initialTitle={params.get('q') ?? ''} initialMode={params.get('mode') === 'bulk' ? 'bulk' : 'one'} />
@@ -356,4 +360,3 @@ function ProjectGrid({ limit }: { limit?: number }) {
     </>
   );
 }
-

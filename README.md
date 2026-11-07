@@ -2,7 +2,7 @@
 
 A focused, Canva-style editor built for Pinterest blog Pins. You choose a design type, then a Pin size, then a template. Upload images, pick a generated headline, adjust the typography, images, colors and layout, preview the Pin in a mobile feed, and export it at its exact size.
 
-Everything runs in the browser. Images stay on your device; there is no server and no account. The optional AI headline assistant goes through a small proxy that you run yourself.
+The core editor runs in the browser and can save projects and images locally without an account. Optional cloud accounts, AI features, Pinterest publishing, and the Google Sheets Autopilot use external services; each has its own setup and data flow described below.
 
 ## Quick start
 
@@ -16,11 +16,14 @@ npm run dev          # http://localhost:5173
 | `npm run dev` | Vite dev server with hot reload |
 | `npm run build` | Type-check + production build into `dist/` |
 | `npm run preview` | Serve the production build |
-| `npm test` | Unit tests (Vitest, 67 tests) |
+| `npm test` | Application and Autopilot tests (Vitest) |
 | `npm run typecheck` | TypeScript only |
 | `npm run ai-proxy` | Optional AI headline proxy (needs `ANTHROPIC_API_KEY`) |
+| `npm run autopilot` | Cloud-worker command; loads local `.env`, defaults to preview |
+| `npm run test:autopilot` | Additional isolated Node worker checks |
+| `npm run lint` | ESLint checks scoped to the Autopilot feature |
 
-Requires Node 20+ (developed on Node 24). On a fresh machine, if `npm install` blocks esbuild's install script, run `npm approve-scripts esbuild`.
+Use Node 22 or later for the Autopilot command and CI. On a fresh machine, if `npm install` blocks esbuild's install script, run `npm approve-scripts esbuild`.
 
 ### Optional: AI headline assistant
 
@@ -162,12 +165,21 @@ docs/            SPEC.md, ACCEPTANCE.md
 
 ## Tests
 
-- `npm test`: 48 unit tests covering presets, collage math, crop geometry, headline application, every template at every preset, template switching (keeps images and headline), smart image assignment, undo/redo, quality checks, file validation, filenames, recommendations and IndexedDB round trips.
+- `npm test`: Vitest checks for document operations, templates, persistence, services, and Autopilot queue/worker behavior. See the command output for current totals.
+- `npm run test:autopilot`: isolated Node checks for worker rules and image rendering. These tests do not publish to Pinterest.
 - Browser acceptance tests 1–7 were run against the live app. Results are in [docs/ACCEPTANCE.md](docs/ACCEPTANCE.md).
 
 ## Notes and limits
 
 - Grouping layers isn't in the MVP; multi-select with align/distribute covers most uses.
 - Fonts load from Google Fonts, so the first load needs internet. Bundling them locally is on the roadmap.
-- Data lives in this browser's IndexedDB. Clearing site data removes projects. Cloud storage is on the roadmap behind the repository interfaces that already exist.
+- Local projects live in this browser's IndexedDB; clearing site data removes them. Optional cloud accounts and storage have a separate setup in [docs/SAAS_SETUP.md](docs/SAAS_SETUP.md).
 - PinCraft doesn't promise reach, rankings or traffic. It makes professional Pin creatives; performance depends on your content, account and audience.
+
+## Google Sheets Autopilot
+
+Open **Publish & grow → Autopilot** for setup downloads and shortcuts. The cloud flow is **Google Sheets article queue → Gemini copy → 1000 × 1500 Pin → Make/Pinterest → Sheet status and Pin URL**. It runs independently of the browser, with a default limit of 10 publishing attempts per rolling 24 hours and at least two hours between attempts.
+
+Publishing starts disabled. Run a preview to inspect the image and metadata, configure the external connections, then verify one live Pin before installing the timer. Uncertain publishing outcomes stop the queue for review; the worker never automatically retries them. The setup page does not display live queue status or store credentials.
+
+Installation, field mapping, environment variables, recovery, architecture, and rollout notes are in [docs/AUTOPILOT_SETUP.md](docs/AUTOPILOT_SETUP.md). Unlike local editing, Autopilot sends article text to Gemini and the generated image and copy to Make/Pinterest.

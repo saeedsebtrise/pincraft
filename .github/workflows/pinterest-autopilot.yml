@@ -1,0 +1,51 @@
+name: Pinterest Autopilot
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        type: choice
+        options: [preview, publish]
+        default: preview
+      article_url:
+        description: Article URL for preview only
+        type: string
+        required: false
+permissions:
+  contents: read
+concurrency:
+  group: pinterest-autopilot
+  cancel-in-progress: false
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: autopilot
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run test:autopilot
+      - run: npm run build
+      - run: node autopilot/run.mjs
+        env:
+          AUTOPILOT_MODE: ${{ inputs.mode }}
+          AUTOPILOT_PREVIEW_URL: ${{ inputs.article_url }}
+          AUTOPILOT_ENABLED: ${{ vars.AUTOPILOT_ENABLED }}
+          AUTOPILOT_BOARDS_JSON: ${{ vars.AUTOPILOT_BOARDS_JSON }}
+          GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          AUTOPILOT_SHEET_URL: ${{ secrets.AUTOPILOT_SHEET_URL }}
+          AUTOPILOT_SHEET_SECRET: ${{ secrets.AUTOPILOT_SHEET_SECRET }}
+          MAKE_WEBHOOK_URL: ${{ secrets.MAKE_WEBHOOK_URL }}
+          MAKE_WEBHOOK_API_KEY: ${{ secrets.MAKE_WEBHOOK_API_KEY }}
+      - uses: actions/upload-artifact@v4
+        if: inputs.mode == 'preview' && success()
+        with:
+          name: autopilot-preview
+          path: output/autopilot/
+          retention-days: 3
