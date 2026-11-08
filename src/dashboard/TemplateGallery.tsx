@@ -1,4 +1,4 @@
-import { Copy, Eye, Heart, ImagePlus, Pencil, RotateCcw, Search, Trash2 } from 'lucide-react';
+import { Copy, Eye, Heart, ImagePlus, Pencil, RotateCcw, Search, Sparkles, Trash2 } from 'lucide-react';
 import { matchesQuery } from '../templates/search';
 import { useMemo, useState } from 'react';
 import { simplifyRatio } from '../config/canvasPresets';
@@ -127,12 +127,16 @@ export function TemplateGallery({ onUse, initialType = 'all', initialQuery = '',
   const [type, setType] = useState<DesignType | 'all'>(initialType);
   const [cat, setCat] = useState<TemplateCategory | 'all'>('all');
   const [query, setQuery] = useState(initialQuery);
+  // A named collection (e.g. "Luxe Hair Collection") shown on its own.
+  const [coll, setColl] = useState<string | null>(null);
   const templates = allTemplates();
+  const collectionNames = [...new Set(templates.map((t) => t.collection).filter((c): c is string => !!c))];
   const filtered = useMemo(
-    () => templates.filter((t) => (type === 'all' || templateDesignTypes(t).includes(type)) && (cat === 'all' || t.categories.includes(cat)) && (!favOnly || favIds.includes(t.id)) && matchesQuery(t, query)),
-    [templates, type, cat, query, favOnly, favIds],
+    () => templates.filter((t) => (type === 'all' || templateDesignTypes(t).includes(type)) && (cat === 'all' || t.categories.includes(cat)) && (!favOnly || favIds.includes(t.id)) && (!coll || t.collection === coll) && matchesQuery(t, query)),
+    [templates, type, cat, query, favOnly, favIds, coll],
   );
-  const families = ([1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as TemplateFamilyId[]).map((f) => ({ f, list: filtered.filter((t) => t.family === f && t.source === 'builtin') }));
+  const families = ([1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as TemplateFamilyId[]).map((f) => ({ f, list: filtered.filter((t) => t.family === f && t.source === 'builtin' && !t.collection) }));
+  const collections = collectionNames.map((name) => ({ name, list: filtered.filter((t) => t.collection === name) })).filter((c) => c.list.length);
   const mine = filtered.filter((t) => t.source === 'user');
   const favorites = favIds.map((id) => filtered.find((t) => t.id === id)).filter((t): t is Template => !!t);
   const counts = (d: DesignType) => templates.filter((t) => templateDesignTypes(t).includes(d)).length;
@@ -140,12 +144,17 @@ export function TemplateGallery({ onUse, initialType = 'all', initialQuery = '',
   return (
     <div className="gallery">
       <nav className="gallery-side" aria-label="Design types">
-        <button type="button" aria-pressed={type === 'all' && !favOnly} onClick={() => { setType('all'); setFavOnly(false); }}>
+        <button type="button" aria-pressed={type === 'all' && !favOnly && !coll} onClick={() => { setType('all'); setFavOnly(false); setColl(null); }}>
           All designs <span>{templates.length}</span>
         </button>
         <button type="button" aria-pressed={favOnly} onClick={() => setFavOnly((v) => !v)}>
           <span className="row" style={{ gap: 6 }}><Heart size={14} fill={favOnly ? 'currentColor' : 'none'} /> Favorites</span> <span>{templates.filter((t) => favIds.includes(t.id)).length}</span>
         </button>
+        {collectionNames.map((name) => (
+          <button key={name} type="button" aria-pressed={coll === name} onClick={() => setColl((c) => (c === name ? null : name))}>
+            <span className="row" style={{ gap: 6 }}><Sparkles size={14} /> {name}</span> <span>{templates.filter((t) => t.collection === name).length}</span>
+          </button>
+        ))}
         {DESIGN_TYPES.map((d) => (
           <button key={d.id} type="button" aria-pressed={type === d.id} onClick={() => setType(d.id)}>
             {d.label} <span>{counts(d.id)}</span>
@@ -203,6 +212,21 @@ ${others} other templates will be removed from the gallery and Auto Design. Your
           ))}
         </div>
         {filtered.length === 0 && <p className="muted">{favOnly ? 'No favorites yet — tap the heart on any design you like.' : 'No templates match. Try another design type or category.'}</p>}
+        {!favOnly && collections.map(({ name, list }) => (
+          <section key={name}>
+            <div className="family-title">
+              <h3>
+                <Sparkles size={16} style={{ verticalAlign: -2 }} /> {name}
+              </h3>
+              <span className="subtle">Exact recreations of top-performing Pins — every box stays in place, just swap the photos and words.</span>
+            </div>
+            <div className="tpl-grid">
+              {list.map((t) => (
+                <TemplateCard key={`coll-${t.id}`} t={t} onUse={onUse} compact={compact} selected={selectedId === t.id} />
+              ))}
+            </div>
+          </section>
+        ))}
         {(favorites.length > 0 || favOnly) && (
           <section>
             <div className="family-title">
@@ -232,7 +256,7 @@ ${others} other templates will be removed from the gallery and Auto Design. Your
             </div>
           </section>
         )}
-        {!favOnly && families
+        {!favOnly && !coll && families
           .filter((x) => x.list.length)
           .map(({ f, list }) => (
             <section key={f}>

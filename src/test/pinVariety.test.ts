@@ -161,3 +161,20 @@ it('adds twelve designs inspired by the favorite circle-script and big-number te
   const liked = autoDesign({ title: '25 Gorgeous Bob Haircuts for Fine Hair', cta: false }, BUILTIN_TEMPLATES, { measure: () => 1, limit: 12, taste: buildTaste(favs) });
   expect(liked.filter((r) => r.template.id.startsWith('fav-')).length).toBeGreaterThanOrEqual(2);
 });
+
+it('adds the nine-Pin Luxe Hair Collection with fixed boxes in its own section', async () => {
+  const { LUXE_HAIR_TEMPLATES, LUXE_HAIR_COLLECTION } = await import('../templates/luxeHairCollection');
+  const { instantiateTemplate } = await import('../model/docOps');
+  expect(LUXE_HAIR_TEMPLATES).toHaveLength(9);
+  for (const t of LUXE_HAIR_TEMPLATES) {
+    expect(t.collection, t.id).toBe(LUXE_HAIR_COLLECTION);
+    expect([t.doc.width, t.doc.height], t.id).toEqual([736, 1472]);
+    expect(t.imageCount, t.id).toBe(4);
+    expect(t.doc.layers.filter(isText).find((l) => l.role === 'badge')?.text, t.id).toBe('50');
+    expect(BUILTIN_TEMPLATES.some((b) => b.id === t.id), t.id).toBe(true);
+    // A new title changes the words, never where the boxes sit.
+    const boxes = (d: typeof t.doc) => d.layers.filter((l) => l.type === 'shape').map((l) => [l.x, l.y, l.width, l.height]);
+    const doc = instantiateTemplate(t, { width: 736, height: 1472, presetId: 'custom-blog-736', headline: '35 Gorgeous Curtain Bangs Ideas for Every Face', brand: null });
+    expect(boxes(doc), t.id).toEqual(boxes(t.doc));
+  }
+});

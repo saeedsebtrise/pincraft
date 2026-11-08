@@ -260,6 +260,8 @@ export interface Template {
   premium?: boolean;
   /** Built for clicks: huge keyword on a solid band, big number, benefit line and CTA — Auto Design leads with these too. */
   highCtr?: boolean;
+  /** A named set shown as its own section in the gallery (e.g. "Luxe Hair Collection"). */
+  collection?: string;
   createdAt: number;
 }
 

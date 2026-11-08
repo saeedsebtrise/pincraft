@@ -17,6 +17,7 @@ import { CTR_TEMPLATES } from './ctrStyles';
 import { LUXE_CTR_TEMPLATES } from './luxeCtrPack';
 import { BOLD_OUTLINE_TEMPLATES } from './boldOutlinePack';
 import { FAVORITES_INSPIRED_TEMPLATES } from './favoritesInspiredPack';
+import { LUXE_HAIR_TEMPLATES } from './luxeHairCollection';
 import { PIN_STYLE_TEMPLATES } from './pinStyles';
 import { TRENDING_TEMPLATES } from './trendingTemplates';
 
@@ -32,6 +33,8 @@ export const BUILTIN_TEMPLATES: Template[] = [
   ...BOLD_OUTLINE_TEMPLATES,
   // Inspired by the user's favorites: circle + script + outlined keyword, and big number over the photo edge.
   ...FAVORITES_INSPIRED_TEMPLATES,
+  // Luxe Hair Collection: exact recreations of the user's reference Pins (own gallery section).
+  ...LUXE_HAIR_TEMPLATES,
   // Newly crafted trending high-converting Pinterest templates
   ...TRENDING_TEMPLATES,
   // Recreated from real high-performing Pins (Auto Design ranks these first).
