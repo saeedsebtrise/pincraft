@@ -46,6 +46,9 @@ describe('Autopilot control panel (server)', () => {
     expect(sheetRequest('preview', { articleUrl: 'https://a.com/x', pins: 9 })).toHaveProperty('error');
     expect(sheetRequest('add', { urls: ['https://a.com/1'], pinsPerArticle: 4 })).toMatchObject({ pinsPerArticle: 4 });
     expect(sheetRequest('add', { urls: ['https://a.com/1'], pinsPerArticle: 0 })).toHaveProperty('error');
+    expect(sheetRequest('settings', { photoLayout: '8', pinSizes: ['1:2', '2:3'] })).toEqual({ action: 'settings', photoLayout: '8', pinSizes: ['1:2', '2:3'] });
+    expect(sheetRequest('settings', { photoLayout: '9' })).toHaveProperty('error');
+    expect(sheetRequest('settings', { pinSizes: ['7:8'] })).toHaveProperty('error');
     expect(sheetRequest('publish')).toEqual({ action: 'dispatch', mode: 'publish' });
     expect(sheetRequest('settings', { dailyLimit: 11 })).toHaveProperty('error');
     expect(sheetRequest('settings', { enabled: true, dailyLimit: 3 })).toEqual({ action: 'settings', enabled: true, dailyLimit: 3 });

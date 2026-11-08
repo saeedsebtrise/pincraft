@@ -79,6 +79,8 @@ Google documents the execution identity and deployment controls in [Apps Script 
 | `ENABLED` | `false` until preview and Make setup are complete |
 | `DAILY_LIMIT` | `10` by default; integer from 1 to 10 |
 | `INTERVAL_MINUTES` | `120` by default; at least 120 |
+| `PHOTO_LAYOUT` | Optional, set from the Autopilot page: `random` (default), `4`, `6` or `8` photos per Pin |
+| `PIN_SIZES` | Optional, set from the Autopilot page: comma-separated sizes to rotate through, e.g. `2:3,1:2` (default `2:3`) |
 | `SAME_ARTICLE_GAP_HOURS` | Optional. Hours between two Pins of the same article; `24` by default (0–720) |
 | `GITHUB_REPO` | Repository in `owner/repository` format |
 | `GITHUB_REF` | Reviewed branch or tag to run; defaults to `main` |
@@ -214,6 +216,16 @@ One article can get up to 5 different Pins. In the PinCraft Autopilot page choos
 - A preview run can show several Pins of one article: `preview.png`, `preview-2.png` … (workflow input **pins**).
 
 After updating PinCraft, paste the new `google-sheet-script.gs` into Apps Script and deploy a new version of the web app (Deploy → Manage deployments → Edit → New version), so the Sheet understands `#pin-N` rows.
+
+## Pin design: photos, sizes, colours and fonts
+
+In the Autopilot page, **Pin design** sets how every Pin is drawn:
+
+- **Photos per Pin** — Random, 4, 6 or 8. Eight-photo Pins use templates I and J; an article with fewer photos uses the largest layout it can fill.
+- **Pin sizes** — any of 2:3 (1000×1500), 1:2 (1000×2000), 9:16 (1000×1778), 3:4, 4:5 and 1:1. With several, Pins rotate through them. The text panel keeps its design; only the photo areas grow or shrink.
+- Every Pin gets its own colours and one of several bold headline fonts (Poppins, Titan One, Kanit, Luckiest Guy, Archivo Black, Anton, Lilita One), so Pins of one article never look alike.
+
+Large images (1:2, 9:16) are sent as JPEG when a PNG would push the Make payload past 5 MiB; `image_mime` and `filename` say which. The settings travel to each run as the workflow inputs **photos** and **sizes**, which a manual run can also set.
 
 ## Recovery and duplicate handling
 

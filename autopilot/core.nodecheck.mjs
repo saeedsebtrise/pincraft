@@ -108,7 +108,7 @@ test('control panel: starts a preview run and lists runs through GitHub',()=>{
   const h=scriptHarness(); h.values.GITHUB_REPO='o/r'; h.values.GITHUB_TOKEN='t';
   assert.equal(h.call('dispatch',{mode:'preview',articleUrl:'ftp://x'}).ok,false);
   assert.equal(h.call('dispatch',{mode:'preview',articleUrl:'https://example.com/post'}).ok,true);
-  const body=JSON.parse(h.fetches[0].opts.payload); assert.deepEqual(body.inputs,{mode:'preview',article_url:'https://example.com/post',pins:'1'});
+  const body=JSON.parse(h.fetches[0].opts.payload); assert.deepEqual(body.inputs,{mode:'preview',photos:'random',sizes:'2:3',article_url:'https://example.com/post',pins:'1'});
   assert.equal(h.call('dispatch',{mode:'preview',articleUrl:'https://example.com/post',pins:3}).ok,true);
   assert.equal(JSON.parse(h.fetches[1].opts.payload).inputs.pins,'3');
   h.fetches.length=0;
@@ -161,4 +161,18 @@ test('Pin variants: link, template, photos and copy angle',async()=>{
     await generateCopy(article,[{id:'123',name:'Ideas'}],'',{GEMINI_API_KEY:'k'});
     assert.equal(JSON.parse(bodies[1].contents[0].parts[0].text).pinNumber,undefined);
   } finally { globalThis.fetch=real; }
+});
+
+test('Pin design settings: photos per Pin and sizes reach every run',()=>{
+  const h=scriptHarness(); h.values.GITHUB_REPO='o/r'; h.values.GITHUB_TOKEN='t';
+  assert.equal(h.call('settings',{photoLayout:'7'}).ok,false);
+  assert.equal(h.call('settings',{pinSizes:[]}).ok,false);
+  assert.equal(h.call('settings',{pinSizes:['2:3','5:7']}).ok,false);
+  assert.equal(h.call('settings',{photoLayout:'8',pinSizes:['1:2','2:3','1:2']}).ok,true);
+  assert.equal(h.values.PIN_SIZES,'1:2,2:3');
+  const o=h.call('overview'); assert.equal(o.settings.photoLayout,'8'); assert.deepEqual(o.settings.pinSizes,['1:2','2:3']);
+  h.call('dispatch',{mode:'publish'});
+  assert.deepEqual(JSON.parse(h.fetches.at(-1).opts.payload).inputs,{mode:'publish',photos:'8',sizes:'1:2,2:3'});
+  h.values.LAST_DISPATCH='0'; h.call('dispatch',{mode:'preview',articleUrl:'https://example.com/a',pins:2});
+  assert.equal(JSON.parse(h.fetches.at(-1).opts.payload).inputs.sizes,'1:2,2:3');
 });

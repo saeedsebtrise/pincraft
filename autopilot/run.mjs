@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import { boardsSchema, readArticle, generateCopy, loadPhotos, validateWebhook, runJob, StageError, pinVariant, MAX_PINS_PER_ARTICLE } from './core.mjs';
-import { renderPin } from './design.mjs';
+import { renderPin, sizeFor, SIZES, PHOTO_LAYOUTS } from './design.mjs';
 
 /** Runs one step; any failure that isn't already categorised becomes `stage` with a safe detail. */
 async function step(stage, work, detail = () => '') {
@@ -20,6 +20,10 @@ export async function runAutopilot(env = process.env, dependencies = {}) {
   if (!['preview', 'publish'].includes(mode)) throw new StageError('config', 'AUTOPILOT_MODE must be preview or publish');
   const boards = await step('config', () => boardsSchema.parse(JSON.parse(env.AUTOPILOT_BOARDS_JSON || '[]')), () => 'AUTOPILOT_BOARDS_JSON is missing or invalid');
   const request = dependencies.fetch || fetch;
+  // Pin design settings (from the Autopilot page via the Sheet, or the workflow inputs).
+  const layout = PHOTO_LAYOUTS[String(env.AUTOPILOT_PHOTOS || 'random').trim()] ? String(env.AUTOPILOT_PHOTOS || 'random').trim() : 'random';
+  const sizes = String(env.AUTOPILOT_SIZES || '2:3').split(',').map(x => x.trim()).filter(x => SIZES[x]);
+  const font = String(env.AUTOPILOT_FONTS || 'mix').trim();
   // One article read and one photo download serve every Pin of it in this run.
   const articles = new Map();
   const prepare = dependencies.prepare || (async (queued, boardId = '') => {
@@ -32,22 +36,22 @@ export async function runAutopilot(env = process.env, dependencies = {}) {
     const { article, photos } = articles.get(articleUrl);
     const copy = await step('gemini', () => generateCopy(article, boards, boardId, env, variant), ownMessage);
     // The template follows the article URL and Pin number, so a preview and the later publish look the same.
-    const pin = await step('render', () => renderPin(photos, copy, articleUrl, { template: env.AUTOPILOT_TEMPLATE || 'rotate', variant }), e => String(e?.message || e?.name || 'error').slice(0, 160));
+    const pin = await step('render', () => renderPin(photos, copy, articleUrl, { template: env.AUTOPILOT_TEMPLATE || 'rotate', variant, layout, font, size: sizeFor(articleUrl, sizes.length ? sizes : ['2:3'], variant) }), e => String(e?.message || e?.name || 'error').slice(0, 160));
     return {
       ...copy,
       link: articleUrl,
       image_base64: pin.png.toString('base64'),
-      image_mime: 'image/png',
-      filename: 'pincraft-pin.png',
+      image_mime: pin.mime || 'image/png',
+      filename: pin.mime === 'image/jpeg' ? 'pincraft-pin.jpg' : 'pincraft-pin.png',
       // For preview.json only; the worker strips it before calling Make.
-      design: { pin: variant, template: pin.template, palette: pin.palette, photos: pin.photos },
+      design: { pin: variant, template: pin.template, size: pin.size, font: pin.font || 'template', palette: pin.palette, photos: pin.photos },
     };
   });
   const savePreview = dependencies.savePreview || (async (payload, n = 1) => {
     await mkdir('output/autopilot', { recursive: true });
     // Pin 1 keeps the original names; Pins 2+ are preview-2.png, preview-2.json, …
     const name = n > 1 ? `preview-${n}` : 'preview';
-    await writeFile(`output/autopilot/${name}.png`, Buffer.from(payload.image_base64, 'base64'));
+    await writeFile(`output/autopilot/${name}.${payload.image_mime === 'image/jpeg' ? 'jpg' : 'png'}`, Buffer.from(payload.image_base64, 'base64'));
     const { image_base64: _image, ...metadata } = payload;
     await writeFile(`output/autopilot/${name}.json`, JSON.stringify(metadata, null, 2));
   });

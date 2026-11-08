@@ -4,9 +4,11 @@
  * retry/skip rows and follow the worker's runs — without leaving PinCraft.
  * Everything goes through the server (admin key), never straight to Google or GitHub.
  */
-import { CheckCircle2, ExternalLink, KeyRound, ListPlus, Loader2, Lock, Play, RefreshCw, Send, Settings2 } from 'lucide-react';
+import { CheckCircle2, ExternalLink, KeyRound, LayoutGrid, ListPlus, Loader2, Lock, Play, RefreshCw, Send, Settings2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { adminKey, autopilotApi, ControlError, controlStatus, parseArticleLinks, type Overview, type QueueRow, type WorkerRun } from '../services/autopilotControl';
+import { adminKey, autopilotApi, ControlError, controlStatus, parseArticleLinks, PIN_SIZES, type Overview, type PhotoLayout, type PinSize, type QueueRow, type WorkerRun } from '../services/autopilotControl';
+
+const SIZE_LABELS: Record<PinSize, string> = { '2:3': '2:3 · 1000×1500', '1:2': '1:2 · 1000×2000', '9:16': '9:16 · 1000×1778', '3:4': '3:4 · 1000×1333', '4:5': '4:5 · 1000×1250', '1:1': '1:1 · 1000×1000' };
 
 type Phase = 'checking' | 'offline' | 'setup' | 'locked' | 'ready';
 
@@ -249,6 +251,52 @@ export function AutopilotControl() {
         </div>
       </div>
       <p className="autopilot-hint">Publishing also needs the GitHub variable AUTOPILOT_ENABLED = true and the Make scenario on. Turning it off here stops new jobs; one already sent to Make may still finish.</p>
+
+      <div className="stack-sm ap-box" style={{ marginBottom: 16 }}>
+        <strong>
+          <LayoutGrid size={15} /> Pin design
+        </strong>
+        <span className="subtle">Every Pin gets its own colours and a bold headline font. Choose how many photos each Pin shows and the sizes to make — with several sizes, Pins rotate through them.</span>
+        <div className="row" style={{ gap: 8, flexWrap: 'wrap' }} role="group" aria-label="Photos per Pin">
+          <span className="subtle" style={{ minWidth: 110 }}>Photos per Pin</span>
+          {(['random', '4', '6', '8'] as PhotoLayout[]).map((p) => (
+            <button
+              key={p}
+              type="button"
+              className="filter-chip"
+              aria-pressed={(o.settings.photoLayout ?? 'random') === p}
+              disabled={!!busy}
+              onClick={() => void act('photos', () => autopilotApi.settings({ photoLayout: p }), p === 'random' ? 'Pins now use any photo layout.' : `Pins now use ${p}-photo layouts (when the article has that many photos).`)}
+            >
+              {p === 'random' ? 'Random' : `${p} photos`}
+            </button>
+          ))}
+        </div>
+        <div className="row" style={{ gap: 8, flexWrap: 'wrap' }} role="group" aria-label="Pin sizes">
+          <span className="subtle" style={{ minWidth: 110 }}>Pin sizes</span>
+          {PIN_SIZES.map((size) => {
+            const current = o.settings.pinSizes ?? ['2:3'];
+            const on = current.includes(size);
+            return (
+              <button
+                key={size}
+                type="button"
+                className="filter-chip"
+                aria-pressed={on}
+                title={SIZE_LABELS[size]}
+                disabled={!!busy || (on && current.length === 1)}
+                onClick={() => {
+                  const next = on ? current.filter((x) => x !== size) : [...current, size];
+                  void act('sizes', () => autopilotApi.settings({ pinSizes: next }), `Pin sizes: ${next.join(', ')}.`);
+                }}
+              >
+                {size}
+              </button>
+            );
+          })}
+        </div>
+        {!o.settings.pinSizes && <span className="subtle">Update the Apps Script in your Sheet to save these choices.</span>}
+      </div>
 
       {note && <p className={note.kind === 'bad' ? 'autopilot-error' : 'ap-ok'} role={note.kind === 'bad' ? 'alert' : 'status'}>{note.text}</p>}
 

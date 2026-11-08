@@ -9,7 +9,7 @@
  *   status      GET   → { configured, missing }              (no key needed)
  *   overview    POST  → queue rows, settings, next slot
  *   add         POST  { urls: string[], boardId?, pinsPerArticle?: 1-5 }
- *   settings    POST  { enabled?: boolean, dailyLimit?: 1-10 }
+ *   settings    POST  { enabled?: boolean, dailyLimit?: 1-10, photoLayout?: 'random'|'4'|'6'|'8', pinSizes?: string[] }
  *   row         POST  { row: number, status: 'Retry' | 'Skip' | 'Pending' }
  *   preview     POST  { articleUrl, pins?: 1-5 }
  *   publish     POST  → start a publish run now (the Sheet still applies the limit and interval)
@@ -77,6 +77,15 @@ export function sheetRequest(op, body = {}) {
         const n = Number(body.dailyLimit);
         if (!Number.isInteger(n) || n < 1 || n > 10) return { error: 'Daily limit must be between 1 and 10.' };
         out.dailyLimit = n;
+      }
+      if (body.photoLayout !== undefined) {
+        if (!['random', '4', '6', '8'].includes(String(body.photoLayout))) return { error: 'Photos per Pin must be random, 4, 6 or 8.' };
+        out.photoLayout = String(body.photoLayout);
+      }
+      if (body.pinSizes !== undefined) {
+        const sizes = Array.isArray(body.pinSizes) ? [...new Set(body.pinSizes.map(String))] : [];
+        if (!sizes.length || sizes.some((x) => !['2:3', '1:2', '9:16', '3:4', '4:5', '1:1'].includes(x))) return { error: 'Choose at least one Pin size.' };
+        out.pinSizes = sizes;
       }
       return out;
     }

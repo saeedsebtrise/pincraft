@@ -9,7 +9,7 @@ import { runAutopilot } from '../../autopilot/run.mjs';
 // @ts-expect-error The worker runs as native Node ESM.
 import { generateCopy, geminiModel, StageError } from '../../autopilot/core.mjs';
 // @ts-expect-error The renderer runs as native Node ESM.
-import { chooseTemplate, contrast, ctaFor, designCopy, designPin, paletteFrom, pickTemplate, readableOn, renderPin } from '../../autopilot/design.mjs';
+import { chooseTemplate, contrast, ctaFor, designCopy, designPin, fontFor, paletteFrom, pickTemplate, readableOn, renderPin, sizeFor, templateFor, verticalMap, PHOTO_LAYOUTS, PHOTOS_NEEDED, SIZES } from '../../autopilot/design.mjs';
 
 const boards = JSON.stringify([{ id: '123456789012345678', name: 'Ideas' }]);
 const metadata = { title: '12 Room Ideas', cta: 'See the ideas', image_base64: 'cG5n' };
@@ -148,13 +148,53 @@ describe('Autopilot real image renderer', () => {
     expect(await sharp(two.png).metadata()).toMatchObject({ width: 1000, height: 1500 });
   });
 
-  it('picks the same template for the same key and rotates through all four; the override wins', () => {
+  it('picks the same template for the same key and rotates through all of them; the override wins', () => {
     expect(chooseTemplate('job-123')).toBe(chooseTemplate('job-123'));
     const seen = new Set(Array.from({ length: 40 }, (_, i) => chooseTemplate(`https://a.com/post-${i}`)));
-    expect([...seen].sort()).toEqual(['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']);
+    expect([...seen].sort()).toEqual(['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J']);
     expect(chooseTemplate('job-123', 'd')).toBe('D');
     expect(chooseTemplate('job-123', 'rotate')).toBe(chooseTemplate('job-123'));
   });
+
+  it('chooses templates by "photos per Pin" and what the article has', () => {
+    expect(PHOTO_LAYOUTS['8']).toEqual(['I', 'J']);
+    for (let i = 0; i < 20; i++) {
+      expect(PHOTOS_NEEDED[templateFor(`https://a.com/${i}`, { photoCount: 8, layout: '8' })]).toBe(8);
+      expect(PHOTOS_NEEDED[templateFor(`https://a.com/${i}`, { photoCount: 8, layout: '4' })]).toBe(4);
+      // Only five photos: an 8-photo choice falls back to a template the article can fill.
+      expect(PHOTOS_NEEDED[templateFor(`https://a.com/${i}`, { photoCount: 5, layout: '8' })]).toBeLessThanOrEqual(5);
+    }
+    expect(templateFor('k', { override: 'c', layout: '8' })).toBe('C');
+    expect(new Set([1, 2, 3, 4].map((v) => templateFor('https://a.com/x', { variant: v, photoCount: 8 }))).size).toBe(4);
+  });
+
+  it('rotates sizes and headline fonts per article and Pin', () => {
+    expect(sizeFor('k', ['1:2'], 3)).toBe('1:2');
+    expect(new Set([1, 2, 3].map((v) => sizeFor('k', ['2:3', '1:2', '9:16'], v))).size).toBe(3);
+    expect(sizeFor('k', 'nonsense')).toBe('2:3');
+    expect(new Set([1, 2, 3, 4].map((v) => fontFor('k', v))).size).toBe(4);
+  });
+
+  it('stretches only the photo areas for other sizes', () => {
+    const map = verticalMap([[0, 450], [1050, 1500]], 1500, 2000);
+    expect(map(0)).toBe(0);
+    expect(map(450)).toBeCloseTo(700);
+    expect(map(1050) - map(450)).toBeCloseTo(600); // the text panel keeps its size
+    expect(map(1500)).toBeCloseTo(2000);
+    expect(verticalMap([], 1500, 2000)(700)).toBe(700);
+  });
+
+  it.each(Object.keys(SIZES))('renders a %s Pin at its real size with text inside the Pin', async (size) => {
+    const photos = await Promise.all(['#c0603a', '#3a6a8a', '#e8d9c4', '#5a7a4a', '#c08040', '#806090', '#40a0a0', '#a04060'].map((c) => photo(c)));
+    const pin = await renderPin(photos, { title: '19 Cozy Living Room Decor Ideas', number: '19', headline_line1: 'LIVING ROOM', headline_line2: 'DECOR IDEAS', tagline: 'WARM AND INVITING LOOKS' }, 'https://example.com/p', { size, layout: '8', font: 'mix' });
+    const meta = await sharp(pin.png).metadata();
+    expect([meta.width, meta.height]).toEqual([1000, SIZES[size]]);
+    expect(PHOTOS_NEEDED[pin.template]).toBe(8);
+    for (const b of pin.boxes) {
+      expect(b.top, b.name).toBeGreaterThanOrEqual(0);
+      expect(b.top + b.height, b.name).toBeLessThanOrEqual(SIZES[size]);
+    }
+  }, 30000);
 
   it('takes colors from the photos, keeps text readable, and falls back for grey photos', async () => {
     const warm = await paletteFrom([await photo('#c0603a'), await photo('#3a2a20')], 'k');

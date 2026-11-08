@@ -172,7 +172,7 @@ function overview_(rows) {
   const nextSlotAt = Math.max(last ? last + gap * 60000 : 0, recent.length >= limit ? Math.min.apply(null, recent) + 86400000 : 0);
   return {
     ok: true,
-    settings: { enabled: p.getProperty('ENABLED') === 'true', dailyLimit: limit, intervalMinutes: gap },
+    settings: { enabled: p.getProperty('ENABLED') === 'true', dailyLimit: limit, intervalMinutes: gap, photoLayout: design_().photos, pinSizes: design_().sizes },
     postedLast24h: recent.length,
     nextSlotAt: nextSlotAt,
     lastDispatchAt: Number(p.getProperty('LAST_DISPATCH') || 0),
@@ -212,8 +212,25 @@ function addRows_(s, rows, data) {
 }
 
 /** Turns publishing on/off and sets the daily limit (1–10). The interval stays a Script Property. */
+const PIN_SIZES_ = ['2:3', '1:2', '9:16', '3:4', '4:5', '1:1'];
+/** Pin design settings: photos per Pin (random, 4, 6, 8) and the Pin sizes to rotate through. */
+function design_() {
+  const p = props_();
+  const photos = ['random', '4', '6', '8'].indexOf(p.getProperty('PHOTO_LAYOUT')) >= 0 ? p.getProperty('PHOTO_LAYOUT') : 'random';
+  const sizes = String(p.getProperty('PIN_SIZES') || '2:3').split(',').filter(x => PIN_SIZES_.indexOf(x) >= 0);
+  return { photos: photos, sizes: sizes.length ? sizes : ['2:3'] };
+}
 function settings_(data) {
   const p = props_();
+  if (data.photoLayout !== undefined) {
+    if (['random', '4', '6', '8'].indexOf(String(data.photoLayout)) < 0) return { ok: false, error: 'Photos per Pin must be random, 4, 6 or 8.' };
+    p.setProperty('PHOTO_LAYOUT', String(data.photoLayout));
+  }
+  if (data.pinSizes !== undefined) {
+    const sizes = Array.isArray(data.pinSizes) ? data.pinSizes.map(String) : [];
+    if (!sizes.length || sizes.some(x => PIN_SIZES_.indexOf(x) < 0)) return { ok: false, error: 'Choose at least one Pin size.' };
+    p.setProperty('PIN_SIZES', sizes.filter((x, i) => sizes.indexOf(x) === i).join(','));
+  }
   if (data.dailyLimit !== undefined) {
     const n = Number(data.dailyLimit);
     if (!Number.isInteger(n) || n < 1 || n > 10) return { ok: false, error: 'Daily limit must be 1–10.' };
@@ -247,7 +264,8 @@ function ghHeaders_() {
 function dispatch_(mode, articleUrl, pins) {
   const p = props_(), repo = p.getProperty('GITHUB_REPO'), ref = p.getProperty('GITHUB_REF') || 'main';
   if (!/^[\w.-]+\/[\w.-]+$/.test(repo || '')) return { ok: false, error: 'Set GITHUB_REPO in Script Properties.' };
-  const inputs = { mode: mode };
+  const design = design_();
+  const inputs = { mode: mode, photos: design.photos, sizes: design.sizes.join(',') };
   if (mode === 'preview') {
     const url = String(articleUrl || '').trim();
     if (url.length > 2000 || !URL_RE_.test(url)) return { ok: false, error: 'Enter a public article URL.' };
@@ -287,7 +305,7 @@ function tick() {
     const response = UrlFetchApp.fetch('https://api.github.com/repos/' + repo + '/actions/workflows/pinterest-autopilot.yml/dispatches', {
       method:'post', contentType:'application/json', muteHttpExceptions:true,
       headers:{ Authorization:'Bearer ' + p.getProperty('GITHUB_TOKEN'), Accept:'application/vnd.github+json', 'X-GitHub-Api-Version':'2026-03-10' },
-      payload:JSON.stringify({ ref:ref, inputs:{ mode:'publish' } })
+      payload:JSON.stringify({ ref:ref, inputs:{ mode:'publish', photos:design_().photos, sizes:design_().sizes.join(',') } })
     });
     if (response.getResponseCode() < 200 || response.getResponseCode() >= 300) throw new Error('GitHub dispatch failed: ' + response.getResponseCode());
     p.setProperty('LAST_DISPATCH', String(Date.now()));

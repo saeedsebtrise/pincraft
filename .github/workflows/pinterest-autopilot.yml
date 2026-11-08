@@ -15,6 +15,15 @@ on:
         type: choice
         options: ['1', '2', '3', '4', '5']
         default: '3'
+      photos:
+        description: Photos per Pin
+        type: choice
+        options: [random, '4', '6', '8']
+        default: random
+      sizes:
+        description: Pin sizes, comma separated (2:3, 1:2, 9:16, 3:4, 4:5, 1:1)
+        type: string
+        default: '2:3'
 permissions:
   contents: read
 concurrency:
@@ -43,6 +52,8 @@ jobs:
           AUTOPILOT_MODE: ${{ inputs.mode }}
           AUTOPILOT_PREVIEW_URL: ${{ inputs.article_url }}
           AUTOPILOT_PREVIEW_PINS: ${{ inputs.pins }}
+          AUTOPILOT_PHOTOS: ${{ inputs.photos }}
+          AUTOPILOT_SIZES: ${{ inputs.sizes }}
           AUTOPILOT_ENABLED: ${{ vars.AUTOPILOT_ENABLED }}
           AUTOPILOT_BOARDS_JSON: ${{ vars.AUTOPILOT_BOARDS_JSON }}
           AUTOPILOT_TEMPLATE: ${{ vars.AUTOPILOT_TEMPLATE }}

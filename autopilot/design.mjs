@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
 
@@ -7,6 +8,9 @@ import sharp from 'sharp';
  *   B "top-card"     panel with a stamp-framed headline · 2×2 photo grid
  *   C "pastel-band"  3 photos · pastel panel · 3 photos (round badge)
  *   D "bold-banner"  3 photos · white panel with an accent banner · 3 photos
+ *   … E–H, plus I and J with 8 photos (4 · dark panel · 4, and 2×2 · panel · 4).
+ * Other Pin sizes (1:2, 9:16, 3:4, 4:5, 1:1) keep the text panel as designed and stretch or
+ * shrink only the photo areas, so nothing is squashed.
  * Every text line is fitted to its box (never overflows); fonts are bundled
  * OFL files in autopilot/fonts, so cloud runs render like local previews.
  */
@@ -14,11 +18,15 @@ export const W = 1000;
 export const H = 1500;
 const GUTTER = 4;
 const INK = '#2B1D16';
-export const TEMPLATES = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
-const PHOTOS_NEEDED = { A: 4, B: 4, C: 6, D: 6, E: 6, F: 4, G: 6, H: 4 };
+export const TEMPLATES = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
+export const PHOTOS_NEEDED = { A: 4, B: 4, C: 6, D: 6, E: 6, F: 4, G: 6, H: 4, I: 8, J: 8 };
+/** "Photos per Pin" setting → the templates that use that many photos ("random" = all). */
+export const PHOTO_LAYOUTS = { random: TEMPLATES, 4: ['A', 'B', 'F', 'H'], 6: ['C', 'D', 'E', 'G'], 8: ['I', 'J'] };
+/** Pin sizes, all 1000 px wide: the height for each aspect ratio. */
+export const SIZES = { '2:3': 1500, '1:2': 2000, '9:16': 1778, '3:4': 1333, '4:5': 1250, '1:1': 1000 };
 /** Copy fields a template can't do without; when one is empty the next template in rotation is used. */
-export const REQUIRED_FIELDS = { A: [], B: [], C: [], D: ['banner', 'script_line'], E: [], F: ['script_line'], G: ['banner', 'script_line'], H: ['script_line'] };
-export const TEMPLATE_CTA = { A: 'SEE ALL IDEAS', B: 'GET THE IDEAS', C: 'SAVE FOR LATER', D: 'READ MORE', E: 'SEE ALL IDEAS', F: 'GET THE IDEAS', G: 'READ MORE', H: 'SAVE FOR LATER' };
+export const REQUIRED_FIELDS = { A: [], B: [], C: [], D: ['banner', 'script_line'], E: [], F: ['script_line'], G: ['banner', 'script_line'], H: ['script_line'], I: [], J: [] };
+export const TEMPLATE_CTA = { A: 'SEE ALL IDEAS', B: 'GET THE IDEAS', C: 'SAVE FOR LATER', D: 'READ MORE', E: 'SEE ALL IDEAS', F: 'GET THE IDEAS', G: 'READ MORE', H: 'SAVE FOR LATER', I: 'SEE ALL IDEAS', J: 'GET THE IDEAS' };
 /** "SEE ALL IDEAS" becomes "SEE ALL 19 IDEAS" when the Pin shows a list count. */
 export const ctaFor = (template, number) => (TEMPLATE_CTA[template] === 'SEE ALL IDEAS' && number ? `SEE ALL ${number} IDEAS` : TEMPLATE_CTA[template]);
 const MIN_PHOTO_SIDE = 300;
@@ -30,6 +38,21 @@ const FONTS = {
   montserrat: { name: 'Montserrat Ultra-Bold', file: fontPath('Montserrat-ExtraBold.ttf') },
   kalam: { name: 'Kalam Bold', file: fontPath('Kalam-Bold.ttf') },
   anton: { name: 'Anton', file: fontPath('Anton-Regular.ttf') },
+  poppins: { name: 'Poppins Ultra-Bold', file: fontPath('Poppins-ExtraBold.ttf') },
+  bebas: { name: 'Bebas Neue', file: fontPath('BebasNeue-Regular.ttf') },
+  luckiest: { name: 'Luckiest Guy', file: fontPath('LuckiestGuy-Regular.ttf') },
+  kanit: { name: 'Kanit Ultra-Bold', file: fontPath('Kanit-ExtraBold.ttf') },
+  titan: { name: 'Titan One', file: fontPath('TitanOne-Regular.ttf') },
+};
+/** The big display fonts (headlines and numbers). A Pin can swap all of them for one bold font. */
+const DISPLAY_FONTS = ['lilita', 'archivo', 'anton', 'poppins', 'bebas', 'luckiest', 'kanit', 'titan'];
+/** Headline fonts Pins rotate through ("" = each template's own fonts). */
+export const FONT_MIX = ['', 'poppins', 'titan', 'kanit', 'luckiest', 'archivo', 'anton', 'lilita'];
+const fontScope = new AsyncLocalStorage();
+/** The font actually used: the Pin's display font when one is set for this render. */
+const useFont = font => {
+  const swap = fontScope.getStore();
+  return swap && DISPLAY_FONTS.includes(font) ? swap : font;
 };
 
 const escape = value => String(value).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' })[c]);
@@ -39,7 +62,7 @@ const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 
 /** Text at an exact pixel size (dpi 72: 1pt = 1px), as a transparent PNG cropped to the text. */
 async function textAt(text, font, size, color, { spacing = 0, opacity = 1 } = {}) {
-  const f = FONTS[font];
+  const f = FONTS[useFont(font)];
   const attrs = [`foreground="${color}"`, spacing ? `letter_spacing="${Math.round(spacing * 1024)}"` : '', opacity < 1 ? `fgalpha="${Math.round(opacity * 100)}%"` : ''].filter(Boolean).join(' ');
   return sharp({ text: { text: `<span ${attrs}>${escape(text)}</span>`, font: `${f.name} ${Math.round(size)}`, fontfile: f.file, dpi: 72, rgba: true } })
     .png()
@@ -234,21 +257,101 @@ function arrow(x1, y1, x2, y2, color, bend = -60) {
 // ---------------------------------------------------------------- canvas helper
 
 /** Collects layers plus the box of every text element (used by tests to check fitting). */
+/**
+ * Layers of a Pin drawn at `height` (templates draw at 1500). Photos are kept as photos, not
+ * pixels, so compose() can recrop them for another Pin size.
+ */
 class Canvas {
-  constructor() {
+  constructor(height = H) {
+    this.height = height;
     this.layers = [];
     this.boxes = [];
+    this.zones = [];
   }
   shape(body) {
-    this.layers.push({ input: svg(body), left: 0, top: 0 });
+    this.layers.push({ kind: 'shape', body });
   }
-  image(input, left, top) {
-    this.layers.push({ input, left: Math.round(left), top: Math.round(top) });
+  image(input, left, top, h = 0) {
+    this.layers.push({ kind: 'image', input, left: Math.round(left), top: Math.round(top), h });
+  }
+  photo(photo, left, top, w, h) {
+    this.layers.push({ kind: 'photo', photo, left, top, w, h });
+    this.zones.push([top, top + h]);
   }
   text(name, r, left, top, region) {
-    this.image(r.data, left, top);
+    this.image(r.data, left, top, r.info.height);
     this.boxes.push({ name, left: Math.round(left), top: Math.round(top), width: r.info.width, height: r.info.height, region });
   }
+}
+
+/**
+ * Maps a y on a `base`-tall layout to a `target`-tall Pin: the photo zones (merged photo rows)
+ * absorb the difference, everything else (the text panel) keeps its size.
+ */
+export function verticalMap(zones, base, target) {
+  if (target === base || !zones.length) return y => y;
+  const merged = [];
+  for (const [a, b] of [...zones].sort((p, q) => p[0] - q[0])) {
+    const last = merged[merged.length - 1];
+    if (last && a <= last[1] + GUTTER + 1) last[1] = Math.max(last[1], b);
+    else merged.push([a, b]);
+  }
+  const photo = merged.reduce((n, [a, b]) => n + b - a, 0);
+  const f = Math.max(0.2, (photo + target - base) / photo);
+  return y => {
+    let out = 0;
+    let at = 0;
+    for (const [a, b] of merged) {
+      if (y <= a) return out + (y - at);
+      out += a - at;
+      if (y <= b) return out + (y - a) * f;
+      out += (b - a) * f;
+      at = b;
+    }
+    return out + (y - at);
+  };
+}
+
+/** Composite layers for a `target`-tall Pin. Text and panel shapes move with their zone; photo areas are recropped. */
+async function compose(c, target) {
+  const map = verticalMap(c.zones, c.height, target);
+  const shift = (top, h) => Math.round(map(top + h / 2) - (top + h / 2));
+  const inPhotoZone = (top, bottom) => c.zones.length && map(bottom) - map(top) !== bottom - top;
+  const out = [];
+  for (const l of c.layers) {
+    if (l.kind === 'photo') {
+      const top = Math.round(map(l.top));
+      const h = Math.max(1, Math.round(map(l.top + l.h)) - top);
+      out.push({ input: await photoCell(l.photo, l.w, h), left: Math.round(l.left), top });
+    } else if (l.kind === 'image') {
+      out.push({ input: l.input, left: l.left, top: l.top + shift(l.top, l.h) });
+    } else if (target === c.height) {
+      out.push({ input: svg(l.body, W, c.height), left: 0, top: 0 });
+    } else {
+      let cut;
+      try {
+        cut = await sharp(svg(l.body, W, c.height)).trim({ background: { r: 0, g: 0, b: 0, alpha: 0 }, threshold: 0 }).png().toBuffer({ resolveWithObject: true });
+      } catch {
+        continue; // nothing drawn
+      }
+      const left = -cut.info.trimOffsetLeft;
+      const top = -cut.info.trimOffsetTop;
+      const bottom = top + cut.info.height;
+      // Shapes wholly inside a photo area (its white backing) stretch with it; others move.
+      if (inPhotoZone(top, bottom) && c.zones.some(([a, b]) => top >= a - GUTTER && bottom <= b + GUTTER)) {
+        const t = Math.round(map(top));
+        const h = Math.max(1, Math.round(map(bottom)) - t);
+        out.push({ input: await sharp(cut.data).resize(cut.info.width, h, { fit: 'fill' }).png().toBuffer(), left, top: t });
+      } else {
+        out.push({ input: cut.data, left, top: top + shift(top, cut.info.height) });
+      }
+    }
+  }
+  for (const b of c.boxes) {
+    b.top += shift(b.top, b.height);
+    b.region = b.region.map(y => Math.round(map(y)));
+  }
+  return out;
 }
 
 async function photoCell(photo, w, h) {
@@ -260,7 +363,7 @@ async function photoRow(c, photos, top, height) {
   const n = photos.length;
   const w = (W - GUTTER * (n - 1)) / n;
   c.shape(`<rect x="0" y="${top}" width="${W}" height="${height}" fill="#ffffff"/>`);
-  for (const [i, p] of photos.entries()) c.image(await photoCell(p, i === n - 1 ? W - Math.round((w + GUTTER) * i) : w, height), Math.round((w + GUTTER) * i), top);
+  for (const [i, p] of photos.entries()) c.photo(p, Math.round((w + GUTTER) * i), top, i === n - 1 ? W - Math.round((w + GUTTER) * i) : w, height);
 }
 
 /** Stacks rendered items in a panel region, centered vertically and horizontally. */
@@ -277,6 +380,7 @@ function stack(c, items, top, bottom, region) {
 const textItem = (name, r, gap = 14) => ({ h: r.info.height, gap, draw: (c, y, region) => c.text(name, r, (W - r.info.width) / 2, y, region) });
 
 async function ctaAndDomain(c, cta, site) {
+  const H = c.height;
   c.shape(`<defs><linearGradient id="fade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity="0.55"/></linearGradient></defs>
     <rect x="0" y="${H - 200}" width="${W}" height="200" fill="url(#fade)"/>`);
   const label = await fitLine(`${cta} →`, { font: 'montserrat', color: INK, maxWidth: 520, min: 18, max: 24, spacing: 1 });
@@ -347,7 +451,7 @@ async function templateB(c, photos, copy, pal) {
   const cw = (W - GUTTER) / 2;
   const ch = (880 - GUTTER) / 2;
   c.shape(`<rect x="0" y="620" width="${W}" height="880" fill="#ffffff"/>`);
-  for (let i = 0; i < 4; i++) c.image(await photoCell(photos[i % photos.length], cw, ch), (i % 2) * (cw + GUTTER), 620 + Math.floor(i / 2) * (ch + GUTTER));
+  for (let i = 0; i < 4; i++) c.photo(photos[i % photos.length], (i % 2) * (cw + GUTTER), 620 + Math.floor(i / 2) * (ch + GUTTER), cw, ch);
   const accentText = readableOn(pal.accent, '#ffffff');
   const secondary = readableOn(pal.secondary, '#ffffff');
   const hasBadge = !!copy.number;
@@ -586,7 +690,69 @@ async function templateH(c, photos, copy, pal) {
   }
 }
 
-const RENDER = { A: templateA, B: templateB, C: templateC, D: templateD, E: templateE, F: templateF, G: templateG, H: templateH };
+/** A row of four photos, a dark panel with a big two-colour headline, four more photos. */
+async function templateI(c, photos, copy, pal) {
+  const panel = '#141414';
+  await photoRow(c, photos.slice(0, 4), 0, 430);
+  c.shape(`<rect x="0" y="430" width="${W}" height="620" fill="${panel}"/>`);
+  await photoRow(c, photos.slice(4, 8), 1050, 450);
+  const accent = readableOn(pal.accent, panel, 3) === pal.accent ? pal.accent : mix(pal.accent, '#ffffff', 0.35);
+  const hasBadge = !!copy.number;
+  const items = await fitBlock(async max => {
+    const out = [];
+    if (copy.hook) out.push(textItem('hook', await fitLine(copy.hook, { font: 'montserrat', color: accent, maxWidth: 880, min: 28, max: 40, spacing: 3 }), 0));
+    const lines = [copy.headline_line1, copy.headline_line2].filter(Boolean);
+    for (const [i, line] of lines.entries()) out.push(textItem(`headline${i + 1}`, await fitLine(line, { font: 'poppins', color: i ? accent : '#ffffff', maxWidth: 900, min: 70, max }), i ? 2 : 12));
+    if (copy.category) out.push(textItem('category', await fitLine(copy.category, { font: 'montserrat', color: '#ffffff', maxWidth: 860, min: 26, max: 40, spacing: 1 }), 12));
+    if (copy.tagline) {
+      const t = await fitLine(copy.tagline, { font: 'montserrat', color: '#141414', maxWidth: 760, min: 22, max: 26, spacing: 1 });
+      const pw = t.info.width + 56;
+      const ph = t.info.height + 26;
+      out.push({ h: ph, gap: 18, draw: (cv, y, region) => {
+        cv.shape(`<rect x="${(W - pw) / 2}" y="${y}" width="${pw}" height="${ph}" rx="${ph / 2}" fill="${accent}"/>`);
+        cv.text('tagline', t, (W - t.info.width) / 2, y + 13, region);
+      } });
+    }
+    return out;
+  }, 620 - (hasBadge ? 136 : 40));
+  stack(c, items, 430 + (hasBadge ? 118 : 20), 1050 - 16, [430, 1050]);
+  if (hasBadge) {
+    c.shape(`<circle cx="500" cy="430" r="100" fill="${accent}" stroke="#ffffff" stroke-width="7"/>`);
+    const n = await fitLine(copy.number, { font: 'poppins', color: '#141414', maxWidth: 140, min: 40, max: 112 });
+    c.text('number', n, 500 - n.info.width / 2, 430 - n.info.height / 2, [330, 530]);
+  }
+}
+
+/** A 2×2 photo grid, a light panel with an outlined headline, then a row of four photos. */
+async function templateJ(c, photos, copy, pal) {
+  const panel = mix(pal.accent, '#ffffff', 0.9);
+  const cw = (W - GUTTER) / 2;
+  const ch = (600 - GUTTER) / 2;
+  c.shape(`<rect x="0" y="0" width="${W}" height="600" fill="#ffffff"/>`);
+  for (let i = 0; i < 4; i++) c.photo(photos[i], (i % 2) * (cw + GUTTER), Math.floor(i / 2) * (ch + GUTTER), cw, ch);
+  c.shape(`<rect x="0" y="600" width="${W}" height="500" fill="${panel}"/>`);
+  c.shape(squiggle(840, 622, INK));
+  await photoRow(c, photos.slice(4, 8), 1100, 400);
+  const ink = readableOn(INK, panel);
+  const hasBadge = !!copy.number;
+  const items = await fitBlock(async max => {
+    const out = [];
+    for (const [i, line] of [copy.headline_line1, copy.headline_line2].filter(Boolean).entries()) {
+      out.push(textItem(`headline${i + 1}`, await fitLine(line, { font: 'titan', color: i ? pal.accent : '#ffffff', maxWidth: 900, min: 64, max: Math.min(max, 110), outline: 6, outlineColor: INK }), i ? 2 : 0));
+    }
+    if (copy.category) out.push(textItem('category', await fitLine(copy.category, { font: 'montserrat', color: readableOn(pal.secondary, panel), maxWidth: 860, min: 26, max: 38 }), 10));
+    if (copy.tagline) out.push(textItem('tagline', await fitLine(copy.tagline, { font: 'montserrat', color: ink, maxWidth: 860, min: 22, max: 24, spacing: 1 }), 8));
+    return out;
+  }, 500 - (hasBadge ? 110 : 30));
+  stack(c, items, 600 + (hasBadge ? 96 : 14), 1100 - 14, [600, 1100]);
+  if (hasBadge) {
+    c.shape(`<rect x="420" y="520" width="160" height="160" rx="18" fill="#111111" stroke="#ffffff" stroke-width="6"/>${arrow(220, 640, 400, 610, INK, -60)}`);
+    const n = await fitLine(copy.number, { font: 'titan', color: '#ffffff', maxWidth: 124, min: 40, max: 104 });
+    c.text('number', n, 500 - n.info.width / 2, 600 - n.info.height / 2, [520, 680]);
+  }
+}
+
+const RENDER = { A: templateA, B: templateB, C: templateC, D: templateD, E: templateE, F: templateF, G: templateG, H: templateH, I: templateI, J: templateJ };
 
 // ---------------------------------------------------------------- choosing & rendering
 
@@ -623,7 +789,7 @@ export function designCopy(copy) {
   };
 }
 
-/** Decodable photos with a short side of at least 300px, at most 6. */
+/** Decodable photos with a short side of at least 300px, at most 8. */
 async function usablePhotos(photos) {
   const out = [];
   for (const photo of photos.slice(0, 12)) {
@@ -633,7 +799,7 @@ async function usablePhotos(photos) {
       const short = orientation >= 5 ? Math.min(height, width) : Math.min(width, height);
       if (short < MIN_PHOTO_SIDE) continue;
       out.push(await img.toBuffer());
-      if (out.length === 6) break;
+      if (out.length === 8) break;
     } catch { /* Ignore malformed or oversized images. */ }
   }
   return out;
@@ -663,6 +829,32 @@ export function pickTemplate(chosen, photoCount, fields) {
  * The template for Pin `variant` of an article: Pin 1 is the article's own template, later
  * Pins step 3 places along A–H (3 and 8 share no factor, so up to 8 Pins never repeat one).
  */
+/**
+ * The template for Pin `variant`: rotation along the templates allowed by the "photos per Pin"
+ * setting that this article has enough photos for (any count when none qualify).
+ */
+export function templateFor(key, { override = '', variant = 1, photoCount = 8, layout = 'random' } = {}) {
+  const o = String(override).trim().toUpperCase();
+  if (TEMPLATES.includes(o)) return o;
+  const wanted = PHOTO_LAYOUTS[String(layout)] ?? TEMPLATES;
+  let list = wanted.filter(t => PHOTOS_NEEDED[t] <= photoCount);
+  if (!list.length) list = TEMPLATES.filter(t => PHOTOS_NEEDED[t] <= photoCount);
+  if (!list.length) return 'A';
+  return list[(hash(key) + (variant - 1) * 3) % list.length];
+}
+
+/** The headline font for Pin `variant` of this article ('' = the template's own fonts). */
+export function fontFor(key, variant = 1) {
+  return FONT_MIX[(hash(key) + variant - 1) % FONT_MIX.length];
+}
+
+/** Pin `variant`'s size when several are chosen: they rotate per article and per Pin. */
+export function sizeFor(key, sizes = ['2:3'], variant = 1) {
+  const list = (Array.isArray(sizes) ? sizes : String(sizes).split(',')).map(x => String(x).trim()).filter(x => SIZES[x]);
+  if (!list.length) return '2:3';
+  return list[(hash(key) + variant - 1) % list.length];
+}
+
 export function variantTemplate(key, override = '', variant = 1) {
   const first = chooseTemplate(key, override);
   if (variant <= 1 || TEMPLATES.includes(String(override).trim().toUpperCase())) return first;
@@ -676,18 +868,36 @@ export function rotatePhotos(list, variant = 1) {
   return [...list.slice(k), ...list.slice(0, k)];
 }
 
-export async function renderPin(photos, copy, articleUrl, { template: override = '', key = articleUrl, variant = 1 } = {}) {
+/**
+ * Renders a Pin: { png (the image bytes), mime, template, palette, size, font, photos, boxes }.
+ *   size    "2:3" (default), "1:2", "9:16", "3:4", "4:5" or "1:1" — always 1000 px wide
+ *   layout  "random" (default), "4", "6" or "8" photos per Pin
+ *   font    a display font for every headline, '' for the template's own, or "mix" to rotate
+ * A large image (over ~3.4 MB as PNG) is sent as JPEG so the Make payload stays under 5 MiB.
+ */
+export async function renderPin(photos, copy, articleUrl, { template: override = '', key = articleUrl, variant = 1, size = '2:3', layout = 'random', font = '' } = {}) {
   const valid = rotatePhotos(await usablePhotos(photos), variant);
   if (!valid.length) throw new Error('No decodable photos.');
   const fields = designCopy(copy);
-  const template = pickTemplate(variantTemplate(key, override, variant), valid.length, fields);
+  const chosen = templateFor(key, { override, variant, photoCount: valid.length, layout });
+  const template = pickTemplate(chosen, valid.length, fields);
   const palette = await paletteFrom(valid, key, variant);
+  const height = SIZES[size] ?? H;
+  const display = font === 'mix' ? fontFor(key, variant) : FONTS[font] && DISPLAY_FONTS.includes(font) ? font : '';
   const c = new Canvas();
-  await RENDER[template](c, valid, fields, palette);
+  await fontScope.run(display || undefined, () => RENDER[template](c, valid, fields, palette));
+  const layers = await compose(c, height);
+  const post = new Canvas(height);
   const site = new URL(articleUrl).hostname.replace(/^www\./, '');
-  await ctaAndDomain(c, ctaFor(template, fields.number), site);
-  const png = await sharp({ create: { width: W, height: H, channels: 3, background: '#ffffff' } }).composite(c.layers).png({ compressionLevel: 9 }).toBuffer();
-  return { png, template, palette, photos: Math.min(valid.length, template === 'A' && valid.length < 4 ? 2 : PHOTOS_NEEDED[template]), boxes: c.boxes };
+  await ctaAndDomain(post, ctaFor(template, fields.number), site);
+  const base = sharp({ create: { width: W, height, channels: 3, background: '#ffffff' } }).composite([...layers, ...(await compose(post, height))]);
+  let png = await base.clone().png({ compressionLevel: 9 }).toBuffer();
+  let mime = 'image/png';
+  if (png.length > 3.4 * 1024 * 1024) {
+    png = await base.clone().jpeg({ quality: 90, mozjpeg: true }).toBuffer();
+    mime = 'image/jpeg';
+  }
+  return { png, mime, template, palette, size: SIZES[size] ? size : '2:3', font: display, photos: Math.min(valid.length, template === 'A' && valid.length < 4 ? 2 : PHOTOS_NEEDED[template]), boxes: [...c.boxes, ...post.boxes] };
 }
 
 export async function designPin(photos, copy, articleUrl, options = {}) {

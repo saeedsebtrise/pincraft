@@ -15,7 +15,7 @@ export interface QueueRow {
   updatedAt: string;
 }
 export interface Overview {
-  settings: { enabled: boolean; dailyLimit: number; intervalMinutes: number };
+  settings: { enabled: boolean; dailyLimit: number; intervalMinutes: number; photoLayout?: PhotoLayout; pinSizes?: PinSize[] };
   postedLast24h: number;
   nextSlotAt: number;
   lastDispatchAt: number;
@@ -78,11 +78,15 @@ export async function controlStatus(): Promise<{ configured: boolean; missing: s
   }
 }
 
+export type PhotoLayout = 'random' | '4' | '6' | '8';
+export const PIN_SIZES = ['2:3', '1:2', '9:16', '3:4', '4:5', '1:1'] as const;
+export type PinSize = (typeof PIN_SIZES)[number];
+
 export const autopilotApi = {
   overview: () => call<Overview>('overview'),
   runs: () => call<{ runs: WorkerRun[]; error?: string }>('runs'),
   add: (urls: string[], boardId = '', pinsPerArticle = 1) => call<{ added: number; skipped: number }>('add', { urls, boardId, pinsPerArticle }),
-  settings: (s: { enabled?: boolean; dailyLimit?: number }) => call<object>('settings', s),
+  settings: (s: { enabled?: boolean; dailyLimit?: number; photoLayout?: PhotoLayout; pinSizes?: PinSize[] }) => call<object>('settings', s),
   setRow: (row: number, status: 'Retry' | 'Skip' | 'Pending') => call<object>('row', { row, status }),
   preview: (articleUrl: string, pins = 1) => call<object>('preview', { articleUrl, pins }),
   publishNow: () => call<object>('publish'),
