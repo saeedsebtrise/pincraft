@@ -114,3 +114,25 @@ it('puts an arrow on every CTA and uses different button styles', () => {
   expect(ctas.length).toBeGreaterThan(10);
   for (const c of ctas) expect(c.text).toMatch(/[→➜»›⟶]$/u);
 });
+
+it('adds twelve bold-outline Pins: one photo, a giant outlined number and outlined title lines', async () => {
+  const { BOLD_OUTLINE_TEMPLATES } = await import('../templates/boldOutlinePack');
+  expect(BOLD_OUTLINE_TEMPLATES).toHaveLength(12);
+  expect(new Set(BOLD_OUTLINE_TEMPLATES.map((t) => t.id)).size).toBe(12);
+  for (const t of BOLD_OUTLINE_TEMPLATES) {
+    expect(t.highCtr, t.id).toBe(true);
+    expect(t.imageCount, t.id).toBe(1);
+    expect(BUILTIN_TEMPLATES.some((b) => b.id === t.id)).toBe(true);
+    const texts = t.doc.layers.filter(isText);
+    const num = texts.find((l) => l.role === 'badge');
+    expect(num?.strokeWidth, t.id).toBeGreaterThan(10);
+    const lines = texts.filter((l) => l.role === 'title-line');
+    expect(lines.length, t.id).toBeGreaterThanOrEqual(3);
+    for (const l of lines) expect(l.strokeWidth, t.id).toBeGreaterThan(0);
+    // Two colours: plain lines and a bright keyword colour.
+    expect(new Set(lines.map((l) => l.fill)).size, t.id).toBe(2);
+  }
+  const out = autoDesign({ title: '22 Short Hairstyles for Women Over 40' }, BUILTIN_TEMPLATES, { measure: () => 1, limit: 400 });
+  const ob = out.find((r) => r.template.id === 'ob-yellow-caps')!;
+  expect(readHeadline(ob.doc).toLowerCase()).toContain('short hairstyles for women over 40');
+});
