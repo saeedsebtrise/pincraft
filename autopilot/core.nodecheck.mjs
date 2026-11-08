@@ -108,8 +108,57 @@ test('control panel: starts a preview run and lists runs through GitHub',()=>{
   const h=scriptHarness(); h.values.GITHUB_REPO='o/r'; h.values.GITHUB_TOKEN='t';
   assert.equal(h.call('dispatch',{mode:'preview',articleUrl:'ftp://x'}).ok,false);
   assert.equal(h.call('dispatch',{mode:'preview',articleUrl:'https://example.com/post'}).ok,true);
-  const body=JSON.parse(h.fetches[0].opts.payload); assert.deepEqual(body.inputs,{mode:'preview',article_url:'https://example.com/post'});
+  const body=JSON.parse(h.fetches[0].opts.payload); assert.deepEqual(body.inputs,{mode:'preview',article_url:'https://example.com/post',pins:'1'});
+  assert.equal(h.call('dispatch',{mode:'preview',articleUrl:'https://example.com/post',pins:3}).ok,true);
+  assert.equal(JSON.parse(h.fetches[1].opts.payload).inputs.pins,'3');
+  h.fetches.length=0;
   assert.equal(h.values.LAST_DISPATCH,undefined);
   assert.equal(h.call('dispatch',{mode:'publish'}).ok,true); assert.ok(h.values.LAST_DISPATCH);
-  assert.equal(h.call('runs').runs[0].number,7);
+  assert.equal(h.call('runs').runs.at(-1)?.number ?? h.call('runs').runs[0].number,7);
+});
+
+test('several different Pins per article, a day apart',()=>{
+  const h=scriptHarness(); h.rows.length=0;
+  const a=h.call('add',{urls:['https://example.com/post'],pinsPerArticle:3});
+  assert.equal(a.added,3);
+  assert.deepEqual(h.rows.map(r=>r[0]),['https://example.com/post','https://example.com/post#pin-2','https://example.com/post#pin-3']);
+  assert.equal(h.call('add',{urls:['https://example.com/x'],pinsPerArticle:6}).ok,false);
+  // Adding the same article again with more Pins adds only the new ones.
+  assert.equal(h.call('add',{urls:['https://example.com/post'],pinsPerArticle:4}).added,1);
+  h.rows.push(['https://example.com/other','','Pending','','','','','']);
+  const first=h.call('claim').job; assert.equal(first.articleUrl,'https://example.com/post');
+  h.call('publishing',first); h.call('complete',{...first,pinUrl:'https://www.pinterest.com/pin/1/'});
+  // Next slot: Pin 2 of the same article must wait a day, so the other article goes first.
+  h.values.ATTEMPTS=JSON.stringify([Date.now()-121*60000]);
+  const second=h.call('claim').job; assert.equal(second.articleUrl,'https://example.com/other');
+  h.call('publishing',second); h.call('complete',{...second,pinUrl:'https://www.pinterest.com/pin/2/'});
+  h.values.ATTEMPTS=JSON.stringify([Date.now()-121*60000]);
+  assert.equal(h.call('claim').job,null);
+  // A day later, Pin 2 goes out (a Pin number is not a duplicate of Pin 1).
+  h.rows.forEach(r=>{ if(r[2]==='Posted') r[7]=new Date(Date.now()-25*3600000).toISOString(); });
+  const third=h.call('claim').job; assert.equal(third.articleUrl,'https://example.com/post#pin-2');
+  assert.equal(h.rows[1][2],'Processing');
+});
+test('Pin variants: link, template, photos and copy angle',async()=>{
+  const { pinVariant, generateCopy } = await import('./core.mjs');
+  const { variantTemplate, rotatePhotos, chooseTemplate } = await import('./design.mjs');
+  assert.deepEqual(pinVariant('https://b.com/p#pin-3'),{url:'https://b.com/p',variant:3});
+  assert.deepEqual(pinVariant('https://b.com/p'),{url:'https://b.com/p',variant:1});
+  assert.deepEqual(pinVariant('https://b.com/p#pin-9'),{url:'https://b.com/p#pin-9',variant:1});
+  const key='https://b.com/p';
+  assert.equal(variantTemplate(key,'',1),chooseTemplate(key));
+  assert.equal(new Set([1,2,3,4,5].map(n=>variantTemplate(key,'',n))).size,5);
+  assert.equal(variantTemplate(key,'C',4),'C');
+  assert.deepEqual(rotatePhotos(['a','b','c'],2),['b','c','a']);
+  assert.deepEqual(rotatePhotos(['a','b','c'],1),['a','b','c']);
+  const bodies=[]; const real=globalThis.fetch;
+  globalThis.fetch=async(_u,init)=>{ bodies.push(JSON.parse(init.body)); return new Response(JSON.stringify({candidates:[{content:{parts:[{text:JSON.stringify({...copy,board_id:'123'})}]}}]})); };
+  try {
+    const article={title:copy.title,text:'text',images:[{alt:'a'}]};
+    await generateCopy(article,[{id:'123',name:'Ideas'}],'',{GEMINI_API_KEY:'k'},2);
+    const input=JSON.parse(bodies[0].contents[0].parts[0].text);
+    assert.equal(input.pinNumber,2); assert.ok(input.angle);
+    await generateCopy(article,[{id:'123',name:'Ideas'}],'',{GEMINI_API_KEY:'k'});
+    assert.equal(JSON.parse(bodies[1].contents[0].parts[0].text).pinNumber,undefined);
+  } finally { globalThis.fetch=real; }
 });

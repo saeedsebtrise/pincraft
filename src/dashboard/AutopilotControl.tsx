@@ -26,6 +26,8 @@ export function AutopilotControl() {
   const [runsNote, setRunsNote] = useState('');
   const [links, setLinks] = useState('');
   const [boardId, setBoardId] = useState('');
+  // Different Pins per article: each gets its own design, photo and title, posted a day apart.
+  const [pinsPerArticle, setPinsPerArticle] = useState(3);
   const [previewUrl, setPreviewUrl] = useState('');
   const [busy, setBusy] = useState('');
   const [note, setNote] = useState<{ kind: 'ok' | 'bad'; text: string } | null>(null);
@@ -257,16 +259,27 @@ export function AutopilotControl() {
             e.preventDefault();
             const urls = parseArticleLinks(links);
             void act('add', async () => {
-              const r = await autopilotApi.add(urls, boardId.trim());
+              const r = await autopilotApi.add(urls, boardId.trim(), pinsPerArticle);
               setLinks('');
               return r;
-            }, `${urls.length} link${urls.length === 1 ? '' : 's'} sent to the queue (duplicates and invalid links are skipped).`);
+            }, `${urls.length} article${urls.length === 1 ? '' : 's'} × ${pinsPerArticle} Pin${pinsPerArticle === 1 ? '' : 's'} sent to the queue (Pins already in the queue and invalid links are skipped).`);
           }}
         >
           <strong>
             <ListPlus size={15} /> Add articles
           </strong>
           <textarea className="input" rows={4} placeholder={'One article link per line\nhttps://yourblog.com/post-1'} value={links} onChange={(e) => setLinks(e.target.value)} aria-label="Article links" />
+          <label className="row" style={{ gap: 8 }}>
+            <span className="subtle" style={{ whiteSpace: 'nowrap' }}>Pins per article</span>
+            <select className="select" value={pinsPerArticle} onChange={(e) => setPinsPerArticle(Number(e.target.value))} aria-label="Pins per article">
+              {[1, 2, 3, 4, 5].map((n) => (
+                <option key={n} value={n}>
+                  {n} {n === 1 ? 'Pin' : 'different Pins'}
+                </option>
+              ))}
+            </select>
+          </label>
+          {pinsPerArticle > 1 && <span className="subtle">Each Pin gets its own design, lead photo and title. Pins of one article go out at least a day apart. Add a posted article again to give it more Pins.</span>}
           <div className="row" style={{ gap: 8 }}>
             <input className="input" placeholder="Board ID (optional — AI picks)" value={boardId} onChange={(e) => setBoardId(e.target.value)} aria-label="Board ID" />
             <button className="btn btn-pink" disabled={!!busy || !parseArticleLinks(links).length}>
@@ -278,7 +291,7 @@ export function AutopilotControl() {
           className="stack-sm ap-box"
           onSubmit={(e) => {
             e.preventDefault();
-            void act('preview', () => autopilotApi.preview(previewUrl.trim()), 'Preview started. In about a minute it shows under Recent runs — open it and download “autopilot-preview”.');
+            void act('preview', () => autopilotApi.preview(previewUrl.trim(), pinsPerArticle), `Preview of ${pinsPerArticle} Pin${pinsPerArticle === 1 ? '' : 's'} started. In a minute or two it shows under Recent runs — open it and download “autopilot-preview” (preview.png, preview-2.png, …).`);
           }}
         >
           <strong>

@@ -10,6 +10,11 @@ on:
         description: Article URL for preview only
         type: string
         required: false
+      pins:
+        description: How many different Pins of the article to preview (1-5)
+        type: choice
+        options: ['1', '2', '3', '4', '5']
+        default: '3'
 permissions:
   contents: read
 concurrency:
@@ -37,6 +42,7 @@ jobs:
         env:
           AUTOPILOT_MODE: ${{ inputs.mode }}
           AUTOPILOT_PREVIEW_URL: ${{ inputs.article_url }}
+          AUTOPILOT_PREVIEW_PINS: ${{ inputs.pins }}
           AUTOPILOT_ENABLED: ${{ vars.AUTOPILOT_ENABLED }}
           AUTOPILOT_BOARDS_JSON: ${{ vars.AUTOPILOT_BOARDS_JSON }}
           AUTOPILOT_TEMPLATE: ${{ vars.AUTOPILOT_TEMPLATE }}

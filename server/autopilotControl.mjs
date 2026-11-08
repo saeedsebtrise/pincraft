@@ -8,10 +8,10 @@
  *
  *   status      GET   → { configured, missing }              (no key needed)
  *   overview    POST  → queue rows, settings, next slot
- *   add         POST  { urls: string[], boardId? }
+ *   add         POST  { urls: string[], boardId?, pinsPerArticle?: 1-5 }
  *   settings    POST  { enabled?: boolean, dailyLimit?: 1-10 }
  *   row         POST  { row: number, status: 'Retry' | 'Skip' | 'Pending' }
- *   preview     POST  { articleUrl }
+ *   preview     POST  { articleUrl, pins?: 1-5 }
  *   publish     POST  → start a publish run now (the Sheet still applies the limit and interval)
  *   runs        POST  → the last ten worker runs
  *
@@ -56,7 +56,9 @@ export function sheetRequest(op, body = {}) {
     case 'preview': {
       const url = String(body.articleUrl ?? '').trim();
       if (!URL_RE.test(url) || url.length > 2000) return { error: 'Enter a public article URL (https://…).' };
-      return { action: 'dispatch', mode: 'preview', articleUrl: url };
+      const pins = body.pins === undefined ? 1 : Number(body.pins);
+      if (!Number.isInteger(pins) || pins < 1 || pins > 5) return { error: 'Preview 1-5 Pins.' };
+      return { action: 'dispatch', mode: 'preview', articleUrl: url, pins };
     }
     case 'add': {
       const urls = (Array.isArray(body.urls) ? body.urls : []).map((u) => String(u).trim()).filter(Boolean);
@@ -64,7 +66,9 @@ export function sheetRequest(op, body = {}) {
       if (urls.length > 200) return { error: 'Add up to 200 links at a time.' };
       const boardId = String(body.boardId ?? '').trim();
       if (boardId && !/^\d{1,40}$/.test(boardId)) return { error: 'Board ID must be digits only.' };
-      return { action: 'add', urls: urls.map((u) => u.slice(0, 4096)), boardId };
+      const pins = body.pinsPerArticle === undefined ? 1 : Number(body.pinsPerArticle);
+      if (!Number.isInteger(pins) || pins < 1 || pins > 5) return { error: 'Pins per article must be 1-5.' };
+      return { action: 'add', urls: urls.map((u) => u.slice(0, 4096)), boardId, pinsPerArticle: pins };
     }
     case 'settings': {
       const out = { action: 'settings' };

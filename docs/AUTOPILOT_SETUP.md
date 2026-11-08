@@ -79,6 +79,7 @@ Google documents the execution identity and deployment controls in [Apps Script 
 | `ENABLED` | `false` until preview and Make setup are complete |
 | `DAILY_LIMIT` | `10` by default; integer from 1 to 10 |
 | `INTERVAL_MINUTES` | `120` by default; at least 120 |
+| `SAME_ARTICLE_GAP_HOURS` | Optional. Hours between two Pins of the same article; `24` by default (0–720) |
 | `GITHUB_REPO` | Repository in `owner/repository` format |
 | `GITHUB_REF` | Reviewed branch or tag to run; defaults to `main` |
 | `GITHUB_TOKEN` | Fine-grained token restricted to this repository, with Actions write permission |
@@ -202,6 +203,17 @@ The **Autopilot** page has a control panel: see the queue, add article links, tu
 The panel only allows safe status changes (Error → Retry, Pending/Retry/Error → Skip, Skip → Pending). **Needs review** rows still have to be checked against Pinterest and Make and fixed in the Sheet. Turning publishing on in the panel sets the Sheet's `ENABLED`; GitHub's `AUTOPILOT_ENABLED` must also be `true`.
 
 For local testing put the three values in `.env` and run `npm run ai-proxy`.
+
+## Several Pins per article
+
+One article can get up to 5 different Pins. In the PinCraft Autopilot page choose **Pins per article** before adding links, or add rows yourself: the plain link is Pin 1, then the same link ending in `#pin-2`, `#pin-3` … up to `#pin-5`.
+
+- Each Pin gets its own template, lead photo, colour and Gemini copy written from a different angle. Every Pin links to the plain article URL.
+- Pins of one article go out at least `SAME_ARTICLE_GAP_HOURS` apart (24 by default); other articles fill the slots in between. The daily limit and interval still apply to every Pin.
+- Adding an article that already has Pins with a higher count adds only the missing ones.
+- A preview run can show several Pins of one article: `preview.png`, `preview-2.png` … (workflow input **pins**).
+
+After updating PinCraft, paste the new `google-sheet-script.gs` into Apps Script and deploy a new version of the web app (Deploy → Manage deployments → Edit → New version), so the Sheet understands `#pin-N` rows.
 
 ## Recovery and duplicate handling
 

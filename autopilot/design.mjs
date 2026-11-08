@@ -121,6 +121,10 @@ const FALLBACK_PALETTES = [
   { accent: '#B8862F', secondary: '#4A3226' },
   { accent: '#C2577A', secondary: '#4B2233' },
   { accent: '#6E8B5E', secondary: '#2F3B28' },
+  { accent: '#2F6E9E', secondary: '#1C2E42' },
+  { accent: '#C0603A', secondary: '#4A2A1E' },
+  { accent: '#2E8B83', secondary: '#1F3B39' },
+  { accent: '#8A4F8F', secondary: '#3A2340' },
 ];
 
 /** Small k-means over downsampled photo pixels: returns cluster colors, biggest first. */
@@ -154,14 +158,16 @@ async function dominantColors(photos, k = 3) {
  * Accent = the most saturated photo color, secondary = a darker one; both fall back to a
  * brand-safe palette when the photos are grey. Text colors are darkened to 4.5:1 on the panel.
  */
-export async function paletteFrom(photos, key = '') {
+/** Pin `variant` of an article takes the next photo colour along, so its Pins differ in colour too. */
+export async function paletteFrom(photos, key = '', variant = 1) {
   let accent;
   let secondary;
   try {
-    const colors = await dominantColors(photos);
+    const colors = await dominantColors(photos, variant > 1 ? 5 : 3);
     const usable = colors.map(c => ({ ...c, hsl: toHsl(hexRgb(c.hex)) })).filter(c => c.hsl[1] > 0.18 && c.hsl[2] > 0.18 && c.hsl[2] < 0.82);
     if (usable.length) {
-      const a = usable.reduce((best, c) => (c.hsl[1] > best.hsl[1] ? c : best));
+      const ranked = [...usable].sort((x, y) => y.hsl[1] - x.hsl[1]);
+      const a = ranked[(variant - 1) % ranked.length];
       // Push the accent to a confident, print-like tone.
       accent = fromHsl(a.hsl[0], clamp(a.hsl[1], 0.45, 0.75), clamp(a.hsl[2], 0.38, 0.5));
       const darker = colors.map(c => ({ ...c, hsl: toHsl(hexRgb(c.hex)) })).filter(c => c.hex !== a.hex).sort((x, y) => x.hsl[2] - y.hsl[2])[0];
@@ -170,7 +176,8 @@ export async function paletteFrom(photos, key = '') {
   } catch {
     /* fall back below */
   }
-  if (!accent) ({ accent, secondary } = FALLBACK_PALETTES[hash(key) % FALLBACK_PALETTES.length]);
+  // Pin 1 keeps its colour (the first three entries); later Pins step through the list.
+  if (!accent) ({ accent, secondary } = FALLBACK_PALETTES[((hash(key) % 3) + variant - 1) % FALLBACK_PALETTES.length]);
   return { accent, secondary };
 }
 
@@ -323,12 +330,12 @@ async function templateA(c, photos, copy, pal) {
       } });
     }
     return out;
-  }, 600 - (hasBadge ? 96 : 40));
-  stack(c, items, 450 + (hasBadge ? 80 : 20), 1050 - 16, [450, 1050]);
+  }, 600 - (hasBadge ? 136 : 40));
+  stack(c, items, 450 + (hasBadge ? 118 : 20), 1050 - 16, [450, 1050]);
   if (hasBadge) {
-    c.shape(`<polygon points="${octagon(500, 450, 140)}" fill="#3A2418" stroke="#ffffff" stroke-width="4"/>${arrow(290, 560, 415, 470, INK, -70)}`);
-    const n = await fitLine(copy.number, { font: 'lilita', color: '#ffffff', maxWidth: 96, min: 30, max: 84 });
-    c.text('number', n, 500 - n.info.width / 2, 450 - n.info.height / 2, [380, 520]);
+    c.shape(`<polygon points="${octagon(500, 450, 210)}" fill="#3A2418" stroke="#ffffff" stroke-width="6"/>${arrow(230, 580, 380, 480, INK, -70)}`);
+    const n = await fitLine(copy.number, { font: 'lilita', color: '#ffffff', maxWidth: 150, min: 40, max: 128 });
+    c.text('number', n, 500 - n.info.width / 2, 450 - n.info.height / 2, [345, 555]);
   }
 }
 
@@ -344,7 +351,7 @@ async function templateB(c, photos, copy, pal) {
   const accentText = readableOn(pal.accent, '#ffffff');
   const secondary = readableOn(pal.secondary, '#ffffff');
   const hasBadge = !!copy.number;
-  const frameTop = hasBadge ? 150 : 50;
+  const frameTop = hasBadge ? 196 : 50;
   // Frame content (headline + category), shrinking until the whole panel fits.
   let frame;
   let below;
@@ -364,9 +371,9 @@ async function templateB(c, photos, copy, pal) {
   stack(c, frame, frameTop + 32, frameTop + frameH - 32, [frameTop, frameTop + frameH]);
   stack(c, below, frameTop + frameH + 18, 610, [frameTop + frameH, 620]);
   if (hasBadge) {
-    c.shape(`<rect x="445" y="26" width="110" height="110" fill="#111111"/>${arrow(210, 40, 425, 96, INK, -50)}`);
-    const n = await fitLine(copy.number, { font: 'lilita', color: '#ffffff', maxWidth: 84, min: 30, max: 76 });
-    c.text('number', n, 500 - n.info.width / 2, 81 - n.info.height / 2, [26, 136]);
+    c.shape(`<rect x="420" y="24" width="160" height="160" fill="#111111"/>${arrow(180, 44, 400, 108, INK, -50)}`);
+    const n = await fitLine(copy.number, { font: 'lilita', color: '#ffffff', maxWidth: 124, min: 40, max: 112 });
+    c.text('number', n, 500 - n.info.width / 2, 104 - n.info.height / 2, [24, 184]);
   }
 }
 
@@ -397,12 +404,12 @@ async function templateC(c, photos, copy, pal) {
       : await fitLine('IDEAS', { font: 'montserrat', color: ink, maxWidth: 600, min: 34, max: 44, spacing: 3 }), 6));
     if (copy.tagline) out.push(textItem('tagline', await fitLine(copy.tagline, { font: 'montserrat', color: ink, maxWidth: 860, min: 22, max: 24, spacing: 1 }), 6));
     return out;
-  }, 560 - (hasBadge ? 96 : 40));
-  stack(c, items, 430 + (hasBadge ? 80 : 20), 990 - 16, [430, 990]);
+  }, 560 - (hasBadge ? 126 : 40));
+  stack(c, items, 430 + (hasBadge ? 110 : 20), 990 - 16, [430, 990]);
   if (hasBadge) {
-    c.shape(`<circle cx="500" cy="430" r="65" fill="${pal.accent}" stroke="#ffffff" stroke-width="6"/>${arrow(290, 540, 420, 455, ink, -70)}`);
-    const n = await fitLine(copy.number, { font: 'lilita', color: '#ffffff', maxWidth: 84, min: 30, max: 76 });
-    c.text('number', n, 500 - n.info.width / 2, 430 - n.info.height / 2, [365, 495]);
+    c.shape(`<circle cx="500" cy="430" r="95" fill="${pal.accent}" stroke="#ffffff" stroke-width="7"/>${arrow(240, 560, 395, 465, ink, -70)}`);
+    const n = await fitLine(copy.number, { font: 'lilita', color: '#ffffff', maxWidth: 130, min: 40, max: 116 });
+    c.text('number', n, 500 - n.info.width / 2, 430 - n.info.height / 2, [335, 525]);
   }
 }
 
@@ -430,12 +437,12 @@ async function templateD(c, photos, copy, pal) {
     if (script) out.push(textItem('script', await fitLine(script, { font: 'kalam', color: INK, maxWidth: 860, min: 54, max: 64 }), 12));
     if (copy.tagline) out.push(textItem('tagline', await fitLine(copy.tagline, { font: 'montserrat', color: INK, maxWidth: 860, min: 22, max: 24, spacing: 1 }), 6));
     return out;
-  }, 600 - (hasBadge ? 96 : 40));
-  stack(c, items, 430 + (hasBadge ? 80 : 20), 1030 - 16, [430, 1030]);
+  }, 600 - (hasBadge ? 124 : 40));
+  stack(c, items, 430 + (hasBadge ? 108 : 20), 1030 - 16, [430, 1030]);
   if (hasBadge) {
-    c.shape(`<rect x="440" y="370" width="120" height="120" fill="#111111" stroke="#ffffff" stroke-width="4"/>${arrow(280, 545, 420, 455, INK, -70)}`);
-    const n = await fitLine(copy.number, { font: 'archivo', color: '#ffffff', maxWidth: 92, min: 30, max: 72 });
-    c.text('number', n, 500 - n.info.width / 2, 430 - n.info.height / 2, [370, 490]);
+    c.shape(`<rect x="412" y="342" width="176" height="176" fill="#111111" stroke="#ffffff" stroke-width="6"/>${arrow(230, 565, 395, 465, INK, -70)}`);
+    const n = await fitLine(copy.number, { font: 'archivo', color: '#ffffff', maxWidth: 140, min: 40, max: 108 });
+    c.text('number', n, 500 - n.info.width / 2, 430 - n.info.height / 2, [342, 518]);
   }
 }
 
@@ -495,12 +502,12 @@ async function templateF(c, photos, copy, pal) {
     if (copy.script_line) out.push(textItem('script', await fitLine(copy.script_line, { font: 'kalam', color: INK, maxWidth: 820, min: 54, max: 64 }), 14));
     if (copy.tagline) out.push(textItem('tagline', await fitLine(copy.tagline, { font: 'montserrat', color: INK, maxWidth: 860, min: 22, max: 24, spacing: 1 }), 8));
     return out;
-  }, 600 - (hasBadge ? 96 : 40));
-  stack(c, items, 460 + (hasBadge ? 80 : 20), 1060 - 16, [460, 1060]);
+  }, 600 - (hasBadge ? 124 : 40));
+  stack(c, items, 460 + (hasBadge ? 108 : 20), 1060 - 16, [460, 1060]);
   if (hasBadge) {
-    c.shape(`<rect x="445" y="405" width="110" height="110" fill="#111111" stroke="#ffffff" stroke-width="4"/>${arrow(290, 560, 425, 470, INK, -70)}`);
-    const n = await fitLine(copy.number, { font: 'lilita', color: '#ffffff', maxWidth: 84, min: 30, max: 76 });
-    c.text('number', n, 500 - n.info.width / 2, 460 - n.info.height / 2, [405, 515]);
+    c.shape(`<rect x="418" y="378" width="164" height="164" fill="#111111" stroke="#ffffff" stroke-width="6"/>${arrow(240, 585, 400, 480, INK, -70)}`);
+    const n = await fitLine(copy.number, { font: 'lilita', color: '#ffffff', maxWidth: 128, min: 40, max: 112 });
+    c.text('number', n, 500 - n.info.width / 2, 460 - n.info.height / 2, [378, 542]);
   }
 }
 
@@ -528,9 +535,9 @@ async function templateG(c, photos, copy, pal) {
   stack(c, items, 430 + 28, 1030 - 16, [430, 1030]);
   // The number is optional here: small, top-left of the panel, with its arrow.
   if (copy.number) {
-    const n = await fitLine(`#${copy.number}`, { font: 'archivo', color: '#111111', maxWidth: 120, min: 30, max: 44 });
-    c.text('number', n, 36, 446, [430, 1030]);
-    c.shape(arrow(60 + n.info.width + 70, 520, 46 + n.info.width + 10, 470, INK, 30));
+    const n = await fitLine(`#${copy.number}`, { font: 'archivo', color: '#111111', maxWidth: 190, min: 40, max: 72 });
+    c.text('number', n, 30, 442, [430, 1030]);
+    c.shape(arrow(50 + n.info.width + 80, 540, 40 + n.info.width + 12, 482, INK, 30));
   }
 }
 
@@ -570,12 +577,12 @@ async function templateH(c, photos, copy, pal) {
       } });
     }
     return out;
-  }, 640 - (hasBadge ? 150 : 50));
-  stack(c, items, hasBadge ? 136 : 40, 640 - 16, [0, 640]);
+  }, 640 - (hasBadge ? 204 : 50));
+  stack(c, items, hasBadge ? 190 : 40, 640 - 16, [0, 640]);
   if (hasBadge) {
-    c.shape(`<circle cx="500" cy="70" r="52" fill="${pal.accent}" stroke="#ffffff" stroke-width="5"/>${arrow(250, 52, 432, 80, INK, -40)}`);
-    const n = await fitLine(copy.number, { font: 'lilita', color: '#ffffff', maxWidth: 76, min: 28, max: 64 });
-    c.text('number', n, 500 - n.info.width / 2, 70 - n.info.height / 2, [18, 122]);
+    c.shape(`<circle cx="500" cy="96" r="80" fill="${pal.accent}" stroke="#ffffff" stroke-width="6"/>${arrow(200, 66, 405, 104, INK, -40)}`);
+    const n = await fitLine(copy.number, { font: 'lilita', color: '#ffffff', maxWidth: 112, min: 40, max: 100 });
+    c.text('number', n, 500 - n.info.width / 2, 96 - n.info.height / 2, [16, 176]);
   }
 }
 
@@ -652,12 +659,29 @@ export function pickTemplate(chosen, photoCount, fields) {
   return 'A';
 }
 
-export async function renderPin(photos, copy, articleUrl, { template: override = '', key = articleUrl } = {}) {
-  const valid = await usablePhotos(photos);
+/**
+ * The template for Pin `variant` of an article: Pin 1 is the article's own template, later
+ * Pins step 3 places along A–H (3 and 8 share no factor, so up to 8 Pins never repeat one).
+ */
+export function variantTemplate(key, override = '', variant = 1) {
+  const first = chooseTemplate(key, override);
+  if (variant <= 1 || TEMPLATES.includes(String(override).trim().toUpperCase())) return first;
+  return TEMPLATES[(TEMPLATES.indexOf(first) + (variant - 1) * 3) % TEMPLATES.length];
+}
+
+/** Later Pins of an article lead with a different photo. */
+export function rotatePhotos(list, variant = 1) {
+  if (variant <= 1 || list.length < 2) return list;
+  const k = (variant - 1) % list.length;
+  return [...list.slice(k), ...list.slice(0, k)];
+}
+
+export async function renderPin(photos, copy, articleUrl, { template: override = '', key = articleUrl, variant = 1 } = {}) {
+  const valid = rotatePhotos(await usablePhotos(photos), variant);
   if (!valid.length) throw new Error('No decodable photos.');
   const fields = designCopy(copy);
-  const template = pickTemplate(chooseTemplate(key, override), valid.length, fields);
-  const palette = await paletteFrom(valid, key);
+  const template = pickTemplate(variantTemplate(key, override, variant), valid.length, fields);
+  const palette = await paletteFrom(valid, key, variant);
   const c = new Canvas();
   await RENDER[template](c, valid, fields, palette);
   const site = new URL(articleUrl).hostname.replace(/^www\./, '');

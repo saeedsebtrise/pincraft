@@ -40,6 +40,29 @@ function canonical_(url) {
   const rest = match[3].split('?');
   return protocol + '://' + host + rest[0].replace(/\/$/, '') + (rest.length > 1 ? '?' + rest.slice(1).join('?') : '');
 }
+/** One Pin of an article: "…/post#pin-2" is Pin 2 of …/post; a plain link is Pin 1. */
+function pinNumber_(url) {
+  const m = String(url).trim().match(/#pin-(\d{1,2})$/);
+  return m && Number(m[1]) >= 1 && Number(m[1]) <= 5 ? Number(m[1]) : 1;
+}
+function pinKey_(url) {
+  const n = pinNumber_(url);
+  return canonical_(url) + (n > 1 ? '#pin-' + n : '');
+}
+/** Hours between two Pins of the same article (Script Property SAME_ARTICLE_GAP_HOURS, default 24). */
+function articleGapMs_() {
+  const h = Number(props_().getProperty('SAME_ARTICLE_GAP_HOURS') || 24);
+  return (Number.isFinite(h) && h >= 0 && h <= 720 ? h : 24) * 3600000;
+}
+/** False while another Pin of this row's article went out less than the gap ago. */
+function spacedOut_(rows, row) {
+  const base = canonical_(row[0]), gap = articleGapMs_();
+  return !rows.some(r => r !== row && canonical_(r[0]) === base && ['Posted', 'Publishing', 'Processing'].includes(String(r[2])) && Date.now() - Date.parse(String(r[7])) < gap);
+}
+/** The next row to publish: the first waiting one whose article hasn't had a Pin too recently. */
+function nextIndex_(rows) {
+  return rows.findIndex(r => r[0] && ['', 'Pending', 'Retry'].includes(String(r[2])) && spacedOut_(rows, r));
+}
 function stale_(row) {
   const at = Date.parse(String(row[7]));
   return !Number.isFinite(at) || Date.now() - at >= LEASE_MS;
@@ -70,26 +93,32 @@ function doPost(e) {
     if (data.action === 'add') return json_(addRows_(s, rows, data));
     if (data.action === 'settings') return json_(settings_(data));
     if (data.action === 'setStatus') return json_(setStatus_(s, rows, data));
-    if (data.action === 'dispatch') return json_(dispatch_(data.mode === 'preview' ? 'preview' : 'publish', data.articleUrl));
+    if (data.action === 'dispatch') return json_(dispatch_(data.mode === 'preview' ? 'preview' : 'publish', data.articleUrl, data.pins));
     if (data.action === 'runs') return json_(runs_());
     if (data.action === 'claim') {
       recoverStale_(s, rows);
       // An interrupted publish requires manual reconciliation before any more publishing.
       if (rows.some(r => ['Processing', 'Publishing', 'Needs review'].includes(String(r[2])))) return json_({ ok:true, job:null });
       if (!due_()) return json_({ ok:true, job:null });
-      const index = rows.findIndex(r => r[0] && ['', 'Pending', 'Retry'].includes(String(r[2])));
+      // A Pin already posted (same article and Pin number) is marked Skip as soon as it's seen.
+      const posted = {};
+      rows.forEach(r => { if (String(r[2]) === 'Posted') posted[pinKey_(r[0])] = true; });
+      let skipped = false;
+      rows.forEach((r, i) => {
+        if (!r[0] || !['', 'Pending', 'Retry'].includes(String(r[2])) || !posted[pinKey_(r[0])]) return;
+        r[2] = 'Skip';
+        s.getRange(i+2,3).setValue('Skip'); s.getRange(i+2,5).setValue('Duplicate of an already posted Pin.');
+        s.getRange(i+2,8).setValue(new Date().toISOString());
+        skipped = true;
+      });
+      if (skipped) { SpreadsheetApp.flush(); return json_({ ok:true, job:null }); }
+      const index = nextIndex_(rows);
       if (index < 0) return json_({ ok:true, job:null });
       const row = rows[index];
       const articleUrl = String(row[0]).trim(), boardId = String(row[1] || '').trim();
       if (articleUrl.length > 4096 || !/^https?:\/\/[^/?#@\s]+(?:[/?#][^\s]*)?$/i.test(articleUrl) || (boardId && !/^\d{1,40}$/.test(boardId)) || (typeof row[1] === 'number' && !Number.isSafeInteger(row[1]))) {
         s.getRange(index+2,3).setValue('Error');
         s.getRange(index+2,5).setValue('Use a valid public article URL and a Board ID stored as plain text, or leave Board ID blank.');
-        s.getRange(index+2,8).setValue(new Date().toISOString());
-        SpreadsheetApp.flush();
-        return json_({ ok:true, job:null });
-      }
-      if (rows.some((r,i) => i !== index && canonical_(r[0]) === canonical_(row[0]) && String(r[2]) === 'Posted')) {
-        s.getRange(index+2,3).setValue('Skip'); s.getRange(index+2,5).setValue('Duplicate of an already posted article.');
         s.getRange(index+2,8).setValue(new Date().toISOString());
         SpreadsheetApp.flush();
         return json_({ ok:true, job:null });
@@ -152,23 +181,34 @@ function overview_(rows) {
   };
 }
 
-/** Appends article links as Pending rows; invalid links and ones already in the Sheet are skipped. */
+/**
+ * Appends article links as Pending rows, `pinsPerArticle` (1-5) rows per article: the plain link
+ * is Pin 1, then "#pin-2", "#pin-3" … Each Pin gets its own design and copy, and Pins of one
+ * article go out at least SAME_ARTICLE_GAP_HOURS apart. Pins already in the Sheet are skipped,
+ * so adding a posted article again with more Pins adds only the new ones.
+ */
 function addRows_(s, rows, data) {
   const urls = Array.isArray(data.urls) ? data.urls.slice(0, 200) : [];
   const board = String(data.boardId || '').trim();
   if (board && !/^\d{1,40}$/.test(board)) return { ok: false, error: 'Board ID must be digits.' };
+  const pins = Number(data.pinsPerArticle || 1);
+  if (!Number.isInteger(pins) || pins < 1 || pins > 5) return { ok: false, error: 'Pins per article must be 1-5.' };
   const seen = {};
-  rows.forEach(r => { seen[canonical_(r[0])] = true; });
+  rows.forEach(r => { seen[pinKey_(r[0])] = true; });
   const added = [];
   urls.forEach(u => {
-    const url = String(u).trim();
-    if (url.length > 4096 || !URL_RE_.test(url) || seen[canonical_(url)]) return;
-    seen[canonical_(url)] = true;
-    added.push([url, board, 'Pending', '', '', '', '', new Date().toISOString()]);
+    const base = String(u).trim().replace(/#.*$/, '');
+    if (base.length > 4000 || !URL_RE_.test(base)) return;
+    for (let n = 1; n <= pins; n++) {
+      const url = n > 1 ? base + '#pin-' + n : base;
+      if (seen[pinKey_(url)]) continue;
+      seen[pinKey_(url)] = true;
+      added.push([url, board, 'Pending', '', '', '', '', new Date().toISOString()]);
+    }
   });
   if (added.length) s.getRange(rows.length + 2, 1, added.length, 8).setValues(added);
   SpreadsheetApp.flush();
-  return { ok: true, added: added.length, skipped: urls.length - added.length };
+  return { ok: true, added: added.length, skipped: Math.max(0, urls.length * pins - added.length) };
 }
 
 /** Turns publishing on/off and sets the daily limit (1–10). The interval stays a Script Property. */
@@ -204,7 +244,7 @@ function ghHeaders_() {
 }
 
 /** Starts the worker now: a preview for one article, or a publish run (which still obeys the limit and interval). */
-function dispatch_(mode, articleUrl) {
+function dispatch_(mode, articleUrl, pins) {
   const p = props_(), repo = p.getProperty('GITHUB_REPO'), ref = p.getProperty('GITHUB_REF') || 'main';
   if (!/^[\w.-]+\/[\w.-]+$/.test(repo || '')) return { ok: false, error: 'Set GITHUB_REPO in Script Properties.' };
   const inputs = { mode: mode };
@@ -212,6 +252,8 @@ function dispatch_(mode, articleUrl) {
     const url = String(articleUrl || '').trim();
     if (url.length > 2000 || !URL_RE_.test(url)) return { ok: false, error: 'Enter a public article URL.' };
     inputs.article_url = url;
+    const n = Number(pins || 1);
+    inputs.pins = String(Number.isInteger(n) && n >= 1 && n <= 5 ? n : 1);
   }
   const response = UrlFetchApp.fetch('https://api.github.com/repos/' + repo + '/actions/workflows/pinterest-autopilot.yml/dispatches', {
     method: 'post', contentType: 'application/json', muteHttpExceptions: true, headers: ghHeaders_(), payload: JSON.stringify({ ref: ref, inputs: inputs }),
@@ -237,7 +279,8 @@ function tick() {
   try {
     const p = props_(), s = sheet_(), rows = rows_();
     recoverStale_(s, rows);
-    if (!due_() || rows.some(r => ['Processing','Publishing','Needs review'].includes(String(r[2]))) || !rows.some(r => r[0] && ['', 'Pending', 'Retry'].includes(String(r[2])))) return;
+    // No run unless a row can go out now (also not while its article had a Pin too recently).
+    if (!due_() || rows.some(r => ['Processing','Publishing','Needs review'].includes(String(r[2]))) || nextIndex_(rows) < 0) return;
     if (Date.now() - Number(p.getProperty('LAST_DISPATCH') || 0) < 15*60000) return;
     const repo = p.getProperty('GITHUB_REPO'), ref = p.getProperty('GITHUB_REF') || 'main';
     if (!/^[\w.-]+\/[\w.-]+$/.test(repo || '')) throw new Error('Set owner/repo');

@@ -23,7 +23,7 @@ describe('Autopilot runner isolation', () => {
     expect(result.status).toBe('preview');
     expect(fetch).not.toHaveBeenCalled();
     expect(prepare).toHaveBeenCalledWith('https://example.com/article');
-    expect(savePreview).toHaveBeenCalledWith(metadata);
+    expect(savePreview).toHaveBeenCalledWith(metadata, 1);
   });
 
   it('refuses publishing before contacting anything when the switch is disabled', async () => {
@@ -37,6 +37,17 @@ describe('Autopilot runner isolation', () => {
     await expect(runAutopilot({ AUTOPILOT_MODE: 'publsih' }, { prepare })).rejects.toThrow('must be preview or publish');
     await expect(runAutopilot({ AUTOPILOT_BOARDS_JSON: boards }, { prepare })).rejects.toThrow('PREVIEW_URL');
     expect(prepare).not.toHaveBeenCalled();
+  });
+
+  it('previews several different Pins of one article, all linking to the plain article URL', async () => {
+    const prepare = vi.fn(async (url: string) => ({ link: url.replace(/#.*$/, ''), image_base64: '', design: { pin: url }, title: 't' }));
+    const savePreview = vi.fn(async () => {});
+    const result = await runAutopilot({ AUTOPILOT_BOARDS_JSON: boards, AUTOPILOT_PREVIEW_URL: 'https://example.com/article', AUTOPILOT_PREVIEW_PINS: '3' }, { prepare, savePreview });
+    expect(result).toEqual({ status: 'preview', pins: 3 });
+    expect(prepare.mock.calls.map((c) => c[0])).toEqual(['https://example.com/article', 'https://example.com/article#pin-2', 'https://example.com/article#pin-3']);
+    expect(savePreview.mock.calls.map((c) => (c as unknown[])[1])).toEqual([1, 2, 3]);
+    await runAutopilot({ AUTOPILOT_BOARDS_JSON: boards, AUTOPILOT_PREVIEW_URL: 'https://example.com/article', AUTOPILOT_PREVIEW_PINS: '99' }, { prepare, savePreview });
+    expect(prepare).toHaveBeenCalledTimes(3 + 5);
   });
 
   it('names the failing stage without leaking provider bodies or secrets', async () => {

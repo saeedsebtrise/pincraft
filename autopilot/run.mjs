@@ -1,6 +1,6 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
-import { boardsSchema, readArticle, generateCopy, loadPhotos, validateWebhook, runJob, StageError } from './core.mjs';
+import { boardsSchema, readArticle, generateCopy, loadPhotos, validateWebhook, runJob, StageError, pinVariant, MAX_PINS_PER_ARTICLE } from './core.mjs';
 import { renderPin } from './design.mjs';
 
 /** Runs one step; any failure that isn't already categorised becomes `stage` with a safe detail. */
@@ -20,12 +20,19 @@ export async function runAutopilot(env = process.env, dependencies = {}) {
   if (!['preview', 'publish'].includes(mode)) throw new StageError('config', 'AUTOPILOT_MODE must be preview or publish');
   const boards = await step('config', () => boardsSchema.parse(JSON.parse(env.AUTOPILOT_BOARDS_JSON || '[]')), () => 'AUTOPILOT_BOARDS_JSON is missing or invalid');
   const request = dependencies.fetch || fetch;
-  const prepare = dependencies.prepare || (async (articleUrl, boardId = '') => {
-    const article = await step('article fetch', () => readArticle(articleUrl), ownMessage);
-    const copy = await step('gemini', () => generateCopy(article, boards, boardId, env), ownMessage);
-    const photos = await step('photos', () => loadPhotos(article), ownMessage);
-    // The template follows the article URL, so a preview and the later publish look the same.
-    const pin = await step('render', () => renderPin(photos, copy, articleUrl, { template: env.AUTOPILOT_TEMPLATE || 'rotate' }), e => String(e?.message || e?.name || 'error').slice(0, 160));
+  // One article read and one photo download serve every Pin of it in this run.
+  const articles = new Map();
+  const prepare = dependencies.prepare || (async (queued, boardId = '') => {
+    // "…/post#pin-2" is Pin 2 of …/post: its own template, lead photo and copy angle.
+    const { url: articleUrl, variant } = pinVariant(queued);
+    if (!articles.has(articleUrl)) {
+      const article = await step('article fetch', () => readArticle(articleUrl), ownMessage);
+      articles.set(articleUrl, { article, photos: await step('photos', () => loadPhotos(article), ownMessage) });
+    }
+    const { article, photos } = articles.get(articleUrl);
+    const copy = await step('gemini', () => generateCopy(article, boards, boardId, env, variant), ownMessage);
+    // The template follows the article URL and Pin number, so a preview and the later publish look the same.
+    const pin = await step('render', () => renderPin(photos, copy, articleUrl, { template: env.AUTOPILOT_TEMPLATE || 'rotate', variant }), e => String(e?.message || e?.name || 'error').slice(0, 160));
     return {
       ...copy,
       link: articleUrl,
@@ -33,21 +40,28 @@ export async function runAutopilot(env = process.env, dependencies = {}) {
       image_mime: 'image/png',
       filename: 'pincraft-pin.png',
       // For preview.json only; the worker strips it before calling Make.
-      design: { template: pin.template, palette: pin.palette, photos: pin.photos },
+      design: { pin: variant, template: pin.template, palette: pin.palette, photos: pin.photos },
     };
   });
-  const savePreview = dependencies.savePreview || (async payload => {
+  const savePreview = dependencies.savePreview || (async (payload, n = 1) => {
     await mkdir('output/autopilot', { recursive: true });
-    await writeFile('output/autopilot/preview.png', Buffer.from(payload.image_base64, 'base64'));
+    // Pin 1 keeps the original names; Pins 2+ are preview-2.png, preview-2.json, …
+    const name = n > 1 ? `preview-${n}` : 'preview';
+    await writeFile(`output/autopilot/${name}.png`, Buffer.from(payload.image_base64, 'base64'));
     const { image_base64: _image, ...metadata } = payload;
-    await writeFile('output/autopilot/preview.json', JSON.stringify(metadata, null, 2));
+    await writeFile(`output/autopilot/${name}.json`, JSON.stringify(metadata, null, 2));
   });
   // Preview never claims a Sheet row, changes quotas, or contacts Make.
   if (mode === 'preview') {
     if (!env.AUTOPILOT_PREVIEW_URL) throw new StageError('config', 'set AUTOPILOT_PREVIEW_URL for a preview');
-    const payload = await prepare(env.AUTOPILOT_PREVIEW_URL);
-    await step('save preview', () => savePreview(payload), e => String(e?.code || e?.name || 'error'));
-    return { status: 'preview' };
+    // AUTOPILOT_PREVIEW_PINS (1-5) shows how each Pin of the article will look.
+    const pins = Math.min(MAX_PINS_PER_ARTICLE, Math.max(1, Number.parseInt(env.AUTOPILOT_PREVIEW_PINS || '1', 10) || 1));
+    const base = pinVariant(env.AUTOPILOT_PREVIEW_URL).url;
+    for (let n = 1; n <= pins; n++) {
+      const payload = await prepare(n > 1 ? `${base}#pin-${n}` : base);
+      await step('save preview', () => savePreview(payload, n), e => String(e?.code || e?.name || 'error'));
+    }
+    return { status: 'preview', pins };
   }
   if (env.AUTOPILOT_ENABLED !== 'true') throw new StageError('config', 'Publishing disabled: set AUTOPILOT_ENABLED=true after preview review');
   const sheetUrl = await step('config', () => new URL(env.AUTOPILOT_SHEET_URL || ''), () => 'AUTOPILOT_SHEET_URL is missing or invalid');
@@ -70,7 +84,7 @@ export async function runAutopilot(env = process.env, dependencies = {}) {
   return result;
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) runAutopilot().then(result => {
-  console.log(result.status === 'preview' ? 'Preview saved to output/autopilot. Nothing was published.' : `Autopilot: ${result.status}.`);
+  console.log(result.status === 'preview' ? `Preview of ${result.pins} Pin(s) saved to output/autopilot. Nothing was published.` : `Autopilot: ${result.status}.`);
 }).catch(error => {
   // Provider errors may contain webhook URLs or tokens: only a safe category is printed.
   const where = error instanceof StageError ? error.message : `unexpected (${String(error?.name || 'error')})`;

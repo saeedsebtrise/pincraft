@@ -36,12 +36,16 @@ describe('Autopilot control panel (server)', () => {
     expect(out).toEqual({ status: 200, body: { added: 2, skipped: 1 } });
     const [url, init] = fetch.mock.calls[0] as [string, { body: string }];
     expect(url).toBe(ENV.AUTOPILOT_SHEET_URL);
-    expect(JSON.parse(init.body)).toEqual({ action: 'add', urls: ['https://a.com/1', 'https://a.com/2'], boardId: '123', secret: ENV.AUTOPILOT_SHEET_SECRET });
+    expect(JSON.parse(init.body)).toEqual({ action: 'add', urls: ['https://a.com/1', 'https://a.com/2'], boardId: '123', pinsPerArticle: 1, secret: ENV.AUTOPILOT_SHEET_SECRET });
   });
 
   it('validates every op before contacting the Sheet', () => {
     expect(sheetRequest('preview', { articleUrl: 'javascript:alert(1)' })).toHaveProperty('error');
-    expect(sheetRequest('preview', { articleUrl: 'https://a.com/x' })).toEqual({ action: 'dispatch', mode: 'preview', articleUrl: 'https://a.com/x' });
+    expect(sheetRequest('preview', { articleUrl: 'https://a.com/x' })).toEqual({ action: 'dispatch', mode: 'preview', articleUrl: 'https://a.com/x', pins: 1 });
+    expect(sheetRequest('preview', { articleUrl: 'https://a.com/x', pins: 3 })).toMatchObject({ pins: 3 });
+    expect(sheetRequest('preview', { articleUrl: 'https://a.com/x', pins: 9 })).toHaveProperty('error');
+    expect(sheetRequest('add', { urls: ['https://a.com/1'], pinsPerArticle: 4 })).toMatchObject({ pinsPerArticle: 4 });
+    expect(sheetRequest('add', { urls: ['https://a.com/1'], pinsPerArticle: 0 })).toHaveProperty('error');
     expect(sheetRequest('publish')).toEqual({ action: 'dispatch', mode: 'publish' });
     expect(sheetRequest('settings', { dailyLimit: 11 })).toHaveProperty('error');
     expect(sheetRequest('settings', { enabled: true, dailyLimit: 3 })).toEqual({ action: 'settings', enabled: true, dailyLimit: 3 });

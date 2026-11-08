@@ -81,10 +81,10 @@ export async function controlStatus(): Promise<{ configured: boolean; missing: s
 export const autopilotApi = {
   overview: () => call<Overview>('overview'),
   runs: () => call<{ runs: WorkerRun[]; error?: string }>('runs'),
-  add: (urls: string[], boardId = '') => call<{ added: number; skipped: number }>('add', { urls, boardId }),
+  add: (urls: string[], boardId = '', pinsPerArticle = 1) => call<{ added: number; skipped: number }>('add', { urls, boardId, pinsPerArticle }),
   settings: (s: { enabled?: boolean; dailyLimit?: number }) => call<object>('settings', s),
   setRow: (row: number, status: 'Retry' | 'Skip' | 'Pending') => call<object>('row', { row, status }),
-  preview: (articleUrl: string) => call<object>('preview', { articleUrl }),
+  preview: (articleUrl: string, pins = 1) => call<object>('preview', { articleUrl, pins }),
   publishNow: () => call<object>('publish'),
 };
 
