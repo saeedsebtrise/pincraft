@@ -136,3 +136,28 @@ it('adds twelve bold-outline Pins: one photo, a giant outlined number and outlin
   const ob = out.find((r) => r.template.id === 'ob-yellow-caps')!;
   expect(readHeadline(ob.doc).toLowerCase()).toContain('short hairstyles for women over 40');
 });
+
+it('adds twelve designs inspired by the favorite circle-script and big-number templates', async () => {
+  const { FAVORITES_INSPIRED_TEMPLATES } = await import('../templates/favoritesInspiredPack');
+  expect(FAVORITES_INSPIRED_TEMPLATES).toHaveLength(12);
+  expect(new Set(FAVORITES_INSPIRED_TEMPLATES.map((t) => t.id)).size).toBe(12);
+  expect(new Set(FAVORITES_INSPIRED_TEMPLATES.map((t) => `${t.doc.width}x${t.doc.height}`)).size).toBe(3);
+  for (const t of FAVORITES_INSPIRED_TEMPLATES) {
+    expect(t.highCtr, t.id).toBe(true);
+    expect(BUILTIN_TEMPLATES.some((b) => b.id === t.id), t.id).toBe(true);
+    expect(t.imageCount, t.id).toBeGreaterThanOrEqual(4);
+    const texts = t.doc.layers.filter(isText);
+    expect(texts.some((l) => l.role === 'badge'), t.id).toBe(true);
+    // The keyword line is outlined (script designs) or set in a bold colour (big-number designs).
+    expect(texts.filter((l) => l.role === 'title-line').length, t.id).toBeGreaterThanOrEqual(2);
+  }
+  const out = autoDesign({ title: '25 Gorgeous Bob Haircuts for Fine Hair', cta: false }, FAVORITES_INSPIRED_TEMPLATES, { measure: () => 1, limit: 12 });
+  expect(out).toHaveLength(12);
+  for (const r of out) expect(readHeadline(r.doc).toLowerCase(), r.template.id).toContain('bob haircuts');
+  // With the two favorites hearted, these look-alikes come first in Auto Design.
+  const { buildTaste } = await import('../services/tasteProfile');
+  const favs = BUILTIN_TEMPLATES.filter((t) => t.id === 'lx-orange-circle-modern' || t.id === 'ctr-fp-big-number-5photos');
+  expect(favs).toHaveLength(2);
+  const liked = autoDesign({ title: '25 Gorgeous Bob Haircuts for Fine Hair', cta: false }, BUILTIN_TEMPLATES, { measure: () => 1, limit: 12, taste: buildTaste(favs) });
+  expect(liked.filter((r) => r.template.id.startsWith('fav-')).length).toBeGreaterThanOrEqual(2);
+});

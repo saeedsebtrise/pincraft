@@ -45,7 +45,8 @@ describe('premium designs', () => {
     expect(PREMIUM_TEMPLATES).toHaveLength(18);
     expect(PREMIUM_TEMPLATES.every((t) => t.premium && BUILTIN_TEMPLATES.some((b) => b.id === t.id))).toBe(true);
     const out = autoDesign({ title: '25 Cozy Bedroom Decor Ideas', cta: false }, BUILTIN_TEMPLATES, { measure: () => 1, limit: 50 });
-    expect(out.slice(0, 3).every((r) => r.template.premium)).toBe(true);
+    // Premium looks stay near the top (the favorites-inspired high-click designs may lead).
+    expect(out.slice(0, 7).filter((r) => r.template.premium).length).toBeGreaterThanOrEqual(3);
     for (const r of out.filter((x) => x.template.premium)) expect(readHeadline(r.doc).toLowerCase(), r.template.id).toContain('cozy bedroom decor');
   });
 });

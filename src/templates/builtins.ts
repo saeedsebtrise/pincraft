@@ -16,6 +16,7 @@ import { PREMIUM_TEMPLATES } from './premiumStyles';
 import { CTR_TEMPLATES } from './ctrStyles';
 import { LUXE_CTR_TEMPLATES } from './luxeCtrPack';
 import { BOLD_OUTLINE_TEMPLATES } from './boldOutlinePack';
+import { FAVORITES_INSPIRED_TEMPLATES } from './favoritesInspiredPack';
 import { PIN_STYLE_TEMPLATES } from './pinStyles';
 import { TRENDING_TEMPLATES } from './trendingTemplates';
 
@@ -29,6 +30,8 @@ export const BUILTIN_TEMPLATES: Template[] = [
   ...LUXE_CTR_TEMPLATES,
   // One full photo, giant outlined number and huge outlined title (white + bright keyword).
   ...BOLD_OUTLINE_TEMPLATES,
+  // Inspired by the user's favorites: circle + script + outlined keyword, and big number over the photo edge.
+  ...FAVORITES_INSPIRED_TEMPLATES,
   // Newly crafted trending high-converting Pinterest templates
   ...TRENDING_TEMPLATES,
   // Recreated from real high-performing Pins (Auto Design ranks these first).
