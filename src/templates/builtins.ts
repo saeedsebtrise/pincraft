@@ -18,6 +18,7 @@ import { LUXE_CTR_TEMPLATES } from './luxeCtrPack';
 import { BOLD_OUTLINE_TEMPLATES } from './boldOutlinePack';
 import { FAVORITES_INSPIRED_TEMPLATES } from './favoritesInspiredPack';
 import { LUXE_HAIR_TEMPLATES } from './luxeHairCollection';
+import { SCRIPT_BAR_TEMPLATES } from './scriptBarCollection';
 import { PIN_STYLE_TEMPLATES } from './pinStyles';
 import { TRENDING_TEMPLATES } from './trendingTemplates';
 
@@ -35,6 +36,8 @@ export const BUILTIN_TEMPLATES: Template[] = [
   ...FAVORITES_INSPIRED_TEMPLATES,
   // Luxe Hair Collection: exact recreations of the user's reference Pins (own gallery section).
   ...LUXE_HAIR_TEMPLATES,
+  // Script & Bar Collection: the reference outfit Pin and its variations (own gallery section).
+  ...SCRIPT_BAR_TEMPLATES,
   // Newly crafted trending high-converting Pinterest templates
   ...TRENDING_TEMPLATES,
   // Recreated from real high-performing Pins (Auto Design ranks these first).

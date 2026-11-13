@@ -178,3 +178,22 @@ it('adds the nine-Pin Luxe Hair Collection with fixed boxes in its own section',
     expect(boxes(doc), t.id).toEqual(boxes(t.doc));
   }
 });
+
+it('adds the Script & Bar Collection: the reference outfit Pin and seven variations', async () => {
+  const { SCRIPT_BAR_TEMPLATES, SCRIPT_BAR_COLLECTION } = await import('../templates/scriptBarCollection');
+  expect(SCRIPT_BAR_TEMPLATES).toHaveLength(8);
+  for (const t of SCRIPT_BAR_TEMPLATES) {
+    expect(t.collection, t.id).toBe(SCRIPT_BAR_COLLECTION);
+    expect(BUILTIN_TEMPLATES.some((b) => b.id === t.id), t.id).toBe(true);
+    const texts = t.doc.layers.filter(isText);
+    const num = texts.find((l) => l.role === 'badge');
+    expect(num?.strokeWidth, t.id).toBeGreaterThan(0);
+    expect(num?.shadow.enabled, t.id).toBe(true);
+    expect(t.doc.layers.some((l) => l.type === 'shape' && l.name === 'Keyword bar'), t.id).toBe(true);
+  }
+  const ref = SCRIPT_BAR_TEMPLATES[0];
+  expect(ref.imageCount).toBe(4);
+  expect(readHeadline(ref.doc)).toMatch(/20 Trendy Combat Boot Outfits You Can.t Get Around Right Now/i);
+  const out = autoDesign({ title: '25 Cute Fall Outfits for Women', cta: false }, SCRIPT_BAR_TEMPLATES, { measure: () => 1, limit: 8 });
+  for (const r of out) expect(readHeadline(r.doc).toLowerCase(), r.template.id).toContain('fall outfits');
+});
